@@ -1,0 +1,105 @@
+function plotNucMetricVsNucID(nrs,eggChamberID,yMetricToPlot,errorbarMetricToPlot,colorScheme)
+
+% colorScheme is a flag set to:
+    % - nucUniqueID: each nucleus is set to a unique color based on 
+        % its uniqueID (qualitative map from cbrewer)
+    % - eggChamberID: each egg chamber is assigned a distinct sequential
+        % color map from cbrewer, with a different level for each nucleus
+    % - nucID: each nucleus is set to a color based on its nucID (qualitative map from cbrewer)  
+        % nuclei with same ID from different egg Chambers will be plotted
+        % in the same color
+
+% check that color scheme flag is one of the allowed options        
+if ~ismember(colorScheme,{'nucID','nucUniqueID','eggChamberID'})
+    disp(['unexpected colorScheme entry: ',colorScheme]);
+end
+
+% build a string (to be used in fig title) with the egg chambers to plot
+if ischar(eggChamberID)
+    if strcmp(eggChamberID,'all')
+        eggChamberStr = eggChamberID;
+    else
+        disp(['unexpected eggChamberID entry: ',eggChamberID,'.']);
+        return
+    end
+else
+    if numel(eggChamberID) == 1
+        eggChamberStr = num2str(eggChamberID);
+    else
+        eggChamberStr = '[';
+        for i=1:numel(eggChamberID)
+            eggChamberStr = [eggChamberStr,num2str(eggChamberID(i)),' '];
+        end
+        eggChamberStr = [eggChamberStr,']'];
+    end
+end
+
+% build figure object
+fh = figure('Name',['egg chamber(s) ',eggChamberStr,'; ',...
+        yMetricToPlot,' vs. NucID']);
+hold;
+
+% collect IDs of egg chambers to plot as numnbers if 'all' was selected.
+if ischar(eggChamberID)
+    if strcmp(eggChamberID,'all')
+        eggChamberID = unique(nrs.eggChamberID);
+    end
+end
+
+% keep only nuclei from selected egg chambers in the table
+nrs = nrs(ismember(nrs.eggChamberID,eggChamberID),:);
+
+% setup the color of each nucleus in nucCmap, a nNuclei * 3 array 
+% holding RGB levels for each nucleus
+switch colorScheme
+    case 'nucID'
+        nMax = max(nrs.nucID);
+        nucColors = cbrewer('qual','Accent',nMax);
+        nucCmap = nucColors(nrs.nucID,:);
+    case 'nucUniqueID'
+        nMax = max(nrs.nucUniqueID);
+        nucColors = cbrewer('qual','Accent',nMax);
+        nucCmap = nucColors(nrs.nucUniqueID,:);
+    case 'eggChamberID'
+        skippedColors = 3; %skip first colors because they are usually very faint
+        eggChamberID = unique(nrs.eggChamberID);
+        mapList = getMapList();
+        nucCmap = [];
+        for i=1:numel(eggChamberID)
+            curMap = mapList{mod(i,numel(mapList))+1};
+            curNrs = nrs(nrs.eggChamberID == eggChamberID(i),:);
+            curNnuc = max(curNrs.nucID);
+            curColors = cbrewer('seq',curMap,curNnuc);
+            nucCmap = [nucCmap;curColors(curNrs.nucID,:)];
+        end
+end
+
+for i=1:size(nrs,1)
+    if ~isempty(errorbarMetricToPlot)
+        errorbar(i,...
+                curNrs.(yMetricToPlot)(i),...
+                curNrs.(errorbarMetricToPlot)(i),'o',...
+                'Color',nucCmap(i,:),'MarkerSize',10,'MarkerFaceColor',nucCmap(i,:),...
+                'MarkerEdgeColor',nucCmap(i,:),...
+                'DisplayName',...
+                [strrep(yMetricToPlot,'_','\_'),' / ', strrep(errorbarMetricToPlot,'_','\_')]);
+    else
+        plot(i,curNrs.(yMetricToPlot)(i),'o',...
+                'Color',nucCmap(i,:),'MarkerFaceColor',nucCmap(i,:),...
+                'MarkerEdgeColor',nucCmap(i,:),...
+                'MarkerSize',10,'DisplayName',strrep(yMetricToPlot,'_','\_'));
+    end
+
+end
+xlabel('nucleus rank');
+ylabel(strrep(yMetricToPlot,'_','\_'));
+
+end
+
+function mapList = getMapList()
+    mapList = {'Blues','BuGn','BuPu','GnBu','Greens','Greys','Oranges',...
+     'OrRd','PuBu','PuBuGn','PuRd',...
+     'Purples','RdPu', 'Reds', 'YlGn', ...
+     'YlGnBu', 'YlOrBr', 'YlOrRd', 'Spectral'};
+
+end
