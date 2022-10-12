@@ -1,19 +1,29 @@
 macro "eggChamberZCalibration"{
 	setBatchMode(true);
 	savePath = "";
-	inputWindowName = "Ser2Pmpm-2-f2006-1.tif";
+	
+	inputWindowName = getTitle();
 	measurementChannel = 1;
-	eggChamberIntensityMeasurementAllChannels2(savePath,inputWindowName,measurementChannel);
+	deTrendedIntTitle = "detrended";
+	eggChamberIntensityMeasurementAllChannels2(savePath,inputWindowName,measurementChannel,deTrendedIntTitle);
 	setBatchMode("exit and display");
+	return;
+	selectWindow(inputWindowName);
+	run("Reslice [/]...", "output=0.300 start=Top");
+	run("Z Project...", "projection=[Max Intensity]");
+
+	selectWindow(deTrendedIntTitle);
+	run("Reslice [/]...", "output=0.300 start=Top");
+	run("Z Project...", "projection=[Max Intensity]");
+	
+	
 }
-
-
 
 // takes an image (inputWindowName) generates a global mask for the entire egg chamber
 // using the intensity in measurementChannel as a basis (and using some filtering/thresholding), 
 // then measures intensity/neighbors etc in all channels using the new mask as an ROI
 // and saves the resulting tables in the folder savePath with names C1_eggChamberInt.csv, C2_eggChamberInt.csv etc
-function eggChamberIntensityMeasurementAllChannels2(savePath,inputWindowName,measurementChannel){
+function eggChamberIntensityMeasurementAllChannels2(savePath,inputWindowName,measurementChannel,deTrendedIntTitle){
 	selectWindow(inputWindowName);
 	
 	// generate a mask that encompasses the egg chamber, to be used for measurements
@@ -22,21 +32,53 @@ function eggChamberIntensityMeasurementAllChannels2(savePath,inputWindowName,mea
 	run("Bandpass Filter...", "filter_large=2000 filter_small=100 suppress=None tolerance=5 process");
 	run("Auto Threshold", "method=Default white stack");
 	rename("eggChamberMask");
-	
-	// computes the median across the egg Chamber mask as a function of z and c
-	// and the minimum value across x,y as a function of z and c
-	// outputs are two 16-bit 2D images (nz nc)
-	//computeMedianAndMinZTrends(inputWindowName,"eggChamberMask","medianEggChamber","minWholeImg");
-	computeMeanAndMinZTrends(inputWindowName,"eggChamberMask","meanEggChamber","minWholeImg");
-	
-	// compute in each channel the linear trend of the eggchamber median Z intensity 
-	// (after subtracting the min intensity at each slice);
-	subtractMinFromTrend("meanEggChamber","minWholeImg","corrMean");
-	computeLinearTrendAlongX("corrMean","linTrend");
 
-	// correct the intensity at each slice by the linear trend
-	subtractBackgroundSliceWise(inputWindowName,"minWholeImg","bgCorrInt");
-	correctIntensityForZTrend("bgCorrInt","linTrend","deTrendedInt");
+	// compute minimum intensity in each channel in the entire image - this offset will then be subtracted from the raw data.
+	computeMinInt(inputWindowName,"minWholeImg");
+
+	// subtract global minimum from entire image
+	subtractBackgroundGlobally(inputWindowName,"minWholeImg","dataMinusOffset");
+	return;
+	
+	// compute mean intensity within the eggchamber mask in each slice z,c 
+	computeMeanZTrend("dataMinusOffset","eggChamberMask","meanEggChamber");
+	
+	// fit the the eggchamber mean intensity as a function of Z to a line
+	// output the linear trend "linTrend
+	computeLinearTrendAlongX("meanEggChamber","linTrend");
+
+	
+	correctIntensityForZTrend("dataMinusOffset","linTrend",deTrendedIntTitle);
+	/*
+	selectWindow("linTrend");
+	close();
+	selectWindow("corrMean");
+	close();
+	selectWindow("minWholeImg");
+	close();
+	selectWindow("meanEggChamber");
+	close();
+	selectWindow("bgCorrInt");
+	close();
+	*/
+}
+
+// computes min intensity across each z,c slice of the input hyperstack
+// returns it as an (nz,nc) 2D image
+function computeMinInt(inputWindowName,minTitle){
+	selectWindow(inputWindowName);
+	getDimensions(sizeX, sizeY, C, sizeZ, F);
+	newImage(minTitle, "16-bit", sizeZ, C, 1);
+	for(izs = 0; izs<sizeZ; izs++) {
+		for (i = 0; i < C; i++) {
+		    selectWindow(inputWindowName);
+		    Stack.setPosition(i+1, izs+1, 1);
+		    run("Select All");
+		    getStatistics(area, mean, minImg, max, std, histogram);
+			selectWindow(minTitle);
+			setPixel(izs, i, minImg);
+		}
+	}
 }
 
 //
@@ -94,6 +136,48 @@ function subtractBackgroundSliceWise(inputImgTitle,minTrendTitle,outputImgTitle)
 			selectWindow(outputImgTitle);
 			Stack.setPosition(ic+1, izs+1, 1);
 			run("Subtract...", "value="+ curMin +" slice");
+		}
+	}
+}	
+
+// from an input hyperstack inputImg (nx ny nz nc), and a 2D image minTrendTitle (nz,nc) holding the min intensity vs z by channel 
+// generates a corrected hyperstack outputImg (nx ny nz nc) where the intensity in each slice is corrected
+// Icorr(x,y,z,c) = Iinput(x,y,z,c) * linTrend(0,c) / linTrend(z,c)
+function subtractBackgroundGlobally(inputImgTitle,minTitle,outputImgTitle){
+	selectWindow(inputImgTitle);
+	getDimensions(sizeX, sizeY, C, sizeZ, F);
+
+	//duplicate input hyperstack
+	run("Select All");
+	run("Duplicate...", "duplicate");
+	rename(outputImgTitle);
+	run("32-bit");
+
+	// compute absolute minimum in each channel, i.e. find the minimum of each row
+	// of minTitle
+	minArray = newArray(sizeY);
+	selectWindow(minTitle);
+	for (j = 0; j < sizeY; j++) {
+		for (i = 0; i < sizeX; i++) {
+			if(i==0){
+				print(getPixel(i,j));
+				minArray[j] = getPixel(i,j);
+			}else{
+				if(getPixel(i,j)<minArray[j]){
+					getPixel(i,j)
+					minArray[j] = getPixel(i,j);
+				}
+			}
+		}
+		//print("minArray "+j+" "+minArray[j]);
+	}
+	
+	// subtract absolute minimum to each slice
+	for(izs = 0; izs<sizeZ; izs++) {
+		for(ic = 0; ic<C; ic++) {
+			selectWindow(outputImgTitle);
+			Stack.setPosition(ic+1, izs+1, 1);
+			run("Subtract...", "value="+ minArray[ic] +" slice");
 		}
 	}
 }	
@@ -184,6 +268,36 @@ function computeMedianAndMinZTrends(hsTitle,maskTitle,medianTrendTitle,minTrendT
 	}
 }
 
+
+// from hyperstack hs (nx ny nz nc), and a mask (nx nz nz 1 8-bit stack) at each z-slice
+// computes the mean across the mask as a function of z and c
+// and the minimum value across x,y as a function of z and c
+// outputs are two 16-bit 2D images (nz nc), one called meanTrendTitle (holdig the mean)
+// one called minTrendTitle (holding the min).
+function computeMeanZTrend(hsTitle,maskTitle,meanTrendTitle){
+	selectWindow(hsTitle);
+	getDimensions(sizeX, sizeY, C, sizeZ, F);
+
+	newImage(meanTrendTitle, "16-bit", sizeZ, C, 1);
+	
+	meanChannels = newArray
+	for(izs = 0; izs<sizeZ; izs++) {
+		roiManager("reset");
+	    selectWindow(maskTitle);
+	    Stack.setPosition(1, izs+1, 1);
+	    setThreshold(100, 255);
+	    run("Create Selection");
+	    roiManager("Add");
+		for (i = 0; i < C; i++) {
+		    selectWindow(hsTitle);
+			roiManager("Select", 0);
+			getStatistics(area, meanEC, minImg, max, std, histogram);
+		    selectWindow(meanTrendTitle);
+			setPixel(izs, i, meanEC);
+		}
+	}
+}
+
 // from hyperstack hs (nx ny nz nc), and a mask (nx nz nz 1 8-bit stack) at each z-slice
 // computes the mean across the mask as a function of z and c
 // and the minimum value across x,y as a function of z and c
@@ -201,6 +315,7 @@ function computeMeanAndMinZTrends(hsTitle,maskTitle,meanTrendTitle,minTrendTitle
 		roiManager("reset");
 	    selectWindow(maskTitle);
 	    Stack.setPosition(1, izs+1, 1);
+	    setThreshold(100, 255);
 	    run("Create Selection");
 	    roiManager("Add");
 		for (i = 0; i < C; i++) {
