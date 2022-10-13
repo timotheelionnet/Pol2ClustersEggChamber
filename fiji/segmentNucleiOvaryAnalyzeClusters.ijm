@@ -13,7 +13,6 @@ var SurfaceToVolumeRatioThreshold=1.2; // maximum allowed surface/volume ratio a
 var MaxOutputObject=15; // maximum number of nuclei to keep at the end of the segmentation (15 ensures only largest nuclei, i.e. nurse cells are retained, excluding follicle cells nuclei)
 
 // cluster detection module parameters
-var inversion = 1;
 var threshFactor = 5.5;
 var MedianFilterRadiusClusters = 2; // radius of the median filter used to smooth salt and pepper noise (makes thresholding more robust)
 var MedianFilterRadiusBackground = 50; // radius of the median filter used to smooth out large background features.
@@ -110,7 +109,7 @@ macro "polII_cluster_crop_analysis" {
 	  	maskedClustersImgTitle = "clusterMask";
 	  	detectClusters(imgBgCorr,maskedClustersImgTitle,pol2Channel,
 	  		MedianFilterRadiusClusters,MedianFilterRadiusBackground,
-	  		maskedNucleoplasmImgTitle,threshFactor,inversion);
+	  		maskedNucleoplasmImgTitle,threshFactor);
 		
 		// compute parameters of clusters and save results
 	  	print("computing cluster stats of nucleus "+label+" from raw stack...");
@@ -158,7 +157,7 @@ macro "polII_cluster_crop_analysis" {
 		originalImgSizeX, originalImgSizeY, originalImgC, originalImgSizeZ,
 		hoechstChannel,pol2Channel,NucleusQuantChannelOfInterest,fftSmall,fftLarge,
 		border,nMaxObjectVolume,SurfaceToVolumeRatioThreshold,
-		MaxOutputObject,inversion,threshFactor,MedianFilterRadiusClusters,
+		MaxOutputObject,threshFactor,MedianFilterRadiusClusters,
 		MedianFilterRadiusBackground,nucleiFound);
 	
   	setBatchMode("exit and display");
@@ -209,7 +208,8 @@ function eggChamberIntensityMeasurementAllChannels2(maskType,
 	close();
 	selectWindow("meanEggChamber");
 	close();
-	
+
+	// concert back to 16 bit
 	selectWindow(deTrendedIntTitle);
 	for (i = 1; i <= 4; i++) {
 		Stack.setPosition(i, 1, 1);
@@ -624,7 +624,7 @@ function saveParametersToLogFile(originalImgTitle,saveDir,
 	sizeX, sizeY, C, sizeZ,
 	hoechstChannel,pol2Channel,NucleusQuantChannelOfInterest,fftSmall,fftLarge,
 	border,nMaxObjectVolume,SurfaceToVolumeRatioThreshold,
-	MaxOutputObject,inversion,threshFactor,MedianFilterRadiusClusters,
+	MaxOutputObject,threshFactor,MedianFilterRadiusClusters,
 	MedianFilterRadiusBackground,nucleiFound){
 
 	f = File.open(saveDir+"analysisParameters.txt");
@@ -654,9 +654,6 @@ function saveParametersToLogFile(originalImgTitle,saveDir,
 	print(f, "MedianFilterRadiusClusters: "+ MedianFilterRadiusClusters+ "\r\n");
 	print(f, "MedianFilterRadiusBackground: "+ MedianFilterRadiusBackground+ "\r\n");
 	print(f," \r\n");
-	
-	print(f,"****** Misc Settings:\r\n");
-	print(f, "inversion: "+ inversion+ "\r\n");
 	
 }
 
@@ -760,7 +757,6 @@ function inputParameters(){
 	Dialog.addNumber("Threshold Factor used to detect clusters:", threshFactor);
 	Dialog.addNumber("radius of Median filter to smooth Pol II signal:", MedianFilterRadiusClusters);
 	Dialog.addNumber("radius of Median filter to generate background image:", MedianFilterRadiusBackground);
-	//Dialog.addCheckbox("invert B&W binary masks?", inversion);
 	Dialog.show();
 
 	hoechstChannel = Dialog.getNumber();
@@ -772,8 +768,14 @@ function inputParameters(){
 	SurfaceToVolumeRatioThreshold=Dialog.getNumber();
 	MaxOutputObject=Dialog.getNumber();
 	
+	pol2channel = Dialog.getNumber();
+	threshFactor = Dialog.getNumber();
+	MedianFilterRadiusClusters = Dialog.getNumber();
+	MedianFilterRadiusBackground = Dialog.getNumber();
+	
 	print("*******************************");
-	print(hoechstChannel);
+	print("Hoechst color channel: "+hoechstChannel);
+	print("Whole-nucleus quantification color channel: "+NucleusQuantChannelOfInterest);	
 	print("max size of small features excluded by bandpass filter to segment nuclei: "+fftSmall);
 	print("min size of large features excluded by bandpass filter to segment nuclei: "+fftLarge);
 	print("padding in pixels around cropped nuclei: ", border);
@@ -1150,7 +1152,7 @@ function computeClusterStats(dataImg,labelImg,saveDir,nucleusNumber,csvSuffix){
 // Because nurse cells nuclei have the background is computed by:
 // 2.1 creating image that is 0 outside nucleoplasm, smoothed pol2 signal inside
 // 2.2 fill in the holes of the image in 2.1 with the average intensity in the nucleoplasm
-function detectClusters(curImg,maskedClustersImgTitle,pol2channel,MedFiltRadiusCluster,MedFiltRadiusBg,maskedNucleoplasmImgTitle,threshF,inversion){
+function detectClusters(curImg,maskedClustersImgTitle,pol2channel,MedFiltRadiusCluster,MedFiltRadiusBg,maskedNucleoplasmImgTitle,threshF){
 
 	// duplicate pol2 channel and median filter to remove salt and pepper noise
 	selectWindow(curImg);
@@ -1161,13 +1163,7 @@ function detectClusters(curImg,maskedClustersImgTitle,pol2channel,MedFiltRadiusC
 	//duplicate nucleoplasm mask
 	selectWindow(maskedNucleoplasmImgTitle);
 	run("Duplicate...", "duplicate channels=1");
-
-	// invert nucleoplasm mask - needed on some machines so the mask to selection conversion
-	// actually selects the foreground pixels.
-	if (inversion){
-		run("Invert", "stack");
-	}
-	rename("invertNucleoplasm");
+	rename("plasmMask");
 
 	// generate placeholder images 
 	getDimensions(w, h, c, nzs, f);
@@ -1176,19 +1172,20 @@ function detectClusters(curImg,maskedClustersImgTitle,pol2channel,MedFiltRadiusC
 
 	// run through slices 
 	for (izs = 0; izs < nzs; izs++) {
+	//for (izs = 24; izs < 25; izs++) {
 	
 		roiManager("reset");
-		selectWindow("invertNucleoplasm");
+		selectWindow("plasmMask");
 		Stack.setPosition(1, izs+1, 1);
 		getStatistics(area, mean, min, max, std);
 
 		if (verbose){
-			print("slice "+izs+"; minInvMask = "+min+"; maxInvMask = "+max);
+			print("slice "+izs+"; minPlasmMask = "+min+"; maxPlasmMask = "+max);
 		}
 		
 		if ((min==0) && (max == 255)){
 			// collect avg and std of smoothed pol2 signal
-			setThreshold(0, 1);
+			setThreshold(254, 255);
 			run("Create Selection");
 			roiManager("Add");
 			selectWindow("pol2median");
@@ -1205,25 +1202,21 @@ function detectClusters(curImg,maskedClustersImgTitle,pol2channel,MedFiltRadiusC
 			rename("tempPol2");
 	
 			//duplicate nucleoplasm mask
-			selectWindow("invertNucleoplasm");
+			selectWindow("plasmMask");
 			Stack.setPosition(1, izs+1, 1);
 			run("Select None");
 			run("Duplicate...", " ");
 			run("Divide...", "value=255.000 stack");
+			setMinAndMax(0, 65535);
 			run("16-bit");
-			rename("tempInvMask");
-	
-			// create negative nucleoplasm mask
-			run("Duplicate...", " ");
-			run("Invert", "stack");
 			rename("tempMask");
-			
+
 			// create image that is 0 outside nucleoplasm, smoothed pol2 signal inside
 			imageCalculator("Multiply create stack", "tempPol2","tempMask");
 			rename("insideNucleoplasm");
 	
 			// create image that is 0 inside nucleoplasm, <average smoothed pol2 signal within nucleoplasm> outside
-			selectWindow("tempInvMask");
+			selectWindow("tempMask");
 			run("Multiply...", "value="+mean+" stack");
 			rename("outsideNucleoplasm");
 	
@@ -1240,7 +1233,7 @@ function detectClusters(curImg,maskedClustersImgTitle,pol2channel,MedFiltRadiusC
 			rename("backgroundSubstracted");
 	
 			// copy background subtracted image in stack
-			run("Select None");
+			run("Select All");
 			setPasteMode("Copy");
 			run("Copy");
 			selectWindow("bgCorrImg");
@@ -1250,9 +1243,9 @@ function detectClusters(curImg,maskedClustersImgTitle,pol2channel,MedFiltRadiusC
 			
 			// compute std of background corrected image
 			roiManager("reset")
-			selectWindow("invertNucleoplasm");
+			selectWindow("plasmMask");
 			Stack.setPosition(1, izs+1, 1);
-			setThreshold(0, 1);
+			setThreshold(254, 255);
 			run("Create Selection");
 			roiManager("Add");
 			selectWindow("backgroundSubstracted");
@@ -1274,8 +1267,6 @@ function detectClusters(curImg,maskedClustersImgTitle,pol2channel,MedFiltRadiusC
 			// close intermediates
 			selectWindow("backgroundSubstracted");
 			close();
-			selectWindow("tempMask");
-			close();
 			selectWindow("tempPol2");
 			close();
 			selectWindow("filledNucleoplasm");
@@ -1295,7 +1286,7 @@ function detectClusters(curImg,maskedClustersImgTitle,pol2channel,MedFiltRadiusC
 	// close intermediate
 	selectWindow("clusterMasks");
 	close();
-	selectWindow("invertNucleoplasm");
+	selectWindow("plasmMask");
 	close();
 	selectWindow("bgCorrImg");
 	close();
