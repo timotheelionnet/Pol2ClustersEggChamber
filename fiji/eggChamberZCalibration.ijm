@@ -6,7 +6,7 @@ macro "eggChamberZCalibration"{
 	measurementChannel = 1;
 	deTrendedIntTitle = "detrended";
 	eggChamberIntensityMeasurementAllChannels2(
-		savePath,"wholeImg",inputWindowName,measurementChannel,deTrendedIntTitle);
+		savePath,"eggChamber",inputWindowName,measurementChannel,deTrendedIntTitle);
 	
 	selectWindow(inputWindowName);
 	run("Reslice [/]...", "output=0.300 start=Top");
