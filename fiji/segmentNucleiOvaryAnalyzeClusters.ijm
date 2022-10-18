@@ -13,7 +13,7 @@ var SurfaceToVolumeRatioThreshold=1.2; // maximum allowed surface/volume ratio a
 var MaxOutputObject=15; // maximum number of nuclei to keep at the end of the segmentation (15 ensures only largest nuclei, i.e. nurse cells are retained, excluding follicle cells nuclei)
 
 // cluster detection module parameters
-var threshFactor = 5.5;
+var threshFactor = 3;
 var MedianFilterRadiusClusters = 2; // radius of the median filter used to smooth salt and pepper noise (makes thresholding more robust)
 var MedianFilterRadiusBackground = 50; // radius of the median filter used to smooth out large background features.
 
@@ -40,6 +40,7 @@ macro "polII_cluster_crop_analysis" {
 	getDimensions(originalImgSizeX, originalImgSizeY, originalImgC, originalImgSizeZ, originalImgF);
 
 	// de-trend Z loss of intensity
+	print("detrending image along Z...");
 	deTrendedImgTitle = "zCorrImg";
 	eggChamberIntensityMeasurementAllChannels2(
 		"eggChamber",originalImgTitle,hoechstChannel,deTrendedImgTitle);
@@ -48,8 +49,8 @@ macro "polII_cluster_crop_analysis" {
 	// segment nuclei - output is a single channel image called initiallySegmentedNuclei
 	// which stores the nuclei IDs. At this stage all nuclei are segmented (nurse + follicle cells)
 	print("segmenting nuclei...");
-	segmentNuclei(deTrendedImgTitle,"firstSegResult",hoechstChannel,fftSmall,fftLarge);
-
+	segmentNuclei3D(deTrendedImgTitle,"firstSegResult",hoechstChannel,fftSmall,fftLarge);
+	
 	// isolates the desired nurse cell nuclei from the undesired follicle cells nuclei based on morphology
 	print("isolating nurse cells from follicle cells");
 	selectCorrectlySegmentedNuclei("firstSegResult","cleanNuclei",
@@ -101,7 +102,7 @@ macro "polII_cluster_crop_analysis" {
 	  	//subtract the average signal value in the nucleoplasm from all channels
 	  	print("subtracting background of nucleus "+label+"...");
 	  	imgBgCorr = "backgroundCorrectedImg";
-		subtractBackground32bit(curImg,maskedNucleoplasmImgTitle,imgBgCorr);
+		subtractBackground32bit3D(curImg,maskedNucleoplasmImgTitle,imgBgCorr);
 		
 	  	// segment clusters - output is a 16 bit image called maskedClustersImgTitle
 	  	// where background is 0 and each cluster carries an individual ID
@@ -149,7 +150,6 @@ macro "polII_cluster_crop_analysis" {
 	  	addChannelToImg("tmp",maskedClustersImgTitle,bgCorrImgOutName,0);
 		selectWindow(bgCorrImgOutName);
 	  	save(tifSaveDir+bgCorrImgOutName);
-	  	
 	}
 	
 	print("saving parameters to file...");
@@ -207,6 +207,10 @@ function eggChamberIntensityMeasurementAllChannels2(maskType,
 	selectWindow("minWholeImg");
 	close();
 	selectWindow("meanEggChamber");
+	close();
+	selectWindow("dataMinusOffset");
+	close();
+	selectWindow("mask");
 	close();
 
 	// concert back to 16 bit
@@ -347,6 +351,7 @@ function computeMeanZTrend(hsTitle,maskTitle,meanTrendTitle){
 	    roiManager("Add");
 		for (i = 0; i < C; i++) {
 		    selectWindow(hsTitle);
+		    Stack.setPosition(i+1, izs+1, 1);
 			roiManager("Select", 0);
 			getStatistics(area, meanEC, minImg, max, std, histogram);
 		    selectWindow(meanTrendTitle);
@@ -657,6 +662,49 @@ function saveParametersToLogFile(originalImgTitle,saveDir,
 	
 }
 
+function segmentNuclei3D(originalImgTitle,initiallySegmentedNuclei,nucleiChannel,fftSmall,fftLarge){
+	// duplicate hoechst channel
+	selectWindow(originalImgTitle);
+	run("Duplicate...", "title=hoechst duplicate channels="+nucleiChannel);
+	getDimensions(sizeX, sizeY, C, sizeZ, F);
+	
+	setAutoThreshold("Default dark stack");
+	run("Make Binary", "method=Default background=Dark black");
+	run("Fill Holes", "stack");
+	run("Morphological Filters (3D)", "operation=Erosion element=Cube x-radius=1 y-radius=1 z-radius=1");
+	run("Morphological Filters (3D)", "operation=Erosion element=Cube x-radius=1 y-radius=1 z-radius=1");
+	binaryImgTitle = "filteredMasks";
+	rename(binaryImgTitle);
+	
+	run("Chamfer Distance Map 3D", "distances=[Svensson <3,4,5,7>] output=[16 bits] normalize");
+	run("Bandpass Filter...", "filter_large="+fftLarge+" filter_small="+fftSmall+" suppress=None tolerance=5 process");
+	run("Invert", "stack");
+	setMinAndMax(0, 65535);
+	run("8-bit");
+	invertedImgTitle = getTitle();
+	run("Classic Watershed", "input="+invertedImgTitle+" mask="+binaryImgTitle+" use min=0 max=255");
+	selectWindow("watershed");
+	run("16-bit");
+	run("Label Size Filtering", "operation=Greater_Than size=1000");
+	run("Morphological Filters (3D)", "operation=Dilation element=Ball x-radius=4 y-radius=4 z-radius=4");
+	run("glasbey on dark");
+	rename(initiallySegmentedNuclei);
+
+	// close intermediates
+	selectWindow("watershed");
+	close();
+	selectWindow("watershed-sizeFilt");
+	close();
+	selectWindow("hoechst-Erosion");
+	close();
+	selectWindow("hoechst");
+	close();
+	selectWindow(binaryImgTitle);
+	close();
+	selectWindow(binaryImgTitle+"-dist");
+	close();
+}
+
 // extracts nuclei from hyperstack originalImgTitle based on dapi/hoechst signal expected to be in channel nucleiChannel
 // output image is called initiallySegmentedNuclei
 // this segmentation step gets all nuclei well usually but retains follicle cells and can generate clumped/oversegmented nuclei
@@ -884,12 +932,15 @@ function getLabelBoundingBox3(inputObjectIDsTitle,inputImgDataTitle,outputImgTit
 // and selects the largest MaxOutputObject ones that have a surface:volume ratio lower than SurfaceToVolumeRatioThreshold
 // nMaxObjectVolume (default 20), MaxOutputObject (15), and SurfaceToVolumeRatioThreshold (1.2) should be global variables
 // that are required by the function.
-function selectCorrectlySegmentedNuclei(inputImageTitle,outputImageTitle,nMaxObjectVol,SurfaceToVolumeRatioThresh,MaxOutputObj){
+function selectCorrectlySegmentedNuclei(inputImageTitle,outputImageTitle,
+	nMaxObjectVol,SurfaceToVolumeRatioThresh,MaxOutputObj){
 	
 	selectWindow(inputImageTitle);
 
 	// collect table of object geometric features
-	run("Analyze Regions 3D", "volume surface_area mean_breadth sphericity euler_number bounding_box centroid equivalent_ellipsoid ellipsoid_elongations max._inscribed surface_area_method=[Crofton (13 dirs.)] euler_connectivity=26");
+	run("Analyze Regions 3D", "volume surface_area mean_breadth sphericity euler_number" 
+	+" bounding_box centroid equivalent_ellipsoid ellipsoid_elongations max._inscribed"
+	+" surface_area_method=[Crofton (13 dirs.)] euler_connectivity=26");
 
 	// rename the morpholibj output table so ImageJ recognizes it as a Results table
 	// the extension of the filename is not transfered to the morpholibJ table name
@@ -997,60 +1048,43 @@ function addChannelToImg(imgSource,channelSource,newImgName,keepSourceImgs){
 
 // takes curImg hyperstack as input, using the nucleoplasm mask stack
 // at each slice it subtractes the average nucleoplasm value to the whole plane
-// Note that negative values are set to zero to retain a 16 bit image.
-function subtractBackground(curImg,maskedNucleoplasmImgTitle,imgBgCorr){
-	//compute the number of channels of the input curImg
+function subtractBackground32bit3D(curImg,maskedNucleoplasmImgTitle,imgBgCorr){
+	selectWindow(curImg);
+	getDimensions(w, h, c, nzs, f);
+	
+	// compute mean in the nucleoplasm mask in each channel
+	plasmMean = newArray(c);
+	for (ic = 1; ic <= c; ic++) {
+		run("Duplicate...", "duplicate channels="+ic);
+		rename("curChannel");
+		run("Intensity Measurements 2D/3D", "input=curChannel labels="+maskedNucleoplasmImgTitle+" mean");
+
+		// rename the morpholibj output table so ImageJ recognizes it as a Results table
+		// the extension of the filename is not transfered to the morpholibJ table name
+		Table.rename("curChannel-intensity-measurements", "Results");
+	
+		// extract  mean
+		plasmMean[ic-1] = getResult("Mean",0);
+		selectWindow("curChannel");
+		close();
+	}
+	
+	//duplicate the image
 	selectWindow(curImg);
 	run("Duplicate...", "duplicate");
 	rename(imgBgCorr);
-	getDimensions(w, h, curImgChannels, nzs, f);
+	run("32-bit");
 	
-	//duplicate nucleoplasm mask
-	selectWindow(maskedNucleoplasmImgTitle);
-	run("Duplicate...", "duplicate channels=1");
-	rename("nucleoplasm");
-	
-	// generate placeholder images 
-	getDimensions(w, h, c, nzs, f);
-	
-	// run through slices 
-	meanChannels = newArray(curImgChannels);
-	for (i=0; i<meanChannels.length; i++){
-      meanChannels[i] = 0;
-	}
-	for (izs = 0; izs < nzs; izs++) {
-	
-		roiManager("reset");
-		selectWindow("nucleoplasm");
-		Stack.setPosition(1, izs+1, 1);
-		getStatistics(area, mean, min, max, std);
-
-		if (verbose){
-			print("slice "+izs+"; minInvMask = "+min+"; maxInvMask = "+max);
-		}
-		flag = 0;
-		if ((min==0) && (max == 255)){
-			flag = 1;
-			setThreshold(0, 1);
-			run("Create Selection");
-			roiManager("Add");
-		}
-		
-		selectWindow(imgBgCorr);
-		for(c=0;c<curImgChannels-1;c++){
-			Stack.setPosition(c+1, izs+1, 1);
-			if(flag == 1){
-				roiManager("Select", 0);
-				getStatistics(area, mean, min, max, std);
-				meanChannels[c] = mean;
-			}
-			run("Select All");
-			run("Subtract...", "value="+meanChannels[c]+" slice");
+	// subtract background from duplicate in each channel
+	// only goes to c-1 because the last channel is the nucleus segmentation result
+	selectWindow(imgBgCorr);
+	run("Select All");
+	for(ic=0;ic<c-1;ic++){
+		for (izs = 0; izs < nzs; izs++) {
+			Stack.setPosition(ic+1, izs+1, 1);
+			run("Subtract...", "value="+plasmMean[ic]+" slice");
 		}
 	}
-	// close intermediate
-	selectWindow("nucleoplasm");
-	close();
 }
 
 
