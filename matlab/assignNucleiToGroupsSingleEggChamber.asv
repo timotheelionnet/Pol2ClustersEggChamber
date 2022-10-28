@@ -1,0 +1,38 @@
+function t2 = assignNucleiToGroupsSingleEggChamber(t)
+
+% if there are not 15 nuclei in the egg chamber, assign all nuclei to group 0
+if size(t,1) ~= 15
+    ecGroup = zeros(size(t,1),1);
+    t2 = addvars(t,ecGroup,'NewVariableNames','ecGroup','After','nucLabel');
+    return;
+end
+
+% define axis between centroid of 4 largest nuclei (c1) and furthest apart
+% nucleus (c2)
+[~,idx] = sortrows(t,'nucVolume','descend');
+groupIdx = zeros(15,1);
+for i=1:4
+    groupIdx(idx(1:4),1) = 1;
+end
+
+xyz = [t.nucCentroid_X,t.nucCentroid_Y,t.nucCentroid_Z];
+c1 = mean( xyz(idx(1:4),:) );
+
+d = norm( repmat(c1,15,1) - xyz); 
+d(idx(1:4)) = -Inf;
+[~,maxIdx] = max(d);
+groupIdx(maxIdx,1) = 4;
+
+c2 = xyz(maxIdx,:);
+
+% rank nuclei based on position along axis s
+s = (xyz - repmat(c1,15,1))*(c2 - c1)';
+
+s(idx(1:4)) = Inf;
+s(maxIdx) = Inf;
+
+for i=1:
+
+
+
+end

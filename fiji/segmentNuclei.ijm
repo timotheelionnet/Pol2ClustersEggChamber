@@ -1,6 +1,36 @@
-macro "test Nuclei Segmentation"{
-	inFolder = "/Users/lionnt01/Documents/data/feiyue/egg chamber image quant/cropped input/"
-	outFolder = "/Users/lionnt01/Documents/data/feiyue/egg chamber image quant/testOut2/";
+var defaultHoechstChannel = 1;
+var defaultAvgNucleiDiameterInUm = 12;
+var defaultSaveInitialSegResults = true;
+var defaultUseMorphologyFilters = true;
+var defaultMinVolume =  100;
+var defaultMaxVolume =  5000;
+var defaultMaxSurfToVolRatio = 1;
+var defaultMinSphericity =  0.4;
+var defaultMaxKurtosis = 3;
+var defaultMinCV =  0.15;
+var defaultMaxCV =  0.45;
+
+var hoechstChannel;
+var avgNucleiDiameterInUm;
+var saveInitialSegResults;
+var useMorphologyFilters;
+var minVolume;
+var maxVolume;
+var maxSurfToVolRatio;
+var minSphericity;
+var maxKurtosis;
+var minCV;
+var maxCV;
+
+macro "segmentNuclei"{
+	
+	inputParameters();
+
+	inFolder = getDirectory("choose the input directory");
+	outFolder = getDirectory("choose the output directory");
+	
+	//inFolder = "/Users/lionnt01/Documents/data/feiyue/egg chamber image quant/test/";
+	//outFolder = "/Users/lionnt01/Documents/data/feiyue/egg chamber image quant/junkOut/";
 	
 	// collect names of image files in input dir and its subfolders and
 	// store into outSubDirList & fileList, so that the path to file i is
@@ -33,25 +63,19 @@ macro "test Nuclei Segmentation"{
 	fileList = Array.trim(fileList, ctr);
 	outSubDirList = Array.trim(outSubDirList, ctr);
 	
-	// create output subfolders if needed
+	// create output subfolders if needed, i.e. all outSubDirList[i] in outFolder
 	for (i = 0; i < outSubDirList.length; i++) {
 		if (File.exists(outFolder+outSubDirList[i]) == false){
 			File.makeDirectory(outFolder+outSubDirList[i]);
 		}
 	}
 	
-	hoechstChannel = 1;
-	avgNucleiDiameterInUm = 12;
-	nMaxObjectVolume = 15;
-	SurfaceToVolumeRatioThreshold = 1.1;
-	maxBreadth = 30;
-	MaxOutputObj = 15;
-	
 	setBatchMode(true);
 	print("segmenting nuclei...");
 	for (i = 0; i < fileList.length; i++) {
 		//open current file in the list
 		curFileName = inFolder+outSubDirList[i]+fileList[i];
+		print(" ");
 		print("opening file "+curFileName);
 		open(curFileName);
 		
@@ -65,55 +89,325 @@ macro "test Nuclei Segmentation"{
 		rename(imgNameWOExt);
 		originalImgTitle = imgNameWOExt;
 		
-		// de-trend intensity variation along z
-		outName = originalImgTitle+"zCorr";
+		// de-trend intensity variation along z - output is an image called zcorrImgTitle 
+		// which contains the corrected data
+		print("de-trending intensity along Z...");
+		zcorrImgTitle = originalImgTitle+"zCorr";
 		eggChamberIntensityMeasurementAllChannels2("eggChamber",
-			originalImgTitle,hoechstChannel,outName);
+			originalImgTitle,hoechstChannel,zcorrImgTitle);
 		close(originalImgTitle);
 			
-		// segment nuclei
-		print("segment nuclei...");
-		outName2 = outName+"res";
-		segmentNuclei3D(outName,outName2,hoechstChannel,avgNucleiDiameterInUm);
+		// segment nuclei - output is a single channel z-stack
+		// called initNucMasksTitle which contains the nuclei masks
+		print("initial nuclei segmentation...");
+		initNucMasksTitle = "initNucleiMasks";
+		segmentNuclei3D(zcorrImgTitle,initNucMasksTitle,hoechstChannel,avgNucleiDiameterInUm);
 		
-		// save metrics
-		selectWindow(outName);
-		run("Duplicate...", "title=hoechst duplicate channels="+hoechstChannel);
-		runMetricsAndSave(outName2,"hoechst",
-			outFolder+outSubDirList[i]+fileList[i]+"Geom.csv",
-			outFolder+outSubDirList[i]+fileList[i]+"Int.csv",fileList[i]);
-		close("hoechst");
+		// save initial segmentation if option was selected.
+		if(saveInitialSegResults == true){
+			print("saving initial nuclei segmentation...");
+			addChannelToImg(zcorrImgTitle,initNucMasksTitle,"initNucOut",1);
+			EggChamberTifFolderName = "eggChamberTIF/";
+			fileSuffix = "ZcorrInitNucMask.tif";
+			saveInitSegResult("initNucOut",outFolder,outSubDirList[i],
+				EggChamberTifFolderName,fileList[i],fileSuffix);
+			print("done saving");
+			close("initNucOut");
+		}
 		
-		// isolate nurse cell nuclei from the rest
-		/*print("isolating nurse cells from follicle cells");
-		outName3 = outName2+"Clean";
-		selectCorrectlySegmentedNuclei(outName2,outName3,
-			avgNucleiDiameterInUm,SurfaceToVolumeRatioThreshold,maxBreadth,MaxOutputObj);
-		selectWindow(outName2);
-		close();*/
-		outName3 = outName2;
+		//clean up aberrantly segmented objects based on morphological filters
+		// output is an image called finalNucMasksTitle containing the updated masks
+		print("cleaning up segmentation with morphological filters...");
+		finalNucMasksTitle = "finalNucMasks";
+		selectCorrectlySegmentedNuclei2(zcorrImgTitle,initNucMasksTitle,hoechstChannel,finalNucMasksTitle,
+			minVolume,maxVolume, maxSurfToVolRatio, minSphericity,
+			maxKurtosis,minCV,maxCV);
+		close(initNucMasksTitle);
+		
+		// compute and save metrics
+		print("computing geometry and intensity metrics...");
+		EggChamberCsvFolderName = "eggChamberCSV/";
+		runMetricsAndSave(finalNucMasksTitle,zcorrImgTitle,EggChamberCsvFolderName,
+			outFolder,outSubDirList[i],fileList[i],"Geom.csv","Int.csv");
+			
+		wholeImgIntensityMeasurementAllChannels(outFolder+outSubDirList[i]+ 
+			originalImgTitle+"/"+EggChamberCsvFolderName,zcorrImgTitle);
+			
+		eggChamberIntensityMeasurementAllChannels(outFolder+outSubDirList[i]+ 
+			originalImgTitle+"/"+EggChamberCsvFolderName,zcorrImgTitle,hoechstChannel);
 		
 		// merge seg result w bg-corrected Hoechst channel and save
-		selectWindow(outName);
-		run("Duplicate...", "title=hoechst duplicate channels="+hoechstChannel);
-		run("Merge Channels...", "c1=hoechst c2="+outName3+" create");
-		saveName = outFolder+originalImgTitle+"nucSeg.tif";
-		save(outFolder+outSubDirList[i]+fileList[i]);
-		close();
-		close(outName);
-		close(outName3);
+		addChannelToImg(zcorrImgTitle,finalNucMasksTitle,"finalNucOut",1);
+		saveFileName = imgNameWOExt+"ZcorrFinalNucMask.tif";
+		selectWindow("finalNucOut");
+		save(outFolder+outSubDirList[i]+imgNameWOExt+"/"+EggChamberTifFolderName 
+			+ saveFileName);
+		close("finalNucOut");
+		close(zcorrImgTitle);
+		close(finalNucMasksTitle);
 	}
 	setBatchMode("exit and display");
   	print("done.");
 }
 
+// takes an image (inputWindowName) generates a global mask for the entire egg chamber
+// using the intensity in measurementChannel as a basis (and using some filtering/thresholding), 
+// then measures intensity/neighbors etc in all channels using the new mask as an ROI
+// and saves the resulting tables in the folder savePath with names C1_eggChamberInt.csv, C2_eggChamberInt.csv etc
+function eggChamberIntensityMeasurementAllChannels(savePath,inputWindowName,measurementChannel){
+	selectWindow(inputWindowName);
+	
+	// generate a mask that encompasses the egg chamber, to be used for measurements
+	selectWindow(inputWindowName);
+	run("Duplicate...", "duplicate channels="+measurementChannel);
+	rename("tmpDuplicate1");
+	selectWindow("tmpDuplicate1");
+	run("Median...", "radius=16 stack");
+	run("Auto Threshold", "method=Default white stack");
+	setAutoThreshold("Default");
+	run("Threshold...");
+	setThreshold(255, 255);
+	setOption("BlackBackground", true);
+	run("Convert to Mask", "method=Default background=Light black");
+	
+	selectWindow(inputWindowName);
+	getDimensions(sizeX, sizeY, C, sizeZ, F);
+	for (i = 1; i <= C; i++) {
+	    selectWindow(inputWindowName);
+	    run("Duplicate...", "duplicate channels="+i);
+		rename("tmpDuplicate2");
+		
+		run("Intensity Measurements 2D/3D", "input=tmpDuplicate2 labels=tmpDuplicate1"+
+			" mean stddev max min median mode skewness kurtosis numberofvoxels volume"+
+			" neighborsmean neighborsstddev neighborsmax neighborsmin neighborsmedian"+
+			" neighborsmode neighborsskewness neighborskurtosis");
+			
+		saveAs("tmpDuplicate2-intensity-measurements",savePath+"C"+i+"_eggChamberInt.csv");
+		run("Close");
+		
+		selectWindow("tmpDuplicate2");
+		close();
+	}
+
+	print("intensity over mask file saved");
+	selectWindow("tmpDuplicate1");
+	close();
+}
+
+// appends an extra color channel (channelSource) to a hyperstack (imgSource) and renames the result newImgName 
+function addChannelToImg(imgSource,channelSource,newImgName,keepSourceImgs){
+
+	selectWindow(imgSource);
+	b1 = bitDepth();
+	selectWindow(channelSource);
+	b2 = bitDepth();
+	if ((b1 == 32) | (b2 == 32)){
+		selectWindow(imgSource);
+		run("32-bit");
+		selectWindow(channelSource);
+		run("32-bit");
+	}
+	
+	selectWindow(imgSource);
+	b1 = bitDepth();
+	if(keepSourceImgs == 1){
+		keepString = " keep";
+	}else{
+		keepString = "";
+	}
+	
+	selectWindow(imgSource);
+	getDimensions(w, h, c, z, f);
+	if(c==1){
+		argumentString = "c1="+imgSource+" c2="+channelSource+" create"+keepString;	
+	}else{
+		run("Split Channels");
+		argumentString0 = "";
+		for(i=1;i<=c;i++){
+			argumentString0 = argumentString0 + "c"+i+"=C"+i+"-"+imgSource+" ";
+		}
+		i = c+1;
+		argumentString1 = argumentString0 + "c"+i+"="+channelSource+" create"+keepString;
+		argumentString0 = argumentString0 + " create";
+	}
+	run("Merge Channels...", argumentString1);
+	rename(newImgName);
+	if(keepSourceImgs == 1){
+		run("Merge Channels...", argumentString0);
+		rename(imgSource);
+	}
+}
+
+// performs measurements of intensity on the whole image
+// savePath should just be a directory
+function wholeImgIntensityMeasurementAllChannels(savePath,inputWindowName){
+	selectWindow(inputWindowName);
+	
+	// generate a mask that encompasses the entire image, to be used for measurements
+	run("Duplicate...", "duplicate channels=1");
+	rename("tmpDuplicate1");
+	selectWindow("tmpDuplicate1");
+	setThreshold(0, 65535); 
+	setOption("BlackBackground", true);
+	run("Convert to Mask", "method=Default background=Light black");
+
+	selectWindow(inputWindowName);
+	getDimensions(sizeX, sizeY, C, sizeZ, F);
+	for (i = 1; i <= C; i++) {
+	    selectWindow(inputWindowName);
+	    run("Duplicate...", "duplicate channels="+i);
+		rename("tmpDuplicate2");
+		run("Intensity Measurements 2D/3D", "input=tmpDuplicate2 labels=tmpDuplicate1"+
+			" mean stddev max min median mode skewness kurtosis numberofvoxels volume neighborsmean"+
+			" neighborsstddev neighborsmax neighborsmin neighborsmedian neighborsmode"+
+			" neighborsskewness neighborskurtosis");
+		saveAs("tmpDuplicate2-intensity-measurements",savePath+"C"+i+"_wholeImgInt.csv");
+		run("Close");
+		
+		selectWindow("tmpDuplicate2");
+		close();
+	}
+	selectWindow("tmpDuplicate1");
+	close();
+}
+
+function selectCorrectlySegmentedNuclei2(inputImgTitle,maskImgTitle,
+	hoechstChannel,outputImgTitle,
+	minVolume,maxVolume, maxSurfToVolRatio,minSphericity,
+	maxKurtosis,minCV,maxCV){
+	
+	// remove masks that touch any lateral boundary
+	selectWindow(maskImgTitle);
+	run("Remove Border Labels", "left right top bottom");
+	rename(maskImgTitle);
+
+	// collect table of object geometric features
+	run("Analyze Regions 3D", "volume surface_area mean_breadth sphericity euler_number" 
+	+" bounding_box centroid equivalent_ellipsoid ellipsoid_elongations max._inscribed"
+	+" surface_area_method=[Crofton (13 dirs.)] euler_connectivity=26");
+
+	// rename the morpholibj output table so ImageJ recognizes it as a Results table
+	// the extension of the filename is not transfered to the morpholibJ table name
+	if(indexOf(maskImgTitle,'.')>0){
+		maskNameWOExt = maskImgTitle.substring(0,indexOf(maskImgTitle,'.'));
+	}else{
+		maskNameWOExt = maskImgTitle;
+	}
+	Table.rename(maskNameWOExt+"-morpho", "Results");
+	
+	// collect list of nuclei label that pass the geometry criteria
+	labelToKeepGeom = newArray(nResults);
+	gCtr = 0;
+	for (i=0; i<nResults; i++){
+		keepCurrent = 1;
+		v = getResult("Volume",i);
+		if((v<minVolume) || (v>maxVolume)){
+			keepCurrent = 0;
+		}
+		stv = getResult("SurfaceArea",i)/getResult("Volume",i);
+		if(stv > maxSurfToVolRatio){
+			keepCurrent = 0;
+		}
+		s = getResult("Sphericity",i);
+		if(s < minSphericity){
+			keepCurrent = 0;
+		}
+		
+		if(keepCurrent == 1){
+			labelToKeepGeom[gCtr] = getResultString("Label",i);
+			gCtr = gCtr+1;
+		}
+	}
+	labelToKeepGeom = Array.trim(labelToKeepGeom, gCtr);
+	close("Results");
+	
+	// compute intensity metrics on Hoechst channel
+	selectWindow(inputImgTitle);
+	run("Duplicate...", "title=hoechst duplicate channels="+hoechstChannel);
+	run("Intensity Measurements 2D/3D", "input=hoechst labels="+ maskImgTitle +" mean stddev"
+		+" max min median mode skewness kurtosis numberofvoxels volume");
+	Table.rename("hoechst-intensity-measurements", "Results");
+	
+	// collect list of nuclei label that pass the intensity-based criteria
+	labelToKeepInt = newArray(nResults);
+	iCtr = 0;
+	for (i=0; i<nResults; i++){
+		keepCurrent = 1;
+		
+		k = getResult("Kurtosis",i);
+		if(k > maxKurtosis){
+			keepCurrent = 0;
+		}
+		cv = getResult("StdDev",i)/getResult("Mean",i);
+		if((cv<minCV) || (cv>maxCV)){
+			keepCurrent = 0;
+		}
+		
+		if(keepCurrent == 1){
+			labelToKeepInt[iCtr] = getResultString("Label",i);
+			iCtr = iCtr+1;
+		}
+	}
+	labelToKeepInt = Array.trim(labelToKeepInt, iCtr);
+	close("Results");
+	close("hoechst");
+	
+	// keep labels that satisfy both criteria
+	labelToKeep = newArray(maxOf(iCtr,gCtr) );
+	labelString = "label(s)=";
+	ctr = 0;
+	for(i=0;i<iCtr;i++){
+		for (j = 0; j < gCtr; j++) {
+			if(labelToKeepInt[i] == labelToKeepGeom[j]){
+				labelToKeep[ctr] = labelToKeepInt[i];
+				if(ctr == 0){
+					labelString = labelString+labelToKeep[0];
+				}else {
+					labelString = labelString+","+labelToKeep[ctr];
+				}
+				ctr = ctr+1;
+			}
+		}
+	}
+	
+	// remove non-selected nuclei from mask
+	selectWindow(maskImgTitle);
+	if (labelString != "label(s)="){
+		run("Select Label(s)", labelString);
+		print("Selected "+ ctr +" objects with following labels: "+labelString);
+	}else{
+		print("Found no objects to exclude.");
+	}
+	rename(outputImgTitle);
+	return;
+}
 
 //computes geometry metrics, adds a few columns:
 //1) file name;
 //2) distance to image center 
 // and saves the table in the file specified by savePath
-function runMetricsAndSave(inputMaskTitle,inputDataTitle,
-	savePathGeom,savePathInt,inputFileName){
+function runMetricsAndSave(inputMaskTitle,inputDataTitle,EggChamberCsvFolderName,
+	outFolder,outSubDir,inputFileName,geomSuffix,intSuffix){
+	
+	// remove extension from filename if needed 
+	if(indexOf(inputFileName,'.')>0){
+		inputFileNameWOExt = inputFileName.substring(0,indexOf(inputFileName,'.'));
+	}else{
+		inputFileNameWOExt = inputFileName;
+	}
+						
+	// build output subdirectory with the same name as the image (if needed)
+	eggChamberDir = outFolder+outSubDir+inputFileNameWOExt+"/";
+	if (File.exists(eggChamberDir) == false){
+			File.makeDirectory(eggChamberDir);
+	}
+	
+	// build eggChamberCSV subdirectory inside the output subdirectory just created (if needed)
+	saveDir = eggChamberDir+EggChamberCsvFolderName;
+	if (File.exists(saveDir) == false){
+			File.makeDirectory(saveDir);
+	}
+	
 	selectWindow(inputMaskTitle);
 	getDimensions(sizeX, sizeY, C, sizeZ, F);
 	run("Analyze Regions 3D", "volume surface_area mean_breadth"
@@ -130,52 +424,163 @@ function runMetricsAndSave(inputMaskTitle,inputDataTitle,
 	}
 	print(imgNameWOExt);
 	
-	print("sorting through "+nResults+" objects...");
 	// computing distances to stack center
-	print("computing distances to stack center");
 	Table.rename(imgNameWOExt+"-morpho", "Results");
+	print("computing metrics across "+nResults+" objects...");
 	
-	// compute distance of each opbject centroid to the stack center
+	// compute distance of each object centroid to the stack center
 	getVoxelSize(dX, dY, dZ, u);
 	iX = dX*sizeX/2;
 	iY = dY*sizeY/2;
 	iZ = dZ*sizeZ/2;
 	
-	print("iX: "+iX+" iY: "+iY+" iZ: "+iZ);
 	distArray = newArray(nResults);
 	for (i=0; i<nResults; i++){
 	 	 oX = getResult("Centroid.X",i);
 	 	 oY = getResult("Centroid.Y",i);
 	 	 oZ = getResult("Centroid.Z",i);
-	 	 print("oX: "+oX+" oY: "+oY+" oZ: "+oZ);
 	 	 
 	 	 distArray[i] = sqrt( (oX-iX)*(oX-iX) + (oY-iY)*(oY-iY) + (oZ-iZ)*(oZ-iZ) );
 	}
 	
 	// add distance to image center as a column to table
-	Table.setColumn("dist", distArray);
+	Table.setColumn("Dist", distArray);
 	
 	fileNameArray = newArray(nResults);
 	for (i=0; i<nResults; i++){
 		fileNameArray[i] = inputFileName;
 	}
-	Table.setColumn("inputFileName", fileNameArray);
+	Table.setColumn("InputFileName", fileNameArray);
 	
 	//save and close geometry results
-	saveAs("Results", savePathGeom);
+	saveAs("Results", saveDir + "allNuc" + geomSuffix);
 	close("Results");
 	
-	// run intensity measurements on DAPI channel
-	run("Intensity Measurements 2D/3D", "input="+inputDataTitle
+	// run intensity measurements on all channels
+	selectWindow(inputDataTitle);
+	getDimensions(w, h, c, z, f);
+	for (i = 1; i <= c; i++) {
+		selectWindow(inputDataTitle);
+		run("Duplicate...", "duplicate channels="+i);
+		rename("curChannel");
+		run("Intensity Measurements 2D/3D", "input=curChannel"
 		+" labels="+inputMaskTitle+" mean"
 		+" stddev max min median mode skewness kurtosis numberofvoxels"
-		+" volume neighborsmean neighborsstddev neighborsmax neighborsmin"
-		+" neighborsmedian neighborsmode neighborsskewness neighborskurtosis");
+		+" volume");
 		
-	Table.rename(inputDataTitle+"-intensity-measurements", "Results");
-	saveAs("Results", savePathInt);
-	close("Results");
+		Table.rename("curChannel-intensity-measurements", "Results");
+		saveAs("Results", saveDir + "C"+i+"_allNuc" + intSuffix);
+		close("Results");
+		close("curChannel");
+	}
 }
+
+// self explanatory
+function saveInitSegResult(imgName,outFolder,outSubDir,
+			EggChamberTifFolderName,fileName,fileSuffix){
+	
+	// remove extension from filename if needed 
+	if(indexOf(fileName,'.')>0){
+		imgNameWOExt = fileName.substring(0,indexOf(fileName,'.'));
+	}else{
+		imgNameWOExt = fileName;
+	}
+						
+	// build output subdirectory with the same name as the image (if needed)
+	eggChamberDir = outFolder+outSubDir+imgNameWOExt+"/";
+	if (File.exists(eggChamberDir) == false){
+			File.makeDirectory(eggChamberDir);
+	}
+	
+	// build eggChamberTif subdirectory inside the output subdirectory just created (if needed)
+	saveDir = eggChamberDir+EggChamberTifFolderName;
+	if (File.exists(saveDir) == false){
+			File.makeDirectory(saveDir);
+	}
+	
+	// save
+	selectWindow(imgName);
+	save(saveDir+imgNameWOExt+fileSuffix);
+	return;
+}
+
+
+// self explanatory
+function setParametersToDefault(){
+	
+	hoechstChannel = defaultHoechstChannel;
+	avgNucleiDiameterInUm = defaultAvgNucleiDiameterInUm;
+	useMorphologyFilters = defaultUseMorphologyFilters;
+	minVolume = defaultMinVolume;
+	maxVolume = defaultMaxVolume;
+	maxSurfToVolRatio = defaultMaxSurfToVolRatio;
+	minSphericity = defaultMinSphericity;
+	maxKurtosis = defaultMaxKurtosis;
+	minCV = defaultMinCV;
+	maxCV = defaultMaxCV;
+}
+
+// self explanatory
+function inputParameters(){
+	useDefaults = true;
+	
+	setParametersToDefault();
+	
+	Dialog.create("Segmentation Parameters");
+	
+	Dialog.addMessage("******************* Initial nucleus Segmentation Module");
+	Dialog.addNumber("Hoechst color channel:", hoechstChannel);	
+	Dialog.addNumber("Average Nucleus Diameter in um ("+defaultHoechstChannel+"):", avgNucleiDiameterInUm);	
+	Dialog.addCheckbox("Save initial segmentation results", true);
+	
+	Dialog.addMessage("******************* Morphology Filters Module (default values)");
+	Dialog.addCheckbox("Use Morphology Filters", true);
+	Dialog.addCheckbox("Use Default morphology parameters (will override any entry)", true);
+	Dialog.addNumber("Min. Nucleus Volume in um2 ("+defaultMinVolume+"):", minVolume);
+	Dialog.addNumber("Max. Nucleus Volume in um^2 ("+defaultMaxVolume+"):", maxVolume);
+	Dialog.addNumber("Max. Surface to Volume ratio ("+defaultMaxSurfToVolRatio+"):", maxSurfToVolRatio);
+	Dialog.addNumber("Mim. Sphericity ("+defaultMinSphericity+"):",minSphericity);
+	Dialog.addNumber("Max. Hoechst distribution Kurtosis ("+defaultMaxKurtosis+"):",maxKurtosis);
+	Dialog.addNumber("Min. Hochst distribution CV ("+defaultMinCV+"):",minCV);
+	Dialog.addNumber("Max. Hochst distribution CV ("+defaultMaxCV+"):",maxCV);
+	
+	Dialog.show();
+	
+	
+	hoechstChannel = Dialog.getNumber();
+	avgNucleiDiameterInUm = Dialog.getNumber();
+	saveInitialSegResults = Dialog.getCheckbox();
+	
+	useMorphologyFilters = Dialog.getCheckbox();
+	useDefaults = Dialog.getCheckbox();
+	minVolume =  Dialog.getNumber();
+	maxVolume =  Dialog.getNumber();
+	maxSurfToVolRatio =  Dialog.getNumber();
+	minSphericity =  Dialog.getNumber();
+	maxKurtosis =  Dialog.getNumber();
+	minCV =  Dialog.getNumber();
+	maxCV =  Dialog.getNumber();
+	
+	if (useDefaults == true){
+		setParametersToDefault();
+	}
+	
+	print("*******************************");
+	print("Hoechst color channel: "+hoechstChannel);
+	print("Average Nuclei Diameter: ",avgNucleiDiameterInUm);
+	print("Save initial segmentation results: ",saveInitialSegResults);
+	print("use Morphology Filters: ",useMorphologyFilters);
+	print("Use Default Morphology Filters: ",useDefaults);
+	print("Min. nucleus Volume (um^2)",minVolume);
+	print("Max. nucleus Volume (um^2)",maxVolume);
+	print("Max. Surface-to-Volume Ratio: ",maxSurfToVolRatio);
+	print("Min. Sphericity: ",minSphericity);
+	print("Max. Hoechst distribution Kurtosis: ",maxKurtosis);
+	print("Min. Hoechst distribution Coeff of Variation",minCV);
+	print("Max. Hoechst distribution Coeff of Variation",maxCV);
+}
+
+
 
 // takes an input hyperstack inputWindowName, then 
 // 1) subtracts the global minimum intensity in all channels (~black level offset correction)
@@ -631,29 +1036,29 @@ function segmentNuclei3D(originalImgTitle,outputImgTitle,nucleiChannel,avgNuclei
 	//set limits of the bandpass smoothing filter used prior to thresholding
 	fftLarge1 = round(fftLargeFactor1*avgNucleiDiameterInUm/dX);
 	fftSmall1 = round((avgNucleiDiameterInUm/dX)/fftSmallFactor1);
-	print("fftSmall1: "+fftSmall1 + "; fftLarge1: "+fftLarge1);
+	//print("fftSmall1: "+fftSmall1 + "; fftLarge1: "+fftLarge1);
 	
 	// set size of structuring element for opening to the avg nucl diameter divided
 	// by opening1Factor
 	openingXY1 = round(avgNucleiDiameterInUm/dX/opening1Factor);
 	openingZ1 = round(avgNucleiDiameterInUm/dZ/opening1Factor);
-	print("openingXY1: "+ openingXY1+"; openingZ1 = "+ openingZ1);
+	//print("openingXY1: "+ openingXY1+"; openingZ1 = "+ openingZ1);
 	
 	// set size of smoothing filter to apply to distance map before watershed
 	fftLarge2 = maxOf(sizeX,sizeY)*10; // factor 10 to get arbitrary large threshold because we just want a low pass
 	fftSmall2 = round(avgNucleiDiameterInUm/dX/fftSmallFactor2); // this threshold is in pixel units
-	print("fftSmall2: "+fftSmall2 + "; fftLarge2: "+fftLarge2);
+	//print("fftSmall2: "+fftSmall2 + "; fftLarge2: "+fftLarge2);
 	
 	// set a threshold for the minimum volume for accepted objects to be the expected to 
 	// nucleus volume (based on the avgNucleiDiameter) divided by the ad hoc minVolFactor
 	minVolInVoxels = round(4*3.14/3* pow(avgNucleiDiameterInUm/2,3)/(dX*dY*dZ)/minVolFactor);
-	print("minimum volume in voxels: "+minVolInVoxels);
+	//print("minimum volume in voxels: "+minVolInVoxels);
 	
 	// set the size of structuring element for opening to the avg nucl diameter divided
 	// by opening2Factor
 	openingXY2 = round(avgNucleiDiameterInUm/dX/opening2Factor);
 	openingZ2 = round(avgNucleiDiameterInUm/dZ/opening2Factor);
-	print("openingXY2: "+ openingXY1+"; openingZ2 = "+ openingZ1);
+	//print("openingXY2: "+ openingXY1+"; openingZ2 = "+ openingZ1);
 	
 	// set the size of the structuring element for the dilation at the end
 	dilationSize = round(avgNucleiDiameterInUm/dZ/dilationFactor);
@@ -663,11 +1068,6 @@ function segmentNuclei3D(originalImgTitle,outputImgTitle,nucleiChannel,avgNuclei
 	// smooth then threshold DAPI/Hoechst channel, run an opening on the result to remove small objects
 	// and aberrant links between neighnbors
 	run("Bandpass Filter...", "filter_large="+fftLarge1+" filter_small="+fftSmall1+" suppress=None tolerance=5 process");
-	/* 
-	* obsolete way to segment - tends to mess up stacks with variable background across slices
-	* setAutoThreshold("Default dark stack");
-	* run("Make Binary", "method=Default background=Dark black");
-	*/
 	run("Convert to Mask", "method=Default background=Dark calculate black");
 	run("Fill Holes", "stack");
 	run("Morphological Filters (3D)", "operation=Opening element=Ball"
@@ -725,10 +1125,7 @@ function segmentNuclei3D(originalImgTitle,outputImgTitle,nucleiChannel,avgNuclei
 	selectWindow("watershed-sizeFilt-Opening");
 	close();
 	
-	// merge segmentation mask with starting image stack into a single hyperstack for easy inspection
-	//selectWindow(originalImgTitle);
-	//run("Duplicate...", "title=hoechst duplicate channels="+1);
-	//run("Merge Channels...", "c1=hoechst c2="+res+" create");
+	// output segmentation result
 	Stack.setPosition(2, 1, 1);
 	setMinAndMax(0, 20);
 	rename(outputImgTitle);

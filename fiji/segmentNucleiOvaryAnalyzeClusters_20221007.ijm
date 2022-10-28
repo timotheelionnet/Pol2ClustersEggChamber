@@ -670,7 +670,6 @@ function addChannelToImg(imgSource,channelSource,newImgName,keepSourceImgs){
 		run("32-bit");
 	}
 	
-	
 	selectWindow(imgSource);
 	b1 = bitDepth();
 	if(keepSourceImgs == 1){
