@@ -23,7 +23,8 @@ var minCV;
 var maxCV;
 
 macro "segmentNuclei"{
-	
+	run("Close All");
+	setBatchMode(true);
 	inputParameters();
 
 	inFolder = getDirectory("choose the input directory");
@@ -70,7 +71,7 @@ macro "segmentNuclei"{
 		}
 	}
 	
-	setBatchMode(true);
+	
 	print("segmenting nuclei...");
 	for (i = 0; i < fileList.length; i++) {
 		//open current file in the list
@@ -96,12 +97,14 @@ macro "segmentNuclei"{
 		eggChamberIntensityMeasurementAllChannels2("eggChamber",
 			originalImgTitle,hoechstChannel,zcorrImgTitle);
 		close(originalImgTitle);
+		run("Collect Garbage");
 			
 		// segment nuclei - output is a single channel z-stack
 		// called initNucMasksTitle which contains the nuclei masks
 		print("initial nuclei segmentation...");
 		initNucMasksTitle = "initNucleiMasks";
 		segmentNuclei3D(zcorrImgTitle,initNucMasksTitle,hoechstChannel,avgNucleiDiameterInUm);
+		run("Collect Garbage");
 		
 		// save initial segmentation if option was selected.
 		if(saveInitialSegResults == true){
@@ -113,6 +116,7 @@ macro "segmentNuclei"{
 				EggChamberTifFolderName,fileList[i],fileSuffix);
 			print("done saving");
 			close("initNucOut");
+			run("Collect Garbage");
 		}
 		
 		//clean up aberrantly segmented objects based on morphological filters
@@ -123,28 +127,32 @@ macro "segmentNuclei"{
 			minVolume,maxVolume, maxSurfToVolRatio, minSphericity,
 			maxKurtosis,minCV,maxCV);
 		close(initNucMasksTitle);
+		run("Collect Garbage");
 		
 		// compute and save metrics
-		print("computing geometry and intensity metrics...");
+		print("computing geometry and intensity metrics on objects...");
 		EggChamberCsvFolderName = "eggChamberCSV/";
 		runMetricsAndSave(finalNucMasksTitle,zcorrImgTitle,EggChamberCsvFolderName,
 			outFolder,outSubDirList[i],fileList[i],"Geom.csv","Int.csv");
 			
+		print("computing whole image intensity metrics...");	
 		wholeImgIntensityMeasurementAllChannels(outFolder+outSubDirList[i]+ 
 			originalImgTitle+"/"+EggChamberCsvFolderName,zcorrImgTitle);
-			
+		
+		print("computing egg chamber intensity metrics...");	
 		eggChamberIntensityMeasurementAllChannels(outFolder+outSubDirList[i]+ 
 			originalImgTitle+"/"+EggChamberCsvFolderName,zcorrImgTitle,hoechstChannel);
+		run("Collect Garbage");
 		
 		// merge seg result w bg-corrected Hoechst channel and save
+		print("saving segmentation results...");
 		addChannelToImg(zcorrImgTitle,finalNucMasksTitle,"finalNucOut",1);
 		saveFileName = imgNameWOExt+"ZcorrFinalNucMask.tif";
 		selectWindow("finalNucOut");
 		save(outFolder+outSubDirList[i]+imgNameWOExt+"/"+EggChamberTifFolderName 
 			+ saveFileName);
-		close("finalNucOut");
-		close(zcorrImgTitle);
-		close(finalNucMasksTitle);
+		run("Close All");
+		run("Collect Garbage");
 	}
 	setBatchMode("exit and display");
   	print("done.");
@@ -155,14 +163,23 @@ macro "segmentNuclei"{
 // then measures intensity/neighbors etc in all channels using the new mask as an ROI
 // and saves the resulting tables in the folder savePath with names C1_eggChamberInt.csv, C2_eggChamberInt.csv etc
 function eggChamberIntensityMeasurementAllChannels(savePath,inputWindowName,measurementChannel){
+	// rescale by a factor of 4 for faster processing
 	selectWindow(inputWindowName);
+	run("Duplicate...", "duplicate");
+	getDimensions(sizeX, sizeY, C, sizeZ, F);
+	x2 = round(sizeX/4);
+	y2 = round(sizeY/4);
+	z2 = round(sizeZ/4);
+	run("Size...", "width="+x2+" height="+y2+" depth="+z2
+		+" constrain average interpolation=Bicubic");
+	rename("resized");
 	
 	// generate a mask that encompasses the egg chamber, to be used for measurements
-	selectWindow(inputWindowName);
+	selectWindow("resized");
 	run("Duplicate...", "duplicate channels="+measurementChannel);
 	rename("tmpDuplicate1");
 	selectWindow("tmpDuplicate1");
-	run("Median...", "radius=16 stack");
+	run("Median...", "radius=4 stack");
 	run("Auto Threshold", "method=Default white stack");
 	setAutoThreshold("Default");
 	run("Threshold...");
@@ -173,14 +190,12 @@ function eggChamberIntensityMeasurementAllChannels(savePath,inputWindowName,meas
 	selectWindow(inputWindowName);
 	getDimensions(sizeX, sizeY, C, sizeZ, F);
 	for (i = 1; i <= C; i++) {
-	    selectWindow(inputWindowName);
+	    selectWindow("resized");
 	    run("Duplicate...", "duplicate channels="+i);
 		rename("tmpDuplicate2");
 		
 		run("Intensity Measurements 2D/3D", "input=tmpDuplicate2 labels=tmpDuplicate1"+
-			" mean stddev max min median mode skewness kurtosis numberofvoxels volume"+
-			" neighborsmean neighborsstddev neighborsmax neighborsmin neighborsmedian"+
-			" neighborsmode neighborsskewness neighborskurtosis");
+			" mean stddev max min median mode skewness kurtosis numberofvoxels volume");
 			
 		saveAs("tmpDuplicate2-intensity-measurements",savePath+"C"+i+"_eggChamberInt.csv");
 		run("Close");
@@ -191,6 +206,8 @@ function eggChamberIntensityMeasurementAllChannels(savePath,inputWindowName,meas
 
 	print("intensity over mask file saved");
 	selectWindow("tmpDuplicate1");
+	close();
+	selectWindow("resized");
 	close();
 }
 
@@ -219,7 +236,8 @@ function addChannelToImg(imgSource,channelSource,newImgName,keepSourceImgs){
 	selectWindow(imgSource);
 	getDimensions(w, h, c, z, f);
 	if(c==1){
-		argumentString = "c1="+imgSource+" c2="+channelSource+" create"+keepString;	
+		argumentString1 = "c1="+imgSource+" c2="+channelSource+" create"+keepString;
+		argumentString0 = "c1="+imgSource+" c2="+channelSource+" create";	
 	}else{
 		run("Split Channels");
 		argumentString0 = "";
@@ -230,11 +248,20 @@ function addChannelToImg(imgSource,channelSource,newImgName,keepSourceImgs){
 		argumentString1 = argumentString0 + "c"+i+"="+channelSource+" create"+keepString;
 		argumentString0 = argumentString0 + " create";
 	}
-	run("Merge Channels...", argumentString1);
-	rename(newImgName);
+	
 	if(keepSourceImgs == 1){
-		run("Merge Channels...", argumentString0);
-		rename(imgSource);
+		// add channel to split channels from original image, keep sources
+		run("Merge Channels...", argumentString1+keepString);
+		rename(newImgName);
+
+		if(c!=1){
+			//recombine split channels into original image
+			run("Merge Channels...", argumentString0);
+			rename(imgSource);
+		}
+	}else{
+		run("Merge Channels...", argumentString1);
+		rename(newImgName);
 	}
 }
 
@@ -242,6 +269,14 @@ function addChannelToImg(imgSource,channelSource,newImgName,keepSourceImgs){
 // savePath should just be a directory
 function wholeImgIntensityMeasurementAllChannels(savePath,inputWindowName){
 	selectWindow(inputWindowName);
+	run("Duplicate...", "duplicate");
+	getDimensions(sizeX, sizeY, C, sizeZ, F);
+	x2 = round(sizeX/4);
+	y2 = round(sizeY/4);
+	z2 = round(sizeZ/4);
+	run("Size...", "width="+x2+" height="+y2+" depth="+z2
+		+" constrain average interpolation=Bicubic");
+	rename("resized");
 	
 	// generate a mask that encompasses the entire image, to be used for measurements
 	run("Duplicate...", "duplicate channels=1");
@@ -254,13 +289,11 @@ function wholeImgIntensityMeasurementAllChannels(savePath,inputWindowName){
 	selectWindow(inputWindowName);
 	getDimensions(sizeX, sizeY, C, sizeZ, F);
 	for (i = 1; i <= C; i++) {
-	    selectWindow(inputWindowName);
+	    selectWindow("resized");
 	    run("Duplicate...", "duplicate channels="+i);
 		rename("tmpDuplicate2");
 		run("Intensity Measurements 2D/3D", "input=tmpDuplicate2 labels=tmpDuplicate1"+
-			" mean stddev max min median mode skewness kurtosis numberofvoxels volume neighborsmean"+
-			" neighborsstddev neighborsmax neighborsmin neighborsmedian neighborsmode"+
-			" neighborsskewness neighborskurtosis");
+			" mean stddev max min median mode skewness kurtosis numberofvoxels volume");
 		saveAs("tmpDuplicate2-intensity-measurements",savePath+"C"+i+"_wholeImgInt.csv");
 		run("Close");
 		
@@ -268,6 +301,8 @@ function wholeImgIntensityMeasurementAllChannels(savePath,inputWindowName){
 		close();
 	}
 	selectWindow("tmpDuplicate1");
+	close();
+	selectWindow("resized");
 	close();
 }
 
@@ -283,8 +318,7 @@ function selectCorrectlySegmentedNuclei2(inputImgTitle,maskImgTitle,
 
 	// collect table of object geometric features
 	run("Analyze Regions 3D", "volume surface_area mean_breadth sphericity euler_number" 
-	+" bounding_box centroid equivalent_ellipsoid ellipsoid_elongations max._inscribed"
-	+" surface_area_method=[Crofton (13 dirs.)] euler_connectivity=26");
+	+" bounding_box centroid surface_area_method=[Crofton (13 dirs.)] euler_connectivity=26");
 
 	// rename the morpholibj output table so ImageJ recognizes it as a Results table
 	// the extension of the filename is not transfered to the morpholibJ table name
@@ -411,8 +445,7 @@ function runMetricsAndSave(inputMaskTitle,inputDataTitle,EggChamberCsvFolderName
 	selectWindow(inputMaskTitle);
 	getDimensions(sizeX, sizeY, C, sizeZ, F);
 	run("Analyze Regions 3D", "volume surface_area mean_breadth"
-		+" sphericity euler_number bounding_box centroid equivalent_ellipsoid"
-		+" ellipsoid_elongations max._inscribed"
+		+" sphericity euler_number bounding_box centroid"
 		+" surface_area_method=[Crofton (13 dirs.)] euler_connectivity=6");
 
 	// rename the morpholibj output table so ImageJ recognizes it as a Results table
