@@ -8,6 +8,8 @@ var verbose = 1;
 
 macro "clusterAnalysisFromSegmentedNuclei" {
 	setBatchMode(true);
+	inputParameters();
+	
 	segmentationSubFolderName = "eggChamberTIF/";
 	segmentationFileSuffix = "ZcorrFinalNucMask.tif";
 	csvSaveDirName = "nucCSV/"; 
@@ -15,8 +17,8 @@ macro "clusterAnalysisFromSegmentedNuclei" {
 	
 	// define input folder (should be the output folder of the nucleus segmentation step
 	// performed by segmentNuclei). Results will be saved in the same root folder
-	//inFolder = getDirectory("choose the input directory");
-	inFolder = "/Users/lionnt01/Documents/data/feiyue/egg chamber image quant/testOut2/";
+	//inFolder = "/Users/lionnt01/Documents/data/feiyue/egg chamber image quant/testOut2/";
+	inFolder = getDirectory("choose the input directory");
 	
 	// loop through conditions (first level of subfolders from input folder)
 	conditionList = getSubdirList(inFolder);
@@ -146,6 +148,31 @@ macro "clusterAnalysisFromSegmentedNuclei" {
   	print("done.");			
 }
 
+
+// self explanatory
+function inputParameters(){
+	Dialog.create("Cluster Detection Parameters");
+	
+	Dialog.addNumber("Pol2 color channel:", pol2Channel);	
+	Dialog.addNumber("Border around nuclei in cropped stacks (pixels): ", border);	
+	Dialog.addNumber("Radius of Median Filter to smooth cluster signal: ", MedianFilterRadiusClusters);
+	Dialog.addNumber("Radius of Median Filter to average out background: ", MedianFilterRadiusBackground);
+	Dialog.addNumber("Threshold Factor to call clusters (multiples of nucleoplasm StdDev): ",threshFactor);
+	Dialog.show();
+	
+	pol2Channel = Dialog.getNumber();
+	border = Dialog.getNumber();
+	MedianFilterRadiusClusters = Dialog.getNumber();
+	MedianFilterRadiusBackground =  Dialog.getNumber();
+	threshFactor =  Dialog.getNumber();
+
+	print("*******************************");
+	print("Pol II color channel: "+pol2Channel);
+	print("Border around nuclei in cropped stacks (pixels): ",border);
+	print("Radius of Median Filter to smooth cluster signal: ",MedianFilterRadiusClusters);
+	print("Radius of Median Filter to average out background: ",MedianFilterRadiusBackground);
+	print("Threshold Factor to call clusters (multiples of nucleoplasm StdDev): ",threshFactor);
+}
 function detectClusters3D(curImg,maskedClustersImgTitle,nucMaskChannel,pol2channel,
 	MedFiltRadiusCluster,MedFiltRadiusBg,maskedNucleoplasmImgTitle,threshF){
 	
