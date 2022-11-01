@@ -15,6 +15,6 @@ t = assignNucleiToGroupsWholeTable(t);
 %% plot nuclei stats by group
 %plotNucleiStatsByGroup(t,'nucVolume');
 
-t = addvars(t,t.nucC1_Mean_wholeImgCorr.*t.nucVolume,'NewVariableNames','integratedDAPI');
+%t = addvars(t,t.nucC1_Mean_wholeImgCorr.*t.nucVolume,'NewVariableNames','integratedDAPI');
 plotNucleiStatsByGroup(t,'integratedDAPI');
 %%
