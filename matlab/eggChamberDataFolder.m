@@ -325,6 +325,7 @@ methods
 
         %%
         function t = loadAllEggChamberData(obj)
+            warning('off','MATLAB:table:ModifiedAndSavedVarnames');
             removeNeighbors = 1;
             t = [];
             for i=1:obj.nConditions

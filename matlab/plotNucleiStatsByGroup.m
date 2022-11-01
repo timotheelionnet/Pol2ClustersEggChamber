@@ -1,5 +1,5 @@
 function plotNucleiStatsByGroup(t,varName)
-addpath('../cbrewer');
+addpath('cbrewer');
 conds = unique(t.condIdx);
 
 

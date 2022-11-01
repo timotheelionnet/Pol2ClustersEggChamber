@@ -1,4 +1,5 @@
 fijiOutFolder = '/Users/lionnt01/Documents/data/feiyue/egg chamber image quant/testOut2';
+fijiOutFolder = '/Users/lionnt01/Documents/data/feiyue/clusterImgAnalysis/out';
 
 % intitialize object 
 ec = eggChamberDataFolder(fijiOutFolder);
