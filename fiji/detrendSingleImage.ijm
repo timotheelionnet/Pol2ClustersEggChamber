@@ -1,4 +1,4 @@
-macro "detrend single image"{
+macro "detrend single image along z"{
 	print("de-trending intensity along Z...");
 	
 	originalImgTitle = getTitle();	
