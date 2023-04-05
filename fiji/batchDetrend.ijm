@@ -32,14 +32,14 @@ macro "batch detrend"{
 				if (endsWith(tmplist2[l], "/") || endsWith(tmplist2[l], "\\") ){
 					tmplist3 = getFileList(input+tmplist[k]+tmplist2[l]);
 					for (m=0; m<tmplist3.length; m++) {	
-						if( (indexOf(tmplist3[m], ".tif") != -1) || (indexOf(tmplist3[m], ".lsm") != -1) || (indexOf(tmplist3[m], ".czi") != -1)){
+						if( (indexOf(tmplist3[m], ".tif") != -1) || (indexOf(tmplist3[m], ".lsm") != -1) || (indexOf(tmplist3[m], ".nd2") != -1) || (indexOf(tmplist3[m], ".czi") != -1)){
 		        			list[ctr] = input+tmplist[k]+tmplist2[l]+tmplist3[m];
 		        			//print(list[ctr]);
 		        			ctr++;
 	        			}
 					}
 				}
-				if((indexOf(tmplist2[l], ".tif") != -1) || (indexOf(tmplist2[l], ".lsm") != -1) || (indexOf(tmplist2[l], ".czi") != -1)){
+				if((indexOf(tmplist2[l], ".tif") != -1) || (indexOf(tmplist2[l], ".lsm") != -1) || (indexOf(tmplist2[l], ".nd2") != -1) || (indexOf(tmplist2[l], ".czi") != -1)){
 		        	list[ctr] = input+tmplist[k]+tmplist2[l];
 		        	//print(list[ctr]);
 		        	ctr++;
@@ -47,7 +47,7 @@ macro "batch detrend"{
 			}	
 		}  
 	
-	    if((indexOf(tmplist[k], ".tif") != -1) || (indexOf(tmplist[k], ".lsm") != -1) || (indexOf(tmplist[k], ".czi") != -1)){
+	    if((indexOf(tmplist[k], ".tif") != -1) || (indexOf(tmplist[k], ".lsm") != -1) || (indexOf(tmplist[k], ".nd2") != -1) || (indexOf(tmplist[k], ".czi") != -1)){
 		      list[ctr] = input+tmplist[k];
 		      //print(list[ctr]);
 		      ctr++;
@@ -65,7 +65,7 @@ macro "batch detrend"{
 	//now that file names for the conditions are all combined, lets do the analysis
 	for (i = 0; i < list.length; i++){
 			
-        if ((indexOf(list[i], ".tif") != -1) || (indexOf(list[i], ".lsm") != -1) || (indexOf(list[i], ".czi") != -1)) { // making sure it is an image
+        if ((indexOf(list[i], ".tif") != -1) || (indexOf(list[i], ".lsm") != -1) || (indexOf(list[i], ".nd2") != -1) || (indexOf(list[i], ".czi") != -1)) { // making sure it is an image
 	        //open image, split channels and asve each
 	        open(list[i]); 
         	originalImgTitle = getTitle();	
