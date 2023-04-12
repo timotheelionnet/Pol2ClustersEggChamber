@@ -2,6 +2,12 @@ fijiOutFolder = '/Users/lionnt01/Documents/data/feiyue/egg chamber image quant/t
 fijiOutFolder = '/Users/lionnt01/Documents/data/feiyue/clusterImgAnalysis/out';
 fijiOutFolder = '/Users/lionnt01/Dropbox/data/feiyue/nucSeg20_3img';
 
+%% set path for subfunctions
+
+addpath('subfunctions/');
+
+%%
+
 % intitialize eggChamberDataFolder object - this collects the locations of
 % the files associated with the experiment and stores them by condition and sample
 ec = eggChamberDataFolder(fijiOutFolder);
@@ -22,6 +28,8 @@ t = backgroundCorrectNucIntensity(t);
 % loop through channel
 % also plot size
 % plot metric of cell cycle for the cycE channel
+
+c
 
 %% assign nuclei to cell cycle groups
 %t = assignNucleiToGroupsWholeTable(t);
