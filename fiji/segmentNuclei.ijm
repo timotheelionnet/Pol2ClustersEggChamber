@@ -1,9 +1,9 @@
 var defaultHoechstChannel = 1;
-var defaultAvgNucleiDiameterInUm = 12;
+var defaultAvgNucleiDiameterInUm = 20;
 var defaultSaveInitialSegResults = true;
 var defaultUseMorphologyFilters = true;
-var defaultMinVolume =  100;
-var defaultMaxVolume =  5000;
+var defaultMinVolume =  400;
+var defaultMaxVolume =  40000;
 var defaultMaxSurfToVolRatio = 1;
 var defaultMinSphericity =  0.4;
 var defaultMaxKurtosis = 3;
@@ -569,8 +569,8 @@ function inputParameters(){
 	Dialog.addMessage("******************* Morphology Filters Module (default values)");
 	Dialog.addCheckbox("Use Morphology Filters", true);
 	Dialog.addCheckbox("Use Default morphology parameters (will override any entry)", true);
-	Dialog.addNumber("Min. Nucleus Volume in um2 ("+defaultMinVolume+"):", minVolume);
-	Dialog.addNumber("Max. Nucleus Volume in um^2 ("+defaultMaxVolume+"):", maxVolume);
+	Dialog.addNumber("Min. Nucleus Volume in um^3 ("+defaultMinVolume+"):", minVolume);
+	Dialog.addNumber("Max. Nucleus Volume in um^3 ("+defaultMaxVolume+"):", maxVolume);
 	Dialog.addNumber("Max. Surface to Volume ratio ("+defaultMaxSurfToVolRatio+"):", maxSurfToVolRatio);
 	Dialog.addNumber("Mim. Sphericity ("+defaultMinSphericity+"):",minSphericity);
 	Dialog.addNumber("Max. Hoechst distribution Kurtosis ("+defaultMaxKurtosis+"):",maxKurtosis);

@@ -213,7 +213,7 @@ methods
             % check that data is present
             c = obj.areEggChamberAnalysisFilesPresent(conditionIdx,sampleIdx);
             if c == 0
-                nr = [];
+                t = [];
                 return
             end
             
