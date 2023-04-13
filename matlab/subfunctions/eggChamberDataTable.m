@@ -58,6 +58,34 @@ classdef eggChamberDataTable < handle
             % channel variables:
             % <prefix>C<channelIdx>_<channelVarsBaseNameList>_<suffix>
         
+        %% nucleus intensity background subtraction settings
+        % these variables will get the bg intensity subtracted from them
+        varsToBeSubtracted = {...
+                'Mean',...
+                'Max',...
+                'Min',...
+                'Median',...
+                'Mode',...
+            };
+        
+        % lits of the prefixes of the ROIs to use as reference for background subtraction
+        % of nuclei intensities (wholeImg and eggChamber)
+        backgroundIntensityPrefixList;
+
+        % when performing background subtraction, use the median intensity
+        % of the reference region.
+        metricToSubtract = 'Median';
+
+        %% plotting settings    
+        % used to set the spacing between cloud of points    
+        spacingUnit = 1;
+
+        % how much separation there is between conditions as a function of the separation between samples.
+        condSeparator = 1.5; 
+        
+        % free space between samples
+        freeSpaceBetweenSamples = 0.2;
+        
     end
 
     methods
@@ -66,35 +94,104 @@ classdef eggChamberDataTable < handle
             obj.t = t;
             obj.prefixList = {obj.nucPrefix,obj.wholeImgPrefix,obj.eggChamberPrefix,obj.clusterPrefix};
             obj.suffixList = {obj.rawSuffix,obj.plasmCorrSuffix,obj.eggChamberCorrSuffix,obj.wholeImgCorrSuffix};
+            obj.backgroundIntensityPrefixList = {obj.wholeImgPrefix,obj.eggChamberPrefix};
+
             obj.getChannelList;
             obj.getConditions;
             obj.getSamples;
         end
 
+        %% perform background subtration on nuclei intensity values
+         function obj = backgroundCorrectNucIntensity(obj)
+            t2 = obj.t;
+               
+            [c,nChannels] = obj.getChannelList;
+            
+            % collect the background columns to subtract
+            varToSubtract = cell(...
+                nChannels,numel(obj.backgroundIntensityPrefixList));
+
+            for i=1:nChannels
+                for j=1:numel(obj.backgroundIntensityPrefixList)
+                    
+                    varToSubtract{i,j} = [obj.backgroundIntensityPrefixList{j},...
+                        'C',num2str(c(i)),'_',obj.metricToSubtract,'_',obj.rawSuffix];
+                end
+            end
+            
+            % keep only in t the variables that need subtracting
+            varList = obj.t.Properties.VariableNames;
+            idx = [];
+            for i=1:numel(obj.varsToBeSubtracted)
+                curIdx = find(cell2mat( cellfun( @contains, varList,...
+                    repmat(obj.varsToBeSubtracted(i), size(varList)),...
+                    'UniformOutput',0) ));
+                idx = [idx,curIdx];
+            end
+            
+            % remove variables relative to background regions from the 'to be
+            % subtracted' list
+            for i=1:numel(obj.backgroundIntensityPrefixList)
+                curIdx = find(cell2mat( cellfun( @contains, varList,...
+                    repmat(obj.backgroundIntensityPrefixList(i), size(varList)),...
+                    'UniformOutput',0) ));
+                idx = setdiff(idx,curIdx);
+            end
+            
+            varList = obj.t.Properties.VariableNames(idx);
+            
+            % loop through channels and background correct
+            for i=1:nChannels
+            
+                % find variables in t that are relative to the current color channel
+                idxC = cell2mat( cellfun( @contains, varList,...
+                    repmat({['C',num2str(c(i)),'_']}, size(varList)),...
+                    'UniformOutput',0) );
+            
+                curVarList = varList(idxC);
+                for j=1:numel(obj.backgroundIntensityPrefixList)
+                    for k =1:numel(curVarList)
+                        newVarName = strrep(curVarList{k},...
+                            ['_',obj.rawSuffix],...
+                            ['_',obj.backgroundIntensityPrefixList{j},'Corr']);
+
+                        newVar = obj.t.(curVarList{k}) - obj.t.(varToSubtract{i,j});
+                        t2 = addvars(t2,newVar,'NewVariableNames',newVarName);
+                    end
+                end
+            end
+            obj.t = t2;
+        end
+
         %% scatter plot a metric by sample
-        function scatterPlotMetricBySample(prefix,channel,baseName,suffix)
+        function scatterPlotMetricBySample(obj,prefix,channel,baseName,suffix)
 
             varName = obj.buildVarName(prefix,channel,baseName,suffix);
+            
+            % make sure conditions/samples numbers are up to date
+            obj.getConditions;
+            obj.getSamples;
 
             % build figure
             figure('Name',strrep(varName,'_',' '));
             hold;
             
             % collect the x values to plot each condition/sample at
-            [xSampleVals,xSampleIDs] = getSampleXValues(...
-                ec.conditionNames,ec.nSamples,spacingUnit);
+            [xSampleVals,xSampleIDs] = obj.getSampleXValues(...
+                obj.condIndices,obj.nSamples,obj.spacingUnit);
 
             % collect the values of the metric for each condition/sample
             xPlot = [];
             yPlot = [];
             xSampleValsVec = [];
             xSampleIDsVec = {};
-            for j=1:ec.nConditions
-                for k=1:ec.nSamples(j)
-                    ctr = ctr+1;
+            for j=1:numel(obj.condIndices)
+                for k=1:obj.nSamples(j)
+                    s = obj.sampleIndices{j};
+
                     % collect values for the desired metric from all nuclei for the
                     % current sample/condition
-                    x = t.(varName)(obj.t.condIdx ==j & obj.t.sampleIdx == k);
+                    x = obj.t.(varName)(obj.t.condIdx ==obj.condIndices(j) & obj.t.sampleIdx == s(k));
             
                     % generate slightly offset x coordinates for each nucleus,
                     % centered around the sample X
@@ -102,18 +199,18 @@ classdef eggChamberDataTable < handle
                     if nNuclei >1
                         % spacing between nuclei
                         nucSpacing = ...
-                            spacingUnit*(1-2*freeSpaceBetweenSamples)/(nNuclei-1);
+                            obj.spacingUnit*(1-2*obj.freeSpaceBetweenSamples)/(nNuclei-1);
             
                         % x coordinate for each nucleus of current condition/sample
                         curXPlot = xSampleVals(j,k) - floor(nNuclei/2)*nucSpacing ...
                             + (0:(nNuclei-1))*nucSpacing;
             
                         % y coordinate for each nucleus of current condition/sample
-                        curYPlot = t.(varName)(obj.t.condIdx ==j & obj.t.sampleIdx == k)';
+                        curYPlot = obj.t.(varName)(obj.t.condIdx ==obj.condIndices(j) & obj.t.sampleIdx == s(k))';
             
                     elseif nNuclei == 1
                         curXPlot = xSampleVals(j,k);
-                        curYPlot = t.(varName)(obj.t.condIdx ==j & obj.t.sampleIdx == k)';
+                        curYPlot = obj.t.(varName)(obj.t.condIdx ==obj.condIndices(j) & obj.t.sampleIdx == s(k))';
             
                     elseif nNuclei == 0
                         curXPlot = [];
@@ -259,7 +356,7 @@ classdef eggChamberDataTable < handle
                 end
             end
 
-            if ismember(baseName,obj.channelBaseNameList)
+            if ismember(baseName,obj.channelVarsBaseNameList)
                 if ~ismember(prefix,obj.prefixList)
                     print('could not build variable name, prefix ',prefix,' not recognized');
                     return
@@ -300,7 +397,7 @@ classdef eggChamberDataTable < handle
         end
         
         %% generate x coordinates by sample/condition for scatter plots
-        function [xSampleVals, xSampleIDs] = getSampleXValues(conditionNames,nSamples,varargin)
+        function [xSampleVals, xSampleIDs] = getSampleXValues(obj,conditionNames,nSamples,varargin)
         % generates a series of X coordinates for each sample, separated by
         % condition xSampleVals(i,j) is the x coordinate for condition i, sample j 
         % and matching tick names xSampleIDs{i,j}
@@ -312,13 +409,14 @@ classdef eggChamberDataTable < handle
             % unless you want to use the X values in a plot where other things are present and need 
             % to coordinate the X values. default if not populated: 1.
         
-        % how much separation there is between conditions as a function of the separation between samples.
-        condSeparator = 1.5; 
         
-        if numel(varargin) == 0
-            spacingUnit = 1;
-        else
-            spacingUnit = varargin{1};
+        if numel(varargin) ~= 0
+            obj.spacingUnit = varargin{1};
+        end
+
+        if isa(conditionNames,'numeric')
+            conditionNames = num2cell(conditionNames);
+            conditionNames = cellfun(@num2str,conditionNames,'UniformOutput',0);
         end
         
         nConditions = numel(conditionNames);
@@ -328,14 +426,14 @@ classdef eggChamberDataTable < handle
         curX = 0;
         for i=1:nConditions
             if i>1
-                curX = curX + condSeparator*spacingUnit;
+                curX = curX + obj.condSeparator*obj.spacingUnit;
             end
             
-            xSampleVals(i,1:nSamples(i)) = curX + (1:nSamples(i))*spacingUnit;
-            curX = curX + nSamples(i)*spacingUnit;
+            xSampleVals(i,1:nSamples(i)) = curX + (1:nSamples(i))*obj.spacingUnit;
+            curX = curX + nSamples(i)*obj.spacingUnit;
         
             for j=1:nSamples(i)
-                xSampleIDs{i,j} = [conditionNames{i},'_sample',num2str(j)];
+                xSampleIDs{i,j} = [conditionNames{i},' sample',num2str(j)];
             end
         end
 
