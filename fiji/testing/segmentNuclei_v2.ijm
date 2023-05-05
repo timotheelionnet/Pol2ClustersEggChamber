@@ -111,7 +111,7 @@ macro "segmentNuclei"{
 			print("saving initial nuclei segmentation...");
 			addChannelToImg(zcorrImgTitle,initNucMasksTitle,"initNucOut",1);
 			EggChamberTifFolderName = "eggChamberTIF/";
-			fileSuffix = "ZcorrInitNucMask.tif";
+			fileSuffix = "zCorrInitNucMask.tif";
 			saveInitSegResult("initNucOut",outFolder,outSubDirList[i],
 				EggChamberTifFolderName,fileList[i],fileSuffix);
 			print("done saving");
@@ -134,11 +134,13 @@ macro "segmentNuclei"{
 			print("assigning nuclei to respective egg chambers...");
 			EggChamberSegFolderName = "eggChamberSEG/";
 			eggChamberIDsTitle = "eggChamberIDs";
+			
 			assignNucleiToEggChamberMasks(finalNucMasksTitle,imgNameWOExt,eggChamberIDsTitle,
 											outFolder,outSubDirList[i],EggChamberSegFolderName);
-											
+										
 			// append to detrended image so the eggchamber ID is measured with the metrics								
 			addChannelToImg(zcorrImgTitle,eggChamberIDsTitle,zcorrImgTitle,0);
+
 		}
 		
 		// compute and save metrics
@@ -179,7 +181,7 @@ macro "segmentNuclei"{
 // nucleus mask is the egg chamber ID of the nucleus.
 // (this is not efficient in terms of data storage - a hash table or 
 // similar dictionary would be better from a space perspective, 
-//but the stack format makes it very easy down the road during the analysis steps.)
+// but the stack format makes it very easy down the road during the analysis steps.)
 
 // input: nuclei segmentation stack (inputNucMasks)
 // egg chamber segmentation 2D masks are expected to be located at the following path:
@@ -384,7 +386,16 @@ function eggChamberIntensityMeasurementAllChannels(savePath,inputWindowName,meas
 
 // appends an extra color channel (channelSource) to a hyperstack (imgSource) and renames the result newImgName 
 function addChannelToImg(imgSource,channelSource,newImgName,keepSourceImgs){
-
+	if(imgSource == newImgName){
+		selectWindow(imgSource);
+		rename("tmpImg1AddChannelToImg");
+		imgSource = "tmpImg1AddChannelToImg";
+	}
+	if(channelSource == newImgName){
+		selectWindow(channelSource);
+		rename("tmpImg2AddChannelToImg");
+		channelSource = "tmpImg2AddChannelToImg";
+	}
 	selectWindow(imgSource);
 	b1 = bitDepth();
 	selectWindow(channelSource);

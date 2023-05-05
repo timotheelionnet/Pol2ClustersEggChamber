@@ -9,7 +9,6 @@ macro "testGenerateCSVforEggChamberStageAnnotation"{
 }
 
 
-
 function generateEggChamberCSV(outFolder,subDirName,
 						fileName,eggChamberSegFolderName,eggChamberSuffix){
 	// make sure directory names all have a "/" at the end
@@ -28,11 +27,11 @@ function generateEggChamberCSV(outFolder,subDirName,
 	if (endsWith(eggChamberSegFolderName, "/")!=true){
 		eggChamberSegFolderName = eggChamberSegFolderName + "/";
 	}
-	
-	
+	// shortcut name
 	ecDir = outFolder+subDirName+fileName+eggChamberSegFolderName;
 	
-	// find all the egg chamber files in the folder and extract their indices
+	// find all the egg chamber files in the folder and extract their indices into the 
+	// array ecIdx
 	fList =  getFileList(ecDir);
 	ctr = 0;
 	ecIdx = newArray(lengthOf(fList));
@@ -48,7 +47,7 @@ function generateEggChamberCSV(outFolder,subDirName,
 	ecIdx = Array.trim(ecIdx,ctr);
 	
 	// generate a text file in the eggChamber dir that will store the indices of
-	// each egg chamber and a place holder
+	// each egg chamber and a place holder second column for the stage
 	csvFilePath = ecDir+"eggChamberStages.csv";
 	placeHolderColumn = newArray(ctr);
 	generate2columnCSVfromArrays(csvFilePath,ecIdx,placeHolderColumn,
