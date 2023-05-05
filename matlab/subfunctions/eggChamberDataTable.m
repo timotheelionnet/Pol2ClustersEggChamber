@@ -101,7 +101,7 @@ classdef eggChamberDataTable < handle
             obj.getSamples;
         end
 
-        %% perform background subtration on nuclei intensity values
+        %% perform background subtraction on nuclei intensity values
          function obj = backgroundCorrectNucIntensity(obj)
             t2 = obj.t;
                

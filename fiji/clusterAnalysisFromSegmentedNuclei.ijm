@@ -1,4 +1,4 @@
-// this macro detects clusters from a dataset of ovary egg chamber z-stacks where the nuclei are already segmented.
+c// this macro detects clusters from a dataset of ovary egg chamber z-stacks where the nuclei are already segmented.
 // these nuclei segmentations can be generated from the raw z-stacks using the macro segmentNuclei.ijm
 
 // the expected input to this macro is a data folder which should have the following architecture:
@@ -186,11 +186,11 @@ macro "clusterAnalysisFromSegmentedNuclei" {
 						MedianFilterRadiusClusters,MedianFilterRadiusBackground,
 						maskedNucleoplasmImgTitle,threshFactor);
 					
-					// compute parameters of clusters and save results
+					// compute parameters of clusters from raw img and save results
 				  	print("computing cluster stats of nucleus "+label+" from raw stack...");
 				  	computeClusterStats(curImg,maskedClustersImgTitle,csvSaveDir,label,"_clustInt_raw.csv");
 					
-				  	// compute parameters of clusters and save results
+				  	// compute parameters of clusters from nucleoplasm subtracted image and save results
 				  	print("computing cluster stats of nucleus "+label+" from nucleoplasm-corrected stack...");
 				  	computeClusterStats(imgBgCorr,maskedClustersImgTitle,csvSaveDir,label,"_clustInt_plasmCorr.csv");
 			
@@ -415,7 +415,7 @@ function nucleoplasmIntensityAndGeometryMeasurementAllChannels(savePath,rootName
 		close();
 	}
 	
-	print("Nuclei Intensity and Geometry results saved");
+	print("Nucleoplasm Intensity and Geometry results saved");
 	selectWindow("tmpDuplicate1");
 	close();
 }
@@ -748,7 +748,6 @@ function isNucleusIndexPresent(imgName,idx){
 	}else {
 		return 0;
 	}
-	
 }
 
 // finds the rectangular bounding box around a 3D object labeled with the value label in the input stack inputObjectIDsTitle

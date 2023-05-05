@@ -7,6 +7,50 @@
 // it's ok if egg chambers overlap a bit. The idea is that a nuclei will be assigned to an
 // egg chamber if > 90 % of its volume falls within the 2D mask (extended vertically).
 
+// expected input folder structure:
+// <inFolder/> 
+//		|__ <condition1/>
+//				<sample1.tif>	
+//				<sample2.tif>					
+//				...
+//		|__ <condition2/>
+//				<sample1.tif>	
+//				<sample2.tif>				
+//				...
+// the script should also process images located directly in inFolder (i.e. not in a <condition> subfolder),
+// but this hasn't been tested. SubSubFolders are NOT supported.
+
+// output folder structure corresponding to the above input folder structure:
+// <outFolder/> 
+//		|__ <condition1/>
+//				|__<sample1/>
+//						|__ <eggChamberSEG/>	
+//								|__sample1_eggChamberAnnotations.csv
+//								|__sample1_eggChamber1.tif	
+//								|__sample1_eggChamber2.tif	
+//								...	
+//				|__<sample2/>
+//						|__ <eggChamberSEG/>	
+//								|__sample2_eggChamberAnnotations.csv
+//								|__sample2_eggChamber1.tif	
+//								|__sample2_eggChamber2.tif	
+//								...	
+//				|__ ...
+//
+//		|__ <condition2/>
+//				|__<sample1/>
+//						|__ <eggChamberSEG/>	
+//								|__sample1_eggChamberAnnotations.csv
+//								|__sample1_eggChamber1.tif	
+//								|__sample1_eggChamber2.tif	
+//								...	
+// 		|__ ...
+
+// each output tif file is a 2D mask of one of the egg chamber masks and the value
+// inside the mask matches the index of the egg chamber in the file name.
+// the "Annotations.csv" file for each egg chamber is a place holder csv to use
+// as a means to later manually annotate the development stages of each egg chamber. 
+// 2 columns file, first column is the index of the egg chamber, second column is initialized to zeros.
 macro "batchSaveEggChamberROIs"{
 	run("Close All");
 	// where data comes from, where segmentations go to.
@@ -67,18 +111,101 @@ macro "batchSaveEggChamberROIs"{
 		+ "then add each selection to the ROI manager (CMD+t).\n"
 		+ "A nucleus should overlap >90% with the egg chamber ROI for correct assignment.\n"
 		+ "It's ok if ROIs overlap a tiny bit. \n"
-		+ "Click ok when you are done generating ROIs for all egg chambers in this stack.");
+		+ "DO NOT HIT OK now - do it only once you are done generating ROIs for all egg chambers in this stack!");
 		
 		// convert each egg chamber ROI into a 2D mask and
 		// save in dedicated subfolder of the output dir.
-		EggChamberSegFolderName = "eggChamberSEG/";
-		saveEggChamberROIs(outFolder,outSubDirList[i],fileList[i],EggChamberSegFolderName);	
+		eggChamberSegFolderName = "eggChamberSEG/";
+		saveEggChamberROIs(outFolder,outSubDirList[i],fileList[i],eggChamberSegFolderName);	
 		
 		// close stack
-		close();		
+		close();	
+		
+		// generate in the output folder a CSV file that will hold in a first column
+		// all the egg chamber indices and for each its corresponding developmental stage
+		// in a second column
+		// (developmental stages left blank at this stage, use the file as a template)
+		eggChamberSuffix = "_eggChamber";
+		generateEggChamberCSV(outFolder,outSubDirList[i],
+					fileList[i],eggChamberSegFolderName,eggChamberSuffix);
 	}	
 	print("Done.");
 }
+
+// looks through the output folder for egg chamber segmentations
+// and generates one csv file that lists each egg chamber index (col 1)
+// and the a placeholder second column destined to hold the developmental stages (col 2)
+// to be manually curated later.
+function generateEggChamberCSV(outFolder,subDirName,
+						fileName,eggChamberSegFolderName,eggChamberSuffix){
+	// make sure directory names all have a "/" at the end
+	if (endsWith(outFolder, "/")!=true){
+		outFolder = outFolder + "/";
+	}
+	if ((lengthOf(subDirName)!=0) && (endsWith(subDirName, "/")!=true)){
+		subDirName = subDirName + "/";
+	}
+	if (endsWith(fileName, "/")!=true){
+		fileNameWOExt = substring(fileName,0,lastIndexOf(fileName, "."));
+		fileName = fileNameWOExt + "/";
+	}else{
+		fileNameWOExt = substring(fileName, 0, lengthOf(fileName)-1);
+	}
+	if (endsWith(eggChamberSegFolderName, "/")!=true){
+		eggChamberSegFolderName = eggChamberSegFolderName + "/";
+	}
+	// shortcut name
+	ecDir = outFolder+subDirName+fileName+eggChamberSegFolderName;
+	
+	// find all the egg chamber files in the folder and extract their indices into the 
+	// array ecIdx
+	fList =  getFileList(ecDir);
+	ctr = 0;
+	ecIdx = newArray(lengthOf(fList));
+	for(i=0;i<lengthOf(fList);i++){
+		if(fList[i].contains(eggChamberSuffix)){
+			extIdx = lastIndexOf(fList[i], ".");
+			ecIdx[ctr] = substring(fList[i], 
+						indexOf(fList[i],eggChamberSuffix)+lengthOf(eggChamberSuffix), 
+						extIdx);			
+			ctr = ctr+1;			
+		}
+	}
+	ecIdx = Array.trim(ecIdx,ctr);
+	
+	// generate a text file in the eggChamber dir that will store the indices of
+	// each egg chamber and a place holder second column for the stage
+	csvFilePath = ecDir+"eggChamberStages.csv";
+	placeHolderColumn = newArray(ctr);
+	generate2columnCSVfromArrays(csvFilePath,ecIdx,placeHolderColumn,
+								"eggChamberID","eggChamberStage");
+	
+}
+
+// saves 2 arrays as a csv file in 2 columns. Arrays need to be the same size.
+function generate2columnCSVfromArrays(filePath,col1Array,col2Array,header1,header2){
+	// Define the value of n
+    
+    if (lengthOf(col1Array) != lengthOf(col2Array)){
+    	print("2 arrays have different sizes, cannot save as csv table");
+    	return;
+    }
+    // Create an empty string to store the CSV data
+    csvData = header1+","+header2+"\n";
+    // Loop through the numbers 1 to n and add them to the CSV data with a zero in the second column
+    for (i = 0; i < lengthOf(col1Array); i++) {
+        csvData = csvData + col1Array[i] + ","+col2Array[i] + "\n";
+    }
+    
+    // Save the CSV file
+   f = File.open(filePath);
+   print(f,csvData);
+   File.close(f);
+}
+
+// Loops through the egg chamber outline ROIs stored in the ROI manager and for each: 
+// 	- generates a 2D mask image with the value corresponding to the current ROI ID (ROI 0: value 1; ROI 1: value 2, etc)
+// 	- saves the 2D mask images in a subfolder called EggChamberSegFolderName
 
 function saveEggChamberROIs(outFolder,outSubDir,originalImgTitle,EggChamberSegFolderName) { 
 
@@ -111,6 +238,7 @@ function saveEggChamberROIs(outFolder,outSubDir,originalImgTitle,EggChamberSegFo
 	roiManager("show all");
 	n = roiManager("count");
 	print("Saving "+n+" egg chamber masks...");
+	
 	for (i = 0; i < n; i++) {
 		selectWindow(originalImgTitle);
 		roiManager("Select", i);
@@ -126,6 +254,7 @@ function saveEggChamberROIs(outFolder,outSubDir,originalImgTitle,EggChamberSegFo
 		rename(imgName);
 		save(saveDir+imgName);
 		close();
+
 	}	
 	return;
 }

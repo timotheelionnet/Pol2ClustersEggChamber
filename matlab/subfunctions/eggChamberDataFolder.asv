@@ -218,13 +218,10 @@ methods
             
             analysisDir = obj.getEggChamberAnalysisDir(conditionIdx,sampleIdx);
             
-            tS = []; % full table place holder for data that is single row 
-            % - e.g. whole image intensity, whole egg chamber intensity.
-            t = []; % full table place holder for data that is mutli row
-            % i.e. nucleus-specific 
-            % loop through files, load each as a table curT and append the 
-            % variables curT holds as new columns into t (or tS if single
-            % row)
+            tS = []; % full table
+            t = []; % full table place holder
+            % loop through files, load each as a table curT and append the variables curT hold as new
+            % columns into t
             for i=1:numel(obj.eggChamberWiseFileNames)
                 obj.eggChamberWiseFileNames{i}
                 if ~obj.eggChamberWiseChannelDependent(i)
@@ -296,8 +293,6 @@ methods
                             if isempty(t)
                                 t = curT;
                             else
-                                t
-                                curT
                                 t = join(t,curT,'Keys','Label');
                             end
                         end
