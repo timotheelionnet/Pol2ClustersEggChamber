@@ -135,12 +135,13 @@ macro "segmentNuclei"{
 			EggChamberSegFolderName = "eggChamberSEG/";
 			eggChamberIDsTitle = "eggChamberIDs";
 			
-			assignNucleiToEggChamberMasks(finalNucMasksTitle,imgNameWOExt,eggChamberIDsTitle,
+			eggChamberDataFound = assignNucleiToEggChamberMasks(
+											finalNucMasksTitle,imgNameWOExt,eggChamberIDsTitle,
 											outFolder,outSubDirList[i],EggChamberSegFolderName);
-										
-			// append to detrended image so the eggchamber ID is measured with the metrics								
-			addChannelToImg(zcorrImgTitle,eggChamberIDsTitle,zcorrImgTitle,0);
-
+			if(eggChamberDataFound == 1){
+				// append to detrended image so the eggchamber ID is measured with the metrics								
+				addChannelToImg(zcorrImgTitle,eggChamberIDsTitle,zcorrImgTitle,0);			
+			}	
 		}
 		
 		// compute and save metrics
@@ -190,8 +191,12 @@ macro "segmentNuclei"{
 // resultImgName: image stack output as the result of the analysis 
 // (original stack left intact at the end). 
 
+// output is a 0/1 flag
+
 function assignNucleiToEggChamberMasks(inputNucMasks,imgNameWOExt,resultImgName,
 											outFolder,outSubDir,EggChamberSegFolderName){
+	//initialize the output flag
+	eggChamberDataFound = 1; 
 	
 	// this variable sets the minimum fraction of the nucleus mask (its max projection) 
 	// that has to overlap with the egg chamber 2D mask in order to assign the nucleus. 
@@ -203,7 +208,8 @@ function assignNucleiToEggChamberMasks(inputNucMasks,imgNameWOExt,resultImgName,
 	if (File.exists(eggChamberDir) == false){
 		print("Missing egg Chamber segmentation folder: "+ eggChamberDir);
 		print("Skipping...");
-		return;
+		eggChamberDataFound = 0;
+		return eggChamberDataFound;
 	}
 	
 	// list image files within the egg chamber segmentation folder 
@@ -226,7 +232,8 @@ function assignNucleiToEggChamberMasks(inputNucMasks,imgNameWOExt,resultImgName,
 	if(ctr == 0){
 		print("No files found in egg Chamber segmentation folder: "+ eggChamberDir);
 		print("Skipping...");
-		return;
+		eggChamberDataFound = 0;
+		return eggChamberDataFound;
 	}
 	
 	// build a stack that will replicate the nuclei masks, 
@@ -329,6 +336,10 @@ function assignNucleiToEggChamberMasks(inputNucMasks,imgNameWOExt,resultImgName,
 	// insert the egg chamber segmentation masks as a channel right before the channel where the nuclei masks were
 	selectWindow("eggChamberIDs");	
 	rename(resultImgName);
+	if(isOpen("Results")){
+		close("Results");
+	}
+	return eggChamberDataFound;
 }
 
 // takes an image (inputWindowName) generates a global mask for the entire egg chamber
