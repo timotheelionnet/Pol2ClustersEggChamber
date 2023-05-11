@@ -18,8 +18,22 @@ ec = eggChamberDataFolder(fijiOutFolder);
 % metrics of size and intensity in every channel
 ect = ec.loadAllEggChamberData();
 
+% cleans up the table by:
+    % removing useless metrics
+    % removing data from the dummy channel used as a marker of eggChamberID
+    % sorting the columns so that the sample/eggchamber/nucleus info is in
+    % the first columns
+    % ordering the rows by eggChamberID.
+ect.streamLineTable;
+
+%% generate summary statistics per egg chamber
+sumT = ect.generateEggChamberSummaryTable();
+
 %% compute background-corrected nuclei intensity values (eggChamber and whole image)
-t2 = backgroundCorrectNucIntensity(t);
+ect.backgroundCorrectNucIntensity;
+
+%% scatter plot
+ect.scatterPlotMetricBySample('nuc',1,'Volume','');
 
 %% plot raw nucleus-wide intensity stats for the different channels
 % TO DO

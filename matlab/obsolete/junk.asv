@@ -1,0 +1,87 @@
+load patients;
+t0 = table(Age,Diastolic,Gender,Height,LastName,Location,...
+           SelfAssessedHealthStatus,Smoker,Systolic,Weight);
+t2 = t0(51:100,:);
+t1 = t0(1:50,:);
+
+t = combineEcTables(t1, t2);
+
+t1 = removevars(t1,'Location');
+t2 = removevars(t2,'Diastolic');
+t = combineEcTables(t1, t2);
+%%
+function t = combineEcTables(t1, t2)
+    % variable list for each table
+    v1 = t1.Properties.VariableNames;
+    v2 = t2.Properties.VariableNames;
+    
+    % list of numeric variables
+    s = vartype('numeric');
+    s1 = t1(:,s);
+    v1num = s1.Properties.VariableNames;
+    s2 = t2(:,s);
+    v2num = s2.Properties.VariableNames;
+    
+    % add missing variables to each table so both tables have the same
+    % complement of variables, order to match the order of the variables
+    % in the other table - the order might break if more than one variable is
+    % missing.
+    v12 = setdiff(v1,v2);
+    if ~isempty(v12)
+        for i=1:numel(v12)
+            if ismember(v12{i},v1num)
+                newVar = zeros(size(t2,1),1);
+            else
+                newVar = repmat({''},size(t2,1),1);
+            end
+
+            idx = find(ismember(v1,v12{i}));
+            if idx == 1
+                if ismember(v1{2},v2)
+                    t2 = addvars(t2,newVar,'NewVariableNames',v12(i),'Before',v1{2});
+                else
+                    t2 = addvars(t2,newVar,'NewVariableNames',v12(i));
+                end
+                v2 = t2.Properties.VariableNames;
+            else
+                if ismember(v1{idx-1},v2)
+                    t2 = addvars(t2,newVar,'NewVariableNames',v12(i),'After',v1{idx-1});
+                else
+                    t2 = addvars(t2,newVar,'NewVariableNames',v12(i));
+                end
+                v2 = t2.Properties.VariableNames;
+            end          
+        end
+    end
+
+    v21 = setdiff(v2,v1);
+    if ~isempty(v21)
+        for i=1:numel(v21)
+            if ismember(v21{i},v2num)
+                newVar = zeros(size(t1,1),1);
+            else
+                newVar = repmat({''},size(t1,1),1);
+            end
+
+            idx = find(ismember(v2,v21{i}));
+            if idx == 1
+                if ismember(v2{2},v1)
+                    t1 = addvars(t1,newVar,'NewVariableNames',v21(i),'Before',v2{2});
+                else
+                    t1 = addvars(t1,newVar,'NewVariableNames',v21(i));
+                end
+                v1 = t2.Properties.VariableNames;
+            else
+                if ismember(v1{idx-1},v2)
+                    t2 = addvars(t2,newVar,'NewVariableNames',v12(i),'After',v1{idx-1});
+                else
+                    t2 = addvars(t2,newVar,'NewVariableNames',v12(i));
+                end
+                v2 = t2.Properties.VariableNames;
+            end          
+        end
+    end
+
+    t = [t1;t2];
+
+end

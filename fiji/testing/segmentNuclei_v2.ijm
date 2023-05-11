@@ -200,8 +200,8 @@ function assignNucleiToEggChamberMasks(inputNucMasks,imgNameWOExt,resultImgName,
 	
 	// this variable sets the minimum fraction of the nucleus mask (its max projection) 
 	// that has to overlap with the egg chamber 2D mask in order to assign the nucleus. 
-	// needs to be between 0 and 1, recommended value 0.9
-	minOverlapThreshold = 0.9;
+	// needs to be between 0 and 1, recommended value 0.8
+	minOverlapThreshold = 0.8;
 	
 	// check whether the egg chamber segmentation folder exists.
 	eggChamberDir = outFolder+outSubDir+imgNameWOExt+"/"+EggChamberSegFolderName;
@@ -245,6 +245,7 @@ function assignNucleiToEggChamberMasks(inputNucMasks,imgNameWOExt,resultImgName,
 	// find number of nuclei in z-stack
 	selectWindow(inputNucMasks);
 	run("Z Project...", "projection=[Max Intensity]");
+	run("Select All");
 	getStatistics(area, mean, min, max, std);
 	maxNucleiFound = max;
 	close(); // close max projection
@@ -254,7 +255,7 @@ function assignNucleiToEggChamberMasks(inputNucMasks,imgNameWOExt,resultImgName,
 	" integrated median area_fraction display redirect=None decimal=3");
 	
 	// loop through all putative nuclei
-	for(idx = 1; idx < maxNucleiFound; idx++){
+	for(idx = 1; idx <= maxNucleiFound; idx++){
 		
 		// check whether nucleus with ID = idx exists
 		selectWindow(inputNucMasks);
@@ -269,6 +270,7 @@ function assignNucleiToEggChamberMasks(inputNucMasks,imgNameWOExt,resultImgName,
 		run("Divide...", "value=255.000 stack");
 		run("Z Project...", "projection=[Max Intensity]");
 		rename("maxDuplicateIdx");
+		run("Select All");
 		getStatistics(area, mean, min, max, std, histogram);
 		if(max == 1){
 			nucleusFound = 1;
@@ -294,6 +296,7 @@ function assignNucleiToEggChamberMasks(inputNucMasks,imgNameWOExt,resultImgName,
 				curFileName = eggChamberDir+fileList[i];
 				open(curFileName);	
 				rename("curEC");
+				run("Select All");
 				getStatistics(area, mean, min, max, std, histogram);
 				curECval = max;
 				print("curECval = "+curECval);
