@@ -5,7 +5,7 @@
 
 // tracing tips: use the plane where the egg chamber is the widest and trace the boundaries. 
 // it's ok if egg chambers overlap a bit. The idea is that a nuclei will be assigned to an
-// egg chamber if > 90 % of its volume falls within the 2D mask (extended vertically).
+// egg chamber if > 80 % of its volume falls within the 2D mask (extended vertically).
 
 // expected input folder structure:
 // <inFolder/> 
@@ -109,7 +109,7 @@ macro "batchSaveEggChamberROIs"{
 		waitForUser("Annotate stack manually", 
 		"Circle each of the egg chambers in the stack using the free selection tool, \n"
 		+ "then add each selection to the ROI manager (CMD+t).\n"
-		+ "A nucleus should overlap >90% with the egg chamber ROI for correct assignment.\n"
+		+ "A nucleus should overlap >80% with the egg chamber ROI for correct assignment.\n"
 		+ "It's ok if ROIs overlap a tiny bit. \n"
 		+ "DO NOT HIT OK now - do it only once you are done generating ROIs for all egg chambers in this stack!");
 		

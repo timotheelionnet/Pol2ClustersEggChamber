@@ -1,0 +1,29 @@
+To do: 
+In generateEggChamberSummaryTable
+- Generate summary statistics per condition, and save as text file.
+- Include table and summary stats for egg chambers of desired stages.
+
+- in scatterPlotMetricBySample
+Exclude egg chamber stages but plot by sample?
+
+- in scatterPlotMetricBySample and scatterPlotMetricByEggChamber
+overlay egg chamber mean over scatter plot.
+Color code egg chamber by stage? By condition? color symbols, add alpha
+
+- add function to save plot, maybe along w some metadata.
+
+New functions:
+- plots Histogram plot for nuclei metrics by egg chamber, by sample.
+
+- normalize metrics by z? By DAPI signal?
+
+- Cluster metrics.
+Figure out when adding clusters whether we want a second table for the cluster stats and then integrate mean cluster stats to the nuclei table.
+
+- Same for plotting - should we make function by nucleus or by cluster.
+
+
+* notes on analysis
+- Judging by DAPI, median/wholeImgCorr seems the metric that gives the least CV. Not by a ton vs mean. The omg correction definitely helps though.
+- unclear how EC stage and 
+Plot metric a vs metric b
