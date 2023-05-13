@@ -1,4 +1,4 @@
-c// this macro detects clusters from a dataset of ovary egg chamber z-stacks where the nuclei are already segmented.
+// this macro detects clusters from a dataset of ovary egg chamber z-stacks where the nuclei are already segmented.
 // these nuclei segmentations can be generated from the raw z-stacks using the macro segmentNuclei.ijm
 
 // the expected input to this macro is a data folder which should have the following architecture:
@@ -211,7 +211,7 @@ macro "clusterAnalysisFromSegmentedNuclei" {
 					
 				  	// collect intensity measurements on the nucleoplasm
 					nucleoplasmIntensityAndGeometryMeasurementAllChannels(
-						csvSaveDir,"nuc"+label,imgOutName,maskChannel+1);
+						csvSaveDir,"nuc"+label,imgOutName,maskChannel,maskChannel+1);
 					
 					// save image with masks
 					selectWindow(imgOutName);
@@ -229,7 +229,10 @@ macro "clusterAnalysisFromSegmentedNuclei" {
 				  	addChannelToImg("tmp",maskedClustersImgTitle,bgCorrImgOutName,0);
 					selectWindow(bgCorrImgOutName);
 				  	save(tifSaveDir+bgCorrImgOutName);
-				  	close(bgCorrImgOutName);	
+				  	close(bgCorrImgOutName);
+				  	if (isOpen(maskedClustersImgTitle)){
+				  		close(maskedClustersImgTitle);	
+				  	}
 				  	
 				  	print("saving parameters to file...");
 					saveClusterParametersToLogFile(curImgFilePath+curImgFileName,
@@ -386,54 +389,189 @@ function saveClusterParametersToLogFile(originalImgTitle,savePath,
 // and saves the resulting tables in the folder savePath using names like 
 // C1_rootName_plasmInt.csv, C2_rootName_plasmInt.csv, etc for intensity features
 // single file rootName-nucleoplasmGeom.csv for geometry features 
-function nucleoplasmIntensityAndGeometryMeasurementAllChannels(savePath,rootName,inputWindowName,maskChannel){
+// generates a mask for nucleoli (inverse of nucleoplasm within nucleus mask)
+// and perform the same measurements of geometry and intensity for the nucleoli mask.
+function nucleoplasmIntensityAndGeometryMeasurementAllChannels(savePath,rootName,inputWindowName,nucChannel,plasmChannel){
 	selectWindow(inputWindowName);
-	run("Duplicate...", "duplicate channels="+maskChannel);
-	rename("tmpDuplicate1");
-
+	
+	// duplicate the nucleoplasm mask channel and perform geometry measurements on it.
+	run("Duplicate...", "duplicate channels="+plasmChannel);
+	plasmDuplicate = "tmpPlasmDuplicate";
+	rename(plasmDuplicate);
 	run("Analyze Regions 3D", "voxel_count volume surface_area mean_breadth sphericity"+
 			" euler_number bounding_box centroid equivalent_ellipsoid ellipsoid_elongations"+
 			" max._inscribed surface_area_method=[Crofton (13 dirs.)] euler_connectivity=6");
-
+	
+	// save plasm geometry in csv file
 	saveAs("Results",savePath+rootName+"_plasmGeom.csv");
 	run("Close");
 	
+	// generate nucleoli mask - i.e. inverse of nucleoplasm within nucleus
+	selectWindow(inputWindowName);
+	run("Duplicate...", "duplicate channels="+nucChannel);
+	nucDuplicate = "tmpNucDuplicate";
+	rename(nucDuplicate);
+	normalizePixelValuesToBitDepth(nucDuplicate);
+	selectWindow(plasmDuplicate);
+	run("Duplicate...", "duplicate");
+	t = getTitle();
+	normalizePixelValuesToBitDepth(t);
+	run("Invert", "stack"); // invert nucleoplasm mask
+	run("Divide...", "value=65535 stack"); // need to divide because otherwise the image mulitplication later on
+	// gives rise to 65,535 * 65,535 which Fiji interprets as zero.
+	rename("plasmInv");
+	imageCalculator("Multiply stack", "plasmInv",nucDuplicate); // multiply inverse nucleoplasm and nucleus masks
+	nucleoliMask = "nucleoliMask";
+	rename(nucleoliMask);
+	if(isOpen(nucDuplicate)){
+		close(nucDuplicate);
+	}
+	if(isOpen("plasmInv")){
+		close("plasmInv");
+	}
+	//set nucleoli mask value to the same value as nucleoplasm mask
+	selectWindow(nucleoliMask);
+	run("Z Project...", "projection=[Max Intensity]");
+	rename("tmpMax");		
+	getStatistics(area, mean, min, maxNucleoli, std, histogram);
+	close("tmpMax");
+	
+	selectWindow(plasmDuplicate);
+	run("Z Project...", "projection=[Max Intensity]");
+	rename("tmpMax");		
+	getStatistics(area, mean, min, maxPlasm, std, histogram);
+	close("tmpMax");
+	
+	selectWindow(nucleoliMask);
+	run("Divide...", "value="+maxNucleoli+" stack");	
+	run("Multiply...", "value="+maxPlasm+" stack");	
+	
+	// measure geometry of nucleoli
+	run("Analyze Regions 3D", "voxel_count volume surface_area mean_breadth sphericity"+
+			" euler_number bounding_box centroid equivalent_ellipsoid ellipsoid_elongations"+
+			" max._inscribed surface_area_method=[Crofton (13 dirs.)] euler_connectivity=6");
+	
+	// save nucleoli geometry in csv file
+	saveAs("Results",savePath+rootName+"_nucleoliGeom.csv");
+	run("Close");
+	
+	// loop through channels and collect intensity measurements over nucleoplasm and nucleoli
 	selectWindow(inputWindowName);
 	getDimensions(sizeX, sizeY, C, sizeZ, F);
 	for (i = 1; i <= C; i++) {
 	    selectWindow(inputWindowName);
 	    run("Duplicate...", "duplicate channels="+i);
-		rename("tmpDuplicate2");
-		run("Intensity Measurements 2D/3D", "input=tmpDuplicate2 labels=tmpDuplicate1"+ 
+	    curChannelDuplicate = "tmpChannelDuplicate";
+		rename(curChannelDuplicate);
+		
+		// nucleoplasm measurements
+		run("Intensity Measurements 2D/3D", "input="+curChannelDuplicate+" labels="+plasmDuplicate+ 
 			" mean stddev max min median mode skewness kurtosis numberofvoxels volume"+
 			" neighborsmean neighborsstddev neighborsmax neighborsmin neighborsmedian"+
 			" neighborsmode neighborsskewness neighborskurtosis");
 		
-		saveAs("tmpDuplicate2-intensity-measurements",savePath+"C"+i+"_"+rootName+"_plasmInt.csv");
+		saveAs(curChannelDuplicate+"-intensity-measurements",
+					savePath+"C"+i+"_"+rootName+"_plasmInt.csv");
 		run("Close");
-		selectWindow("tmpDuplicate2");
-		close();
+		
+		// nucleoli measurements
+		run("Intensity Measurements 2D/3D", "input="+curChannelDuplicate+" labels="+nucleoliMask+ 
+			" mean stddev max min median mode skewness kurtosis numberofvoxels volume"+
+			" neighborsmean neighborsstddev neighborsmax neighborsmin neighborsmedian"+
+			" neighborsmode neighborsskewness neighborskurtosis");
+		
+		saveAs(curChannelDuplicate+"-intensity-measurements",
+					savePath+"C"+i+"_"+rootName+"_nucleoliInt.csv");
+		run("Close");
+		
+		close(curChannelDuplicate);
 	}
 	
 	print("Nucleoplasm Intensity and Geometry results saved");
-	selectWindow("tmpDuplicate1");
-	close();
+	close(plasmDuplicate);
+	close(nucleoliMask);
+}
+
+// takes each channel of the image and applies an affine transformation 
+// so that the min value of the stack (or 2D image) in each channel is zero and the max
+// value is the bit depth (255 for 8-bit and 65535 for 16 bit).
+// replaces the original image with the renormalized one.
+function normalizePixelValuesToBitDepth(imgName){
+	selectWindow(imgName);
+	bd = bitDepth();
+	if((bd!= 8) && (bd!=16)){
+		print("img "+imgName+" is neither 8 nor 16 bit, cannot normalize.");
+		return;
+	}
+	// set range of renormalized image to entire bitdepth
+	bitMax = pow(2, bd)-1;
+	
+	getDimensions(sizeX, sizeY, C, sizeZ, F);
+	if(C>1){
+		print("image has "+C+" channels. will normalize each channel to bit depth.");
+	}
+	for (i = 1; i <= C; i++) {
+		selectWindow(imgName);
+		run("Duplicate...", "duplicate channels="+i);
+		rename("tmpChannel");
+		
+		// find the min and max of the image
+		if(sizeZ>1){
+			run("Z Project...", "projection=[Max Intensity]");
+			getStatistics(area, mean, min, imgMax, std);
+			close();
+			run("Z Project...", "projection=[Min Intensity]");
+			getStatistics(area, mean, imgMin, max, std);
+			close();
+		}else {
+			getStatistics(area, mean, imgMin, imgMax, std);
+		}
+		selectWindow("tmpChannel");
+		// set min pixel(s) to zero
+		run("Subtract...", "value="+imgMin+" stack");
+		
+		// normalize to bit depth
+		if(imgMin < imgMax){
+			multFactor = bitMax/(imgMax-imgMin);
+			if(sizeZ>1){
+				run("Multiply...", "value="+multFactor+" stack");	
+			}else {
+				run("Multiply...", "value="+multFactor);
+			}
+		}
+		
+		if(i==1){
+			selectWindow("tmpChannel");
+			rename("renormImg");
+		}else{
+			addChannelToImg("renormImg","tmpChannel","renormImg",0);
+		}
+	}
+	
+	// replace original image with new one
+	close(imgName);
+	selectWindow("renormImg");
+	rename(imgName);
 }
 
 function computeClusterStats(dataImg,labelImg,saveDir,nucleusNumber,csvSuffix){
 	
 	selectWindow(dataImg);
 	getDimensions(w, h, c, nzs, f);
+	print("dataImg "+w+" "+h+" "+c+" "+nzs+" "+f);
+	selectWindow(labelImg);
+	getDimensions(w, h, c, nzs, f);
+	print("labelImg "+w+" "+h+" "+c+" "+nzs+" "+f);
 	for (i = 1; i <= c; i++) {
 		selectWindow(dataImg);
 		run("Duplicate...", "duplicate channels="+i);
 		rename("tmpChannel");
+		
 		run("Intensity Measurements 2D/3D", "input=tmpChannel labels="
 			+labelImg+" mean stddev max min median mode skewness kurtosis numberofvoxels volume");
 		saveAs("Results", saveDir+"C"+i+"_nuc"+nucleusNumber +csvSuffix);
 		run("Close");
-		selectWindow("tmpChannel");
-		close();
+		close("tmpChannel");
 	}
 }
 

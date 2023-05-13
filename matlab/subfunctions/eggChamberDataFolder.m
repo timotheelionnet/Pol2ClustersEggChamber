@@ -96,7 +96,7 @@ methods (Access = 'public')
     end
     
     %% load data from all conditions into data table
-    function ect = loadAllEggChamberData(obj)
+    funxction ect = loadAllEggChamberData(obj)
         warning('off','MATLAB:table:ModifiedAndSavedVarnames'); % mute unneeded warnings
         removeNeighbors = 1; % exclude from the data import the variables with neighbor in their name - we do not use them.
         t = [];

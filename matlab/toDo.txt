@@ -1,48 +1,80 @@
-To do: 
+To do:
+*********************************
+** Curent Functions small updates 
 In generateEggChamberSummaryTable
-- Generate summary statistics per condition, and save as text file.
-- Include table and summary stats for egg chambers of desired stages.
+ -Generate summary statistics per condition, and save as text file.
+ -Include table and summary stats for egg chambers of desired stages.
 
-- in scatterPlotMetricBySample
-Exclude egg chamber stages but plot by sample?
+- in scatterPlotMetricBySample: Exclude egg chamber stages but plot by sample?
 
 - in scatterPlotMetricBySample and scatterPlotMetricByEggChamber
-overlay egg chamber mean over scatter plot.
-Color code egg chamber by stage? By condition? color symbols, add alpha
+  -overlay egg chamber mean over scatter plot.
+  -Color code egg chamber by stage? By condition? color symbols, add alpha
 
 - add function to save plot, maybe along w some metadata.
 
-- nucleolus segmentation and background. What is the current status? Check how to integrate that with the nuclei table.
-
 - Fiji: add log file with time stamps and list of parameters used for each of the macros. 
 
-Documentation:
-- data org: add screen cap.
-- nuclei segmentation walk through.
-- cluster detection walk through.
+*********************************
+** Architecture questions
 
-New functions:
-- Histogram plot for nuclei metrics by egg chamber, by sample.
+- nucleolus segmentation and background. What is the current status? Check how to integrate that with the nuclei table.
 
-- plot metric a vs metric b. Use for z, egg chamber stage, sample.
+- how to save analyses w different parameters w/o overwriting?
 
-- normalize metrics by z? By DAPI signal?
+- general thought on plotting functions: we will likely need to easily exclude samples/egg chambers if wonky, egg chamber stages etc; options what feature to color code, what colors to use. Probably best to have name pair arguments structure of optional things in order to use the existing Matlab structure.
 
-- Cluster metrics.
-Figure out when adding clusters whether we want a second table for the cluster stats and then integrate mean cluster stats to the nuclei table.
+- Cluster metrics: Figure out when adding clusters whether we want a second table for the cluster stats and then integrate mean cluster stats to the nuclei table.
 This will be needed if we want background correction for the clusters.
 
 - Same for plotting - should we make function by nucleus or by cluster.
 
-- general thought on plotting functions: we will likely need to easily exclude samples/egg chambers if wonky, egg chamber stages etc; options what feature to color code, what colors to use. Probably best to have name pair arguments structure of optional things in order to use the existing Matlab structure.
+*********************************
+** Documentation:
+- data org: add screen cap.
+- nuclei segmentation walk through.
+- cluster detection walk through.
 
-* notes on analysis
+*********************************
+** New functions:
+- Histogram plot for nuclei metrics by egg chamber, by sample.
+- plot metric a vs metric b. Use for z, egg chamber stage, sample.
+- normalize metrics by z? By DAPI signal?
+
+*********************************
+** notes on analysis
 - Judging by DAPI, median/wholeImgCorr seems the metric that gives the least CV. Not by a ton vs mean. The omg correction definitely helps though.
-
 - unclear how EC stage, z impact metrics, need function to plot a vs b to figure that out.
-
 - also maybe have a volume cutoff and/or DAPI std to be able to exclude poorly segmented nuclei if we think they will be an issue.
 
+*********************************
+** Fiji bugs
+nucleoliInt seems empty
 
+*********************************
+For the scatter by eggChamber function:
+- use https://www.mathworks.com/help/matlab/ref/inputparser.html to parse input.
+Parameters: 
+eggChamberStagesToInclude, 
+samplesToInclude, 
+colorCode (sample; eggChamber; condition; eggChamberStage; any variable really - check how to build the name intuitively. Maybe some keywords or full variable name), 
+colorMap (include cBrewer options), 
+alpha, 
+addMeanAndErrorBar
+Different grouping spacing modes?
+Should I trim the data table as an easier way to process the data plotting?
+
+- for the cluster data import
+Some metrics are nuclei-centric: 
+	nucleoliInt
+	plasmInt (single row)
+Others are clusters centric:
+	clustInt_raw
+	clustInt_plasmCorr
+
+Import nuclei-centric metrics in global table.
+Generate a cluster table to load cluster stats. 
+Need to include the file, egg chamber, nucleus ID for each cluster to easily match with the nucleus-centric data. 
+Copy-paste the nucleus wide intensity stats?
 
 
