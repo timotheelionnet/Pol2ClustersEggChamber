@@ -12,18 +12,37 @@ Color code egg chamber by stage? By condition? color symbols, add alpha
 
 - add function to save plot, maybe along w some metadata.
 
+- nucleolus segmentation and background. What is the current status? Check how to integrate that with the nuclei table.
+
+- Fiji: add log file with time stamps and list of parameters used for each of the macros. 
+
+Documentation:
+- data org: add screen cap.
+- nuclei segmentation walk through.
+- cluster detection walk through.
+
 New functions:
-- plots Histogram plot for nuclei metrics by egg chamber, by sample.
+- Histogram plot for nuclei metrics by egg chamber, by sample.
+
+- plot metric a vs metric b. Use for z, egg chamber stage, sample.
 
 - normalize metrics by z? By DAPI signal?
 
 - Cluster metrics.
 Figure out when adding clusters whether we want a second table for the cluster stats and then integrate mean cluster stats to the nuclei table.
+This will be needed if we want background correction for the clusters.
 
 - Same for plotting - should we make function by nucleus or by cluster.
 
+- general thought on plotting functions: we will likely need to easily exclude samples/egg chambers if wonky, egg chamber stages etc; options what feature to color code, what colors to use. Probably best to have name pair arguments structure of optional things in order to use the existing Matlab structure.
 
 * notes on analysis
 - Judging by DAPI, median/wholeImgCorr seems the metric that gives the least CV. Not by a ton vs mean. The omg correction definitely helps though.
-- unclear how EC stage and 
-Plot metric a vs metric b
+
+- unclear how EC stage, z impact metrics, need function to plot a vs b to figure that out.
+
+- also maybe have a volume cutoff and/or DAPI std to be able to exclude poorly segmented nuclei if we think they will be an issue.
+
+
+
+
