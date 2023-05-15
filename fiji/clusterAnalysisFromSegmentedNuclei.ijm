@@ -117,6 +117,8 @@ macro "clusterAnalysisFromSegmentedNuclei" {
 	
 	// loop through conditions (first level of subfolders from input folder)
 	conditionList = getSubdirList(inFolder);
+	tS = getTimeString();
+	print(tS);
 	print("Found the following conditions:");
 	for(i=0;i<conditionList.length;i++){
 		print(conditionList[i]);
@@ -144,12 +146,16 @@ macro "clusterAnalysisFromSegmentedNuclei" {
 				// generate a cropped image for each nucleus that holds the original image channels 
 				// plus the nuclear mask as an extra color channel
 				// images are called "croppedNucleus"+label+"wSeg_masks.tif"
+				tS = getTimeString();
+				print(tS);
 				print("cropping nuclei...");
 				nucleiFound = cropNuclei("mergedSegmentation",border,saveStacks);
 				
 				// loop through nuclei, segment nucleoplasm and clusters
 				for (k = 0; k < nucleiFound.length; k++) {
 					label = nucleiFound[k];
+					tS = getTimeString();
+					print(tS);
 					print("processing nucleus "+label+"...");
 					curImg = "croppedNucleus"+label+"wSeg";
 					getDimensions(originalImgSizeX, originalImgSizeY, segmentationC, originalImgSizeZ, originalImgF);
@@ -166,17 +172,23 @@ macro "clusterAnalysisFromSegmentedNuclei" {
 					
 					// segment nucleoplasm - output is an 8-bit mask image called maskedNucleoplasmImgTitle
 					// where background is 0 and nucleoplasm is 255.
+					tS = getTimeString();
+					print(tS);
 					print("segmenting nucleoplasm of nucleus "+label+"...");
 					maskedNucleoplasmImgTitle = "maskedPlasm";
 				  	segmentNucleoplasm(curImg,pol2Channel,maskedNucleoplasmImgTitle);
 			
 				  	//subtract the average signal value in the nucleoplasm from all channels
+				  	tS = getTimeString();
+					print(tS);
 				  	print("subtracting background of nucleus "+label+"...");
 				  	imgBgCorr = "backgroundCorrectedImg";
 					subtractBackground32bit3D(curImg,maskedNucleoplasmImgTitle,imgBgCorr);
 					
 				  	// segment clusters - output is a 16 bit image called maskedClustersImgTitle
 				  	// where background is 0 and each cluster carries an individual ID
+				  	tS = getTimeString();
+					print(tS);
 				  	print("detecting clusters of nucleus "+label+"...");
 				  	maskedClustersImgTitle = "clusterMask";
 				  	//detectClusters(imgBgCorr,maskedClustersImgTitle,pol2Channel,
@@ -187,10 +199,14 @@ macro "clusterAnalysisFromSegmentedNuclei" {
 						maskedNucleoplasmImgTitle,threshFactor);
 					
 					// compute parameters of clusters from raw img and save results
+					tS = getTimeString();
+					print(tS);
 				  	print("computing cluster stats of nucleus "+label+" from raw stack...");
 				  	computeClusterStats(curImg,maskedClustersImgTitle,csvSaveDir,label,"_clustInt_raw.csv");
 					
 				  	// compute parameters of clusters from nucleoplasm subtracted image and save results
+				  	tS = getTimeString();
+					print(tS);
 				  	print("computing cluster stats of nucleus "+label+" from nucleoplasm-corrected stack...");
 				  	computeClusterStats(imgBgCorr,maskedClustersImgTitle,csvSaveDir,label,"_clustInt_plasmCorr.csv");
 			
@@ -198,6 +214,8 @@ macro "clusterAnalysisFromSegmentedNuclei" {
 				  	// (1) the masks of the nucleus,
 				  	// (2) the mask of the nucleoplasm and 
 				  	// (3) the mask of the Pol II clusters	
+				  	tS = getTimeString();
+					print(tS);
 				  	print("generating output image of nucleus "+label+"...");
 				  	imgOutName = "nuc"+label +"_masks.tif";
 				  	selectWindow(maskedNucleoplasmImgTitle);
@@ -224,6 +242,8 @@ macro "clusterAnalysisFromSegmentedNuclei" {
 			
 					// save nucleoplasm-background corrected image
 					bgCorrImgOutName = "nuc"+label +"_masks_plasmCorr.tif";
+					tS = getTimeString();
+					print(tS);
 				  	print("generating output background-corrected image of nucleus "+label+"...");
 				  	addChannelToImg(imgBgCorr,maskedNucleoplasmImgTitle,"tmp",0);
 				  	addChannelToImg("tmp",maskedClustersImgTitle,bgCorrImgOutName,0);
@@ -233,7 +253,8 @@ macro "clusterAnalysisFromSegmentedNuclei" {
 				  	if (isOpen(maskedClustersImgTitle)){
 				  		close(maskedClustersImgTitle);	
 				  	}
-				  	
+				  	tS = getTimeString();
+					print(tS);
 				  	print("saving parameters to file...");
 					saveClusterParametersToLogFile(curImgFilePath+curImgFileName,
 						inFolder+ conditionList[i] + sampleList[j] + "clusterAnalysisParameters.txt",
@@ -249,6 +270,8 @@ macro "clusterAnalysisFromSegmentedNuclei" {
 		}
 	}			
 	setBatchMode("exit and display");
+	tS = getTimeString();
+	print(tS);
   	print("done.");			
 }
 
@@ -558,10 +581,10 @@ function computeClusterStats(dataImg,labelImg,saveDir,nucleusNumber,csvSuffix){
 	
 	selectWindow(dataImg);
 	getDimensions(w, h, c, nzs, f);
-	print("dataImg "+w+" "+h+" "+c+" "+nzs+" "+f);
-	selectWindow(labelImg);
-	getDimensions(w, h, c, nzs, f);
-	print("labelImg "+w+" "+h+" "+c+" "+nzs+" "+f);
+	//print("dataImg "+w+" "+h+" "+c+" "+nzs+" "+f);
+	//selectWindow(labelImg);
+	//getDimensions(w, h, c, nzs, f);
+	//print("labelImg "+w+" "+h+" "+c+" "+nzs+" "+f);
 	for (i = 1; i <= c; i++) {
 		selectWindow(dataImg);
 		run("Duplicate...", "duplicate channels="+i);
@@ -1049,5 +1072,21 @@ function getSubdirList(inFolder){
 	}
 	subDirList = Array.trim(subDirList, ctr);
 	return subDirList;
+}
+
+function getTimeString(){
+	 MonthNames = newArray("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec");
+	 DayNames = newArray("Sun", "Mon","Tue","Wed","Thu","Fri","Sat");
+	 getDateAndTime(year, month, dayOfWeek, dayOfMonth, hour, minute, second, msec);
+	 TimeString ="Date: "+DayNames[dayOfWeek]+" ";
+	 if (dayOfMonth<10) {TimeString = TimeString+"0";}
+	 TimeString = TimeString+dayOfMonth+"-"+MonthNames[month]+"-"+year+"\nTime: ";
+	 if (hour<10) {TimeString = TimeString+"0";}
+	 TimeString = TimeString+hour+":";
+	 if (minute<10) {TimeString = TimeString+"0";}
+	 TimeString = TimeString+minute+":";
+	 if (second<10) {TimeString = TimeString+"0";}
+	 TimeString = TimeString+second;
+	 return TimeString;
 }
 

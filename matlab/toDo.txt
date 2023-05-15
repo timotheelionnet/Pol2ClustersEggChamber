@@ -3,7 +3,7 @@ To do:
 ** Curent Functions small updates 
 In generateEggChamberSummaryTable
  -Generate summary statistics per condition, and save as text file.
- -Include table and summary stats for egg chambers of desired stages.
+ -Include table and summary stats for egg chambers of desired stages. Also include clusters if the Data is there.
 
 - in scatterPlotMetricBySample: Exclude egg chamber stages but plot by sample?
 
@@ -18,16 +18,24 @@ In generateEggChamberSummaryTable
 *********************************
 ** Architecture questions
 
-- nucleolus segmentation and background. What is the current status? Check how to integrate that with the nuclei table.
+x nucleolus segmentation and background. What is the current status? Check how to integrate that with the nuclei table.
 
 - how to save analyses w different parameters w/o overwriting?
 
 - general thought on plotting functions: we will likely need to easily exclude samples/egg chambers if wonky, egg chamber stages etc; options what feature to color code, what colors to use. Probably best to have name pair arguments structure of optional things in order to use the existing Matlab structure.
 
-- Cluster metrics: Figure out when adding clusters whether we want a second table for the cluster stats and then integrate mean cluster stats to the nuclei table.
+x Cluster metrics: Figure out when adding clusters whether we want a second table for the cluster stats and then integrate mean cluster stats to the nuclei table.
 This will be needed if we want background correction for the clusters.
 
-- Same for plotting - should we make function by nucleus or by cluster.
+x Same for plotting - should we make function by nucleus or by cluster. 
+
+*********************************
+** robustness
+- rename existing methods so it's unambiguous they apply to nuclei metrics.
+- Make sure all operations are performed on both t and fullT to maintain consistency.
+- Make sure that methods to subtract background etc check for pre-exisitng runs (do not subtract twice). Also that they can be run at any point, e.g. before or after the plasmInt and the nucleoliInt have been added.
+- make table construction and methods modular whether or not one wants to quantify clusters.
+- what if nuclei #s don't match between nucleus analysis and cluster analysis?
 
 *********************************
 ** Documentation:
@@ -40,6 +48,11 @@ This will be needed if we want background correction for the clusters.
 - Histogram plot for nuclei metrics by egg chamber, by sample.
 - plot metric a vs metric b. Use for z, egg chamber stage, sample.
 - normalize metrics by z? By DAPI signal?
+- add a checksum kind of function? E.g. plasmCorr vs subtraction of the plasm Int. (Are they supposed to be equal? Or is plasmCorr computed plane by plane?)
+- loadNucleoliInt. Collect data from all files and append columns to t and fullT. Ignore neighbors, NumberOfVoxels, maybe Volume as well, load from the geometry file instead.
+- LoadPlasmInt. Collect all files and move to t and fullT. Ignore neighbors, NumberOfVoxels, maybe Volume as well, load from the geometry file instead. 
+- Method to correct nucleoli and plasmInt for wholeImgInt? Maybe include that in existing function.
+- loadCluster. Generate new table. Generate a method to easily replicate nucleus metric to the format of the cluster table (i.e. replicate each nucleus metric as many times as there are clusters in the nucleus, for dimensions to match).
 
 *********************************
 ** notes on analysis
@@ -49,7 +62,8 @@ This will be needed if we want background correction for the clusters.
 
 *********************************
 ** Fiji bugs
-nucleoliInt seems empty
+x nucleoliInt seems empty
+- clusters quant only saved for nuc1???
 
 *********************************
 For the scatter by eggChamber function:
@@ -64,17 +78,6 @@ addMeanAndErrorBar
 Different grouping spacing modes?
 Should I trim the data table as an easier way to process the data plotting?
 
-- for the cluster data import
-Some metrics are nuclei-centric: 
-	nucleoliInt
-	plasmInt (single row)
-Others are clusters centric:
-	clustInt_raw
-	clustInt_plasmCorr
 
-Import nuclei-centric metrics in global table.
-Generate a cluster table to load cluster stats. 
-Need to include the file, egg chamber, nucleus ID for each cluster to easily match with the nucleus-centric data. 
-Copy-paste the nucleus wide intensity stats?
 
 
