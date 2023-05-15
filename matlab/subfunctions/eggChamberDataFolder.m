@@ -544,10 +544,10 @@ methods (Access = 'private')
         end
     
         t2 = t2(:,idx12);
-        t = [t1;t2];
-    
+        t = [t1;t2]; 
     end
-
+    
+    %%
     function ecStage = getEggChamberStageData(obj, eggChamberID,conditionIdx,sampleIdx)
         % load cell stage key file
         eggSegDir = obj.getEggChamberSegDir(conditionIdx,sampleIdx);
