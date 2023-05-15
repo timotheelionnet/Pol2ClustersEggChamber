@@ -36,7 +36,7 @@ classdef eggChamberDataSet < handle
             % an nSamples(i) x 1 numeric array holding the index of each
             % sample (usually will be 1:nSamples(i) in a vertical vector)
             % e.g. sampleIndices{2,1} = [1;2;3]
-        sampleIndices = [];
+        sampleIndices = {};
         % sampleNames is an nConditions x 1 cell array where ith entry is
             % a cell array (nSamples(i) x1) where the jth entry is the name
             % of the sample
@@ -71,7 +71,7 @@ classdef eggChamberDataSet < handle
 
     properties (GetAccess = 'private', SetAccess = 'private')
 
-        % ******************** data I/O properties
+        % ******************** eggchamber data I/O properties
 
         %  name of the subfolder where the egg chamber data is stored
         eggChamberCsvFolderName = 'eggChamberCSV';
@@ -113,6 +113,9 @@ classdef eggChamberDataSet < handle
             '_raw';...
             '_raw';...
             '_raw'};
+
+        % ******************** nucleus & cluster I/O properties
+        clusterFolderName = 'nucCSV';
 
         % ******************** Nuclei Table variables properties
 
@@ -216,14 +219,12 @@ classdef eggChamberDataSet < handle
             obj.suffixList = {obj.rawSuffix,obj.plasmCorrSuffix,obj.eggChamberCorrSuffix,obj.wholeImgCorrSuffix};
             obj.backgroundIntensityPrefixList = {obj.wholeImgPrefix,obj.eggChamberPrefix};
 
-            obj.getChannelList;
-            obj.getConditions;
-            obj.getSamples;
-            obj.getEggChamberIDs;
         end
         
-        %% load data from all conditions into data table
-        function loadAllEggChamberData(obj)
+        %% load  nuclei data from all conditions into data table 
+        % this will look for the egg chamber stage info if present
+        % (this will not load cluster data).
+        function loadAllEggChamberNucleiData(obj)
             warning('off','MATLAB:table:ModifiedAndSavedVarnames'); % mute unneeded warnings
             removeNeighbors = 1; % exclude from the data import the variables with neighbor in their name - we do not use them.
             obj.t = [];
@@ -235,10 +236,39 @@ classdef eggChamberDataSet < handle
                 end
             end
             obj.fullT = obj.t; % fullT backup copy of the exhaustive imported data table
+            obj.getChannelList;
+            obj.getEggChamberIDs;
             disp('done.');
+        end    
+
+        function loadAllClusterData(obj.)
+            warning('off','MATLAB:table:ModifiedAndSavedVarnames'); % mute unneeded warnings
+            removeNeighbors = 1; % exclude from the data import the variables with neighbor in their name - we do not use them.
+            onlyAddNucleiIDsAlreadyInTable = 1;
+
+            % loop through conditions, find nuclei and load corresponding
+            % data
+            for i=1:obj.nConditions
+                for j=1:obj.nSamples(i)
+                    clustDir = getClusterDir(obj,i,j);
+                    
+                    obj.loadNucleoliData(clustDir,removeNeighbors,onlyAddNucleiIDsAlreadyInTable);
+                    obj.loadNucleoPlasmData(clustDir,removeNeighbors);
+                    obj.loadClusterData(clustDir,removeNeighbors);
+                end
+            end
+
         end
-        
-        
+
+
+        function loadNucleoliData(obj,clustDir,removeNeighbors,onlyAddNucleiIDsAlreadyInTable)
+            [nucIDsToLoad,fileNames] = obj.collectNucIDsToLoad('nucleoli',onlyAddNucleiIDsAlreadyInTable);
+        end
+
+        function [nucIDsToLoad,fileNames] = collectNucIDsToLoad(...
+                obj,clustDir,dataToLoad,onlyAddNucleiIDsAlreadyInTable)
+                
+        end
 
         %% remove unlikely to be used variables from Nuclei table
         function streamLineNucleiTable(obj)
@@ -300,7 +330,7 @@ classdef eggChamberDataSet < handle
         end
 
         %% perform background subtraction on nuclei intensity values
-         function obj = backgroundCorrectNucIntensity(obj)
+         function backgroundCorrectNucIntensity(obj)
             
             obj.t = bgCorrTable(obj.t);
             obj.fullT = bgCorrTable(obj.fullT);
@@ -380,8 +410,7 @@ classdef eggChamberDataSet < handle
             eggChamberID = [];
             eggChamberStage = [];
             numberOfNucleiInEggChamber = [];
-            [~,nConds] = obj.getConditions;
-            for i=1:nConds
+            for i=1:obj.nConditions
                 for j=1:obj.nSamples(i)
                     for k=1:obj.eggChamberNumber{i}(j)
                         conditionName = ...
@@ -407,10 +436,6 @@ classdef eggChamberDataSet < handle
 
             varName = obj.buildVarName(prefix,channel,baseName,suffix,'geom');
             
-            % make sure conditions/samples numbers are up to date
-            obj.getConditions;
-            obj.getSamples;
-
             % build figure
             figure('Name',strrep(varName,'_',' '));
             hold;
@@ -502,10 +527,6 @@ classdef eggChamberDataSet < handle
                 return
             end
 
-            % make sure conditions/samples numbers are up to date
-            obj.getConditions;
-            obj.getSamples;
-
             % build figure
             figure('Name',strrep(varName,'_',' '));
             hold;
@@ -579,17 +600,7 @@ classdef eggChamberDataSet < handle
             ylabel(baseName);
             grid on
         end
-
-        %% get the list of indices for the conditions in the table (conditionIndices), and
-        % their number (nConditions)
-        function  [condIdxList,nConds] = getConditions(obj)
-            if ismember('condIdx',obj.t.Properties,)
-                obj.condIndices = unique(obj.t.condIdx);
-                nConds = numel(obj.condIndices);
-                condIdxList = obj.condIndices;
-            else
-            end
-        end      
+   
        
         %% generate x coordinates by sample/condition for scatter plots
         function [xSampleVals, xSampleIDs] = getSampleXValuesBySample(obj)
@@ -702,7 +713,6 @@ classdef eggChamberDataSet < handle
 
     methods(Access = 'private')
 
-
         %% collect names of samples and conditions folders
         function obj = collectConditionsAndSamples(obj,varargin)
             if ~isempty(varargin)
@@ -717,7 +727,8 @@ classdef eggChamberDataSet < handle
             obj.conditionNames = reshape(obj.conditionNames,...
                 numel(obj.conditionNames),1);
             obj.nConditions = numel(dFolders);
-    
+            obj.condIndices = 1:obj.nConditions;
+
             % for each condition, collect samples, i.e. list of subfolders
             % within each condition folder:
             for i=1:obj.nConditions
@@ -728,6 +739,7 @@ classdef eggChamberDataSet < handle
                 obj.sampleNames{i,1} = reshape(obj.sampleNames{i},...
                     numel(obj.sampleNames{i}),1);
                 obj.nSamples(i,1) = numel(dFolders);
+                obj.sampleIndices{i,1} = 1:obj.nSamples(i,1);
             end
         end
     
@@ -788,7 +800,8 @@ classdef eggChamberDataSet < handle
                 obj.sampleNames{conditionIdx}{sampleIdx},...
                 obj.eggChamberCsvFolderName);
         end
-    
+        
+        %% get the name of the folder holding the eggChamber related segmentation files.
         function eggSegDir = getEggChamberSegDir(obj,conditionIdx,sampleIdx)
             if isempty(obj.conditionNames)
                 disp('condition appears empty.');
@@ -800,6 +813,26 @@ classdef eggChamberDataSet < handle
                 obj.sampleNames{conditionIdx}{sampleIdx},...
                 obj.eggChamberSegFolderName);
         end
+
+        %% get the name of the folder holding the cluster related csv files.
+        function clustDir = getClusterDir(obj,conditionIdx,sampleIdx)
+            if isempty(obj.conditionNames)
+                disp('condition appears empty.');
+                clustDir = [];
+                return ;
+            end
+            clustDir = fullfile(obj.inFolder,...
+                obj.conditionNames{conditionIdx},...
+                obj.sampleNames{conditionIdx}{sampleIdx},...
+                obj.clusterFolderName);
+        end
+
+        %% check whether all files expected from the analysis of the 
+        % eggchamber data are present in the analysis folder
+        function [channelsFound,eggChamberSegFound] = areClusterAnalysisFilesPresent(obj,...
+                                conditionIdx,sampleIdx)
+
+        end
         
         %% check whether all files expected from the analysis of the 
         % eggchamber data are present in the analysis folder
@@ -807,7 +840,7 @@ classdef eggChamberDataSet < handle
                                 conditionIdx,sampleIdx)
     
             % arbitrary max number of channels to check
-            maxChannels = 10;
+            obj.maxChannels = 10;
     
             % check that the analysis dir is present
             analysisDir = obj.getEggChamberAnalysisDir(conditionIdx,sampleIdx);
@@ -865,13 +898,18 @@ classdef eggChamberDataSet < handle
         %% load the tables corresponding to one sample
         % conditionIDx, sampleIdx relative to conditionNames and
         % sampleNames cell arrays. 
+        % the script will load the egg chamber stage info if present,
+        % prompting the user for the channel to use as the egg Chamber ID.
+        % the last channel should be the correct one based on how the 
+        % egg chamber ID is stored by the fiji script.
         % removeNeighbors is a flag - set to 1 to remove variables that contain the word neighbor
         % (these are generated by Fiji but tend to not be useful for our
         % analyses).
         function t = loadEggChamberData(obj,conditionIdx,sampleIdx,removeNeighbors)
             
             % check that data is present
-            [c,eggSegFound] = obj.areEggChamberAnalysisFilesPresent(conditionIdx,sampleIdx);
+            [c,eggSegFound] = obj.areEggChamberAnalysisFilesPresent(...
+                conditionIdx,sampleIdx);
             if c == 0
                 t = [];
                 return
@@ -1360,26 +1398,7 @@ classdef eggChamberDataSet < handle
             baseNameRecognized = '';
             disp(['type of variable ',varName,' was not recognized.']);
         end
-        
-        %% get the list of sample indices for each condition in the table 
-        % outputs sI which is the updated obj.sampleIndices 
-            % (nConditions x 1 cell array where ith entry is a numeric array 1:nSamples(i))
-            % outputs nS which is the updated obj.nSamples (nConditions x 1
-            % numerical array where ith entry is the number of samples in
-            % condition i).
-        function  [sI,nS] = getSamples(obj)
-            % make sure list of conditions is up to date
-            obj.condIndices = obj.getConditions;
-            
-            obj.sampleIndices = cell(numel(obj.condIndices),1);
-            obj.nSamples = zeros(numel(obj.condIndices),1);
-            for i=1:numel(obj.condIndices)
-                obj.sampleIndices{i,1} = unique(obj.t.sampleIdx(obj.t.condIdx == obj.condIndices(i))); 
-                obj.nSamples(i,1) = numel(obj.sampleIndices{i,1});
-            end
-            sI = obj.sampleIndices;
-            nS = obj.nSamples;
-        end
+
         
         %% get the IDs and stages of all egg chambers in the experiment.
         % output:
@@ -1405,10 +1424,6 @@ classdef eggChamberDataSet < handle
                 ecNumNucPerEC = {};
                 return
             end
-
-            % make sure list of conditions and samples is up to date
-            obj.condIndices = obj.getConditions;
-            obj.getSamples;
 
             % loop through the conditions and samples and collect the IDs
             % and stages for each condition/sample.

@@ -71,7 +71,7 @@ classdef eggChamberDataSet < handle
 
     properties (GetAccess = 'private', SetAccess = 'private')
 
-        % ******************** data I/O properties
+        % ******************** eggchamber data I/O properties
 
         %  name of the subfolder where the egg chamber data is stored
         eggChamberCsvFolderName = 'eggChamberCSV';
@@ -113,6 +113,12 @@ classdef eggChamberDataSet < handle
             '_raw';...
             '_raw';...
             '_raw'};
+        
+        % maximum number of channels (used when searching for data files) 
+        maxChannels = 10;
+
+        % ******************** nucleus & cluster I/O properties
+        clusterFolderName = 'nucCSV';
 
         % ******************** Nuclei Table variables properties
 
@@ -218,7 +224,9 @@ classdef eggChamberDataSet < handle
 
         end
         
-        %% load data from all conditions into data table
+        %% load  nuclei data from all conditions into data table 
+        % this will look for the egg chamber stage info if present
+        % (this will not load cluster data).
         function loadAllEggChamberNucleiData(obj)
             warning('off','MATLAB:table:ModifiedAndSavedVarnames'); % mute unneeded warnings
             removeNeighbors = 1; % exclude from the data import the variables with neighbor in their name - we do not use them.
@@ -234,9 +242,36 @@ classdef eggChamberDataSet < handle
             obj.getChannelList;
             obj.getEggChamberIDs;
             disp('done.');
+        end    
+
+        function loadAllClusterData(obj.)
+            warning('off','MATLAB:table:ModifiedAndSavedVarnames'); % mute unneeded warnings
+            removeNeighbors = 1; % exclude from the data import the variables with neighbor in their name - we do not use them.
+            onlyAddNucleiIDsAlreadyInTable = 1;
+
+            % loop through conditions, find nuclei and load corresponding
+            % data
+            for i=1:obj.nConditions
+                for j=1:obj.nSamples(i)
+                    clustDir = getClusterDir(obj,i,j);
+                    
+                    obj.loadNucleoliData(clustDir,removeNeighbors,onlyAddNucleiIDsAlreadyInTable);
+                    obj.loadNucleoPlasmData(clustDir,removeNeighbors);
+                    obj.loadClusterData(clustDir,removeNeighbors);
+                end
+            end
+
         end
-        
-        
+
+
+        function loadNucleoliData(obj,clustDir,removeNeighbors,onlyAddNucleiIDsAlreadyInTable)
+            [nucIDsToLoad,fileNames] = obj.collectNucIDsToLoad('nucleoli',onlyAddNucleiIDsAlreadyInTable);
+        end
+
+        function [nucIDsToLoad,fileNames] = collectNucIDsToLoad(...
+                obj,clustDir,dataToLoad,onlyAddNucleiIDsAlreadyInTable)
+                
+        end
 
         %% remove unlikely to be used variables from Nuclei table
         function streamLineNucleiTable(obj)
@@ -681,7 +716,6 @@ classdef eggChamberDataSet < handle
 
     methods(Access = 'private')
 
-
         %% collect names of samples and conditions folders
         function obj = collectConditionsAndSamples(obj,varargin)
             if ~isempty(varargin)
@@ -769,7 +803,8 @@ classdef eggChamberDataSet < handle
                 obj.sampleNames{conditionIdx}{sampleIdx},...
                 obj.eggChamberCsvFolderName);
         end
-    
+        
+        %% get the name of the folder holding the eggChamber related segmentation files.
         function eggSegDir = getEggChamberSegDir(obj,conditionIdx,sampleIdx)
             if isempty(obj.conditionNames)
                 disp('condition appears empty.');
@@ -781,14 +816,31 @@ classdef eggChamberDataSet < handle
                 obj.sampleNames{conditionIdx}{sampleIdx},...
                 obj.eggChamberSegFolderName);
         end
+
+        %% get the name of the folder holding the cluster related csv files.
+        function clustDir = getClusterDir(obj,conditionIdx,sampleIdx)
+            if isempty(obj.conditionNames)
+                disp('condition appears empty.');
+                clustDir = [];
+                return ;
+            end
+            clustDir = fullfile(obj.inFolder,...
+                obj.conditionNames{conditionIdx},...
+                obj.sampleNames{conditionIdx}{sampleIdx},...
+                obj.clusterFolderName);
+        end
+
+        %% check whether all files expected from the analysis of the 
+        % eggchamber data are present in the analysis folder
+        function [channelsFound,eggChamberSegFound] = areClusterAnalysisFilesPresent(obj,...
+                                conditionIdx,sampleIdx)
+
+        end
         
         %% check whether all files expected from the analysis of the 
         % eggchamber data are present in the analysis folder
         function [channelsFound,eggChamberSegFound] = areEggChamberAnalysisFilesPresent(obj,...
                                 conditionIdx,sampleIdx)
-    
-            % arbitrary max number of channels to check
-            maxChannels = 10;
     
             % check that the analysis dir is present
             analysisDir = obj.getEggChamberAnalysisDir(conditionIdx,sampleIdx);
@@ -828,7 +880,7 @@ classdef eggChamberDataSet < handle
     
             % check that channel analysis files exist
             channelsFound = 0;
-            for i=1:maxChannels
+            for i=1:obj.maxChannels
                 fNames = ...
                     obj.expectedEggChamberAnalysisFilesChannelFiles(i);
                 flag = 1;
@@ -846,13 +898,18 @@ classdef eggChamberDataSet < handle
         %% load the tables corresponding to one sample
         % conditionIDx, sampleIdx relative to conditionNames and
         % sampleNames cell arrays. 
+        % the script will load the egg chamber stage info if present,
+        % prompting the user for the channel to use as the egg Chamber ID.
+        % the last channel should be the correct one based on how the 
+        % egg chamber ID is stored by the fiji script.
         % removeNeighbors is a flag - set to 1 to remove variables that contain the word neighbor
         % (these are generated by Fiji but tend to not be useful for our
         % analyses).
         function t = loadEggChamberData(obj,conditionIdx,sampleIdx,removeNeighbors)
             
             % check that data is present
-            [c,eggSegFound] = obj.areEggChamberAnalysisFilesPresent(conditionIdx,sampleIdx);
+            [c,eggSegFound] = obj.areEggChamberAnalysisFilesPresent(...
+                conditionIdx,sampleIdx);
             if c == 0
                 t = [];
                 return

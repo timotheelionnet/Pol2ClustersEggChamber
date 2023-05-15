@@ -59,6 +59,7 @@ X Make sure that methods to subtract background etc check for pre-exisitng runs 
 - Judging by DAPI, median/wholeImgCorr seems the metric that gives the least CV. Not by a ton vs mean. The omg correction definitely helps though.
 - unclear how EC stage, z impact metrics, need function to plot a vs b to figure that out.
 - also maybe have a volume cutoff and/or DAPI std to be able to exclude poorly segmented nuclei if we think they will be an issue.
+- prepare simple scripts for nucleus only analysis, cluster analysis, +/- egg chamber staging.
 
 *********************************
 ** Fiji bugs
@@ -77,6 +78,31 @@ alpha,
 addMeanAndErrorBar
 Different grouping spacing modes?
 Should I trim the data table as an easier way to process the data plotting?
+
+For the loadClusterData
+Flag to ignore nucIDs that aren't part of the current table.
+Build list of nucIDs for current sample.
+All in nucCSV subfolder (part of the private properties?)
+
+Three subunits
+loadNucleoli
+loadPlasm
+loadClusters
+
+In each: 
+
+collect nucIDs from the folder list based on name + corresponding file names
+Loop through nucIDs, load one that are contained in the list.
+Nucleoli/plasm. Add all columns from geom (nuc37_nucleoliGeom) and channels data to fullT and t. Add prefix nucleoli or plasm
+Add all columns to t. 
+Streamline table t.
+
+Load clusters
+
+
+
+
+
 
 
 
