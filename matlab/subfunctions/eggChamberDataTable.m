@@ -147,11 +147,11 @@ classdef eggChamberDataTable < handle
         freeSpaceBetweenSamples = 0.2;
 
         % name of variables to remove in streamlined table
-        geomVarsToRemove = {'SurfaceArea','MeanBreadth', 'Sphericity', 'EulerNumber', ...
+        geomVarsToRemoveInStreamLinedNucleiTable = {'SurfaceArea','MeanBreadth', 'Sphericity', 'EulerNumber', ...
         'Box_X_Min', 'Box_X_Max', 'Box_Y_Min', 'Box_Y_Max', ...
         'Box_Z_Min', 'Box_Z_Max', 'Centroid_X', 'Centroid_Y', 'Centroid_Z', ...
         'Dist'};
-        channelVarsToRemove = {'Mode', 'Skewness', 'Kurtosis','StdDev','Volume','NumberOfVoxels'};
+        channelVarsToRemoveInStreamLinedNucleiTable = {'Mode', 'Skewness', 'Kurtosis','StdDev','Volume','NumberOfVoxels'};
     end
 
     methods (Access = 'public')
@@ -177,8 +177,8 @@ classdef eggChamberDataTable < handle
         end
 
         %% remove unlikely to be used variables
-        function streamLineTable(obj)
-            disp('Streamlining table...');
+        function streamLineNucleiTable(obj)
+            disp('Streamlining Nuclei table...');
             [c,nChannels] = obj.getChannelList;
             
             if ismember('eggChamberID',obj.t.Properties.VariableNames) ...
@@ -191,9 +191,9 @@ classdef eggChamberDataTable < handle
 
             varsToRemoveList = {};
             for i=1:numel(obj.prefixList)
-                for n=1:numel(obj.geomVarsToRemove)
+                for n=1:numel(obj.geomVarsToRemoveInStreamLinedNucleiTable)
                     newVar = buildVarName(obj,...
-                        obj.prefixList{i},0,obj.geomVarsToRemove{n},'','geom');
+                        obj.prefixList{i},0,obj.geomVarsToRemoveInStreamLinedNucleiTable{n},'','geom');
                     varsToRemoveList = [varsToRemoveList; newVar];
                 end
 
@@ -206,7 +206,7 @@ classdef eggChamberDataTable < handle
                                 && c(j) == obj.eggChamberSegChannel
                             curVarList = obj.channelVarsBaseNameList;
                         else
-                            curVarList = obj.channelVarsToRemove;
+                            curVarList = obj.channelVarsToRemoveInStreamLinedNucleiTable;
                         end
 
                         for n=1:numel(curVarList)
@@ -226,10 +226,10 @@ classdef eggChamberDataTable < handle
             obj.t = removevars(obj.t,varsToRemoveList);
 
             % reorder variables
-            obj.reOrderVariables();
+            obj.reOrderNucleiVariables();
 
             % sort rows
-            obj.sortRowsByEggChamber();
+            obj.sortNucleiRowsByEggChamber();
 
             disp('Done.');
         end
@@ -289,7 +289,14 @@ classdef eggChamberDataTable < handle
                             ['_',obj.backgroundIntensityPrefixList{j},'Corr']);
 
                         newVar = obj.t.(curVarList{k}) - obj.t.(varToSubtract{i,j});
-                        t2 = addvars(t2,newVar,'NewVariableNames',newVarName);
+
+                        % overwrite background corrected variable if it already exists,
+                        % create a new var otherwise
+                        if ismember(newVarName,obj.t.Properties.VariableNames)
+                            t2.(newVarName) = newVar;
+                        else
+                            t2 = addvars(t2,newVar,'NewVariableNames',newVarName);
+                        end
                     end
                 end
             end
@@ -326,7 +333,7 @@ classdef eggChamberDataTable < handle
         end
         
         %% scatter plot a metric by sample
-        function scatterPlotMetricBySample(obj,prefix,channel,baseName,suffix)
+        function scatterPlotNucleiMetricBySample(obj,prefix,channel,baseName,suffix)
 
             varName = obj.buildVarName(prefix,channel,baseName,suffix,'geom');
             
@@ -402,7 +409,7 @@ classdef eggChamberDataTable < handle
 
         %% scatter plot a metric by egg chamber
         % prefix: any of 'nuc', 
-        function scatterPlotMetricByEggChamber(obj,prefix,channel,baseName,suffix,eggChamberStagesToInclude)
+        function scatterPlotNucleiMetricByEggChamber(obj,prefix,channel,baseName,suffix,eggChamberStagesToInclude)
             % prefix: any allowable prefix which marks the compartment the metric is calculated on e.g. 'nuc', or 'clust'
             % channel: intensity channel , e.g. 1. 
                 % (Value is ignored if the metric is a geometry feature 
@@ -625,7 +632,7 @@ classdef eggChamberDataTable < handle
 
     methods(Access = 'private')
         %%
-        function reOrderVariables(obj)
+        function reOrderNucleiVariables(obj)
             % order should go:
             % input file name
             % condIdx
@@ -657,7 +664,7 @@ classdef eggChamberDataTable < handle
         end
 
         %%
-        function sortRowsByEggChamber(obj)
+        function sortNucleiRowsByEggChamber(obj)
             if ismember('eggChamberID',obj.t.Properties.VariableNames)
                 obj.t = sortrows(obj.t,{'condIdx','sampleIdx','eggChamberID','nucLabel'});
             else

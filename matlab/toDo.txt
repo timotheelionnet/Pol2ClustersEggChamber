@@ -31,7 +31,7 @@ x Same for plotting - should we make function by nucleus or by cluster.
 
 *********************************
 ** robustness
-- rename existing methods so it's unambiguous they apply to nuclei metrics.
+X rename existing methods so it's unambiguous they apply to nuclei metrics.
 - Make sure all operations are performed on both t and fullT to maintain consistency.
 - Make sure that methods to subtract background etc check for pre-exisitng runs (do not subtract twice). Also that they can be run at any point, e.g. before or after the plasmInt and the nucleoliInt have been added.
 - make table construction and methods modular whether or not one wants to quantify clusters.
