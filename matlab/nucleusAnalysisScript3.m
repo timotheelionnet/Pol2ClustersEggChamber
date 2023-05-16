@@ -24,7 +24,13 @@ ec.loadAllEggChamberNucleiData;
     % sorting the columns so that the sample/eggchamber/nucleus info is in
     % the first columns
     % ordering the rows by eggChamberID.
-ec.streamLineNucleiTable;
+ec.streamLineTable('nuc');
+
+%% load cluster data
+ec.loadAllClusterData();
+
+%%
+ec.streamLineTable('clust');
 
 %% generate summary statistics per egg chamber
 sumT = ec.generateEggChamberSummaryTable();

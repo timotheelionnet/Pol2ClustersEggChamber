@@ -15,14 +15,14 @@ In generateEggChamberSummaryTable
 
 - Fiji: add log file with time stamps and list of parameters used for each of the macros. 
 
+- Form Feiyue: A few minor notes: 1. would be great if you can make it workable with .nd2 but may not be necessary since I would need to run the batch.detrended script first any way, I believe the output of that is .tif? so if the script is a step 2, it may be fine as it is; 2. Gotta make sure that the egg chambers are absolutely not on top of each other (which is true to most images but there could be exceptions); 3. I wonder if there's a way to prevent the script from proceeding when no ROI is added - in the majority of cases, I will likely only select one egg chamber per image. If I somehow forgot to hit "CMD+t" for one image in the middle of the selection, I might need to start all over?
+
 *********************************
 ** Architecture questions
 
 x nucleolus segmentation and background. What is the current status? Check how to integrate that with the nuclei table.
 
 - how to save analyses w different parameters w/o overwriting?
-
-- general thought on plotting functions: we will likely need to easily exclude samples/egg chambers if wonky, egg chamber stages etc; options what feature to color code, what colors to use. Probably best to have name pair arguments structure of optional things in order to use the existing Matlab structure.
 
 x Cluster metrics: Figure out when adding clusters whether we want a second table for the cluster stats and then integrate mean cluster stats to the nuclei table.
 This will be needed if we want background correction for the clusters.
@@ -34,8 +34,10 @@ x Same for plotting - should we make function by nucleus or by cluster.
 X rename existing methods so it's unambiguous they apply to nuclei metrics.
 X Make sure all operations are performed on both t and fullT to maintain consistency.
 X Make sure that methods to subtract background etc check for pre-exisitng runs (do not subtract twice). Also that they can be run at any point, e.g. before or after the plasmInt and the nucleoliInt have been added.
-- make table construction and methods modular whether or not one wants to quantify clusters.
-- what if nuclei #s don't match between nucleus analysis and cluster analysis?
+X make table construction and methods modular whether or not one wants to quantify clusters.
+X what if nuclei #s don't match between nucleus analysis and cluster analysis? [just loading data from nuclei that are in the table already]
+- check manually that nuclei/cluster IDs match up
+- some nuclei ordering seems alphabetical. Check it is kosher/ Re-order
 
 *********************************
 ** Documentation:
@@ -49,10 +51,14 @@ X Make sure that methods to subtract background etc check for pre-exisitng runs 
 - plot metric a vs metric b. Use for z, egg chamber stage, sample.
 - normalize metrics by z? By DAPI signal?
 - add a checksum kind of function? E.g. plasmCorr vs subtraction of the plasm Int. (Are they supposed to be equal? Or is plasmCorr computed plane by plane?)
-- loadNucleoliInt. Collect data from all files and append columns to t and fullT. Ignore neighbors, NumberOfVoxels, maybe Volume as well, load from the geometry file instead.
-- LoadPlasmInt. Collect all files and move to t and fullT. Ignore neighbors, NumberOfVoxels, maybe Volume as well, load from the geometry file instead. 
+X loadNucleoliInt. Collect data from all files and append columns to t and fullT. Ignore neighbors, NumberOfVoxels, maybe Volume as well, load from the geometry file instead.
+X LoadPlasmInt. Collect all files and move to t and fullT. Ignore neighbors, NumberOfVoxels, maybe Volume as well, load from the geometry file instead. 
 - Method to correct nucleoli and plasmInt for wholeImgInt? Maybe include that in existing function.
-- loadCluster. Generate new table. Generate a method to easily replicate nucleus metric to the format of the cluster table (i.e. replicate each nucleus metric as many times as there are clusters in the nucleus, for dimensions to match).
+X loadCluster. Generate new table. Generate a method to easily replicate nucleus metric to the format of the cluster table (i.e. replicate each nucleus metric as many times as there are clusters in the nucleus, for dimensions to match).
+X load cluster geometry (sort of, just volume)
+X streamline cluster table
+- generate summary stats of clusters and add to nuclei table
+- update the background correction method to apply to everything.
 
 *********************************
 ** notes on analysis
@@ -64,7 +70,7 @@ X Make sure that methods to subtract background etc check for pre-exisitng runs 
 *********************************
 ** Fiji bugs
 x nucleoliInt seems empty
-- clusters quant only saved for nuc1???
+X clusters quant only saved for nuc1???
 
 *********************************
 For the scatter by eggChamber function:
@@ -78,49 +84,6 @@ alpha,
 addMeanAndErrorBar
 Different grouping spacing modes?
 Should I trim the data table as an easier way to process the data plotting?
-
-For the loadClusterData
-Flag to ignore nucIDs that aren't part of the current table.
-Build list of nucIDs for current sample.
-All in nucCSV subfolder (part of the private properties?)
-
-Three subunits
-loadNucleoli
-loadPlasm
-loadClusters
-
-In each: 
-
-collect nucIDs from the folder list based on name + corresponding file names
-Loop through nucIDs, load one that are contained in the list.
-Nucleoli/plasm. Add all columns from geom (nuc37_nucleoliGeom) and channels data to fullT and t. Add prefix nucleoli or plasm
-Add all columns to t. 
-Streamline table t.
-
-Load clusters
-
-
-Nucleoli
-
-C7_nuc11_nucleoliInt.csv 
-nuc15_nucleoliGeom.csv
-
-Geom values
-
-No files found -> varsFound = 0, move on
-All files found -> varsFound = 1, move on
-Partial files found -> varsFound = ?
-If missing all color channels
-If missing a color channel, use other channels as indicators of the data variables.
-If missing the geometry file
-
-List of vars loaded. 
-If new vars, append vars to the list. Join tables with function.
-If missing vars, Join table w function. 
-
-Loop through expected files for each metric
-If present, load, update variable names, concatenate horizontally into table.
-If absent, skip.
 
 
 

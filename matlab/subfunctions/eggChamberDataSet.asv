@@ -3,12 +3,15 @@ classdef eggChamberDataSet < handle
 
     properties (GetAccess = 'public', SetAccess = 'public')
         
-        % table holding the actual data
+        % table holding the data relative to each nucleus
         nucT = table();
 
         % exhaustive dataset before removing useless variables and metrics
         % left in case in-depth QC is needed.
-        fullNucT = table();
+        nucFullT = table();
+
+        % table holding the  data relative to individual clusters
+        clustT = table();
         
         % list of channels, e.g. [1,2,3,4]
         channelList = [];
@@ -122,7 +125,7 @@ classdef eggChamberDataSet < handle
         clusterFolderName = 'nucCSV';
         
         % file names (of name base in the case of channel dependent file names)
-        clusterWiseFileNames = {'plasmGeom.csv';...
+        clusterWiseFileNames = {'_plasmGeom.csv';...
             '_nucleoliGeom.csv';...
             '_plasmInt.csv';...
             '_nucleoliInt.csv';...
@@ -154,6 +157,8 @@ classdef eggChamberDataSet < handle
         nucPrefix = 'nuc';
         wholeImgPrefix = 'wholeImg';
         eggChamberPrefix = 'eggChamber';
+        nucleoliPrefix = 'nucleoli';
+        plasmPrefix = 'plasm';
         clusterPrefix = 'clust';
         prefixList;
     
@@ -164,7 +169,12 @@ classdef eggChamberDataSet < handle
         'Box_X_Min', 'Box_X_Max', 'Box_Y_Min', 'Box_Y_Max', ...
         'Box_Z_Min', 'Box_Z_Max', 'Centroid_X', 'Centroid_Y', 'Centroid_Z', ...
         'Dist',...
-        'eggChamberID','eggChamberStage'}; 
+        'eggChamberID','eggChamberStage',...
+        'Elli_Center_X','Elli_Center_Y','Elli_Center_Z',...
+        'InscrBall_Center_X','InscrBall_Center_Y','InscrBall_Center_Z','InscrBall_Radius'...
+        'Elli_R1','Elli_R2','Elli_R3','Elli_R1_R2','Elli_R2_R3','Elli_R1_R3',...
+        'Elli_Azim','Elli_Elev','Elli_Roll',...
+        'VoxelCount'}; 
         % make sure that no entry in geomVarsBaseNameList is also part of the name of one of the entries in channelVarsBaseNameList
     
         % list of the variable basenames that pertain to an intensity metric
@@ -174,11 +184,16 @@ classdef eggChamberDataSet < handle
         % annoyingly
 
         % name of variables to remove in streamlined table
-        geomVarsToRemoveInStreamLinedNucleiTable = {'SurfaceArea','MeanBreadth', 'Sphericity', 'EulerNumber', ...
+        geomVarsToRemoveInStreamLinedTable = {'SurfaceArea','MeanBreadth', 'Sphericity', 'EulerNumber', ...
         'Box_X_Min', 'Box_X_Max', 'Box_Y_Min', 'Box_Y_Max', ...
         'Box_Z_Min', 'Box_Z_Max', 'Centroid_X', 'Centroid_Y', 'Centroid_Z', ...
-        'Dist'};
-        channelVarsToRemoveInStreamLinedNucleiTable = {'Mode', 'Skewness', 'Kurtosis','StdDev','Volume','NumberOfVoxels'};
+        'Dist',...
+        'Elli_Center_X','Elli_Center_Y','Elli_Center_Z',...
+        'InscrBall_Center_X','InscrBall_Center_Y','InscrBall_Center_Z','InscrBall_Radius'...
+        'Elli_R1','Elli_R2','Elli_R3','Elli_R1_R2','Elli_R2_R3','Elli_R1_R3',...
+        'Elli_Azim','Elli_Elev','Elli_Roll',...
+        'VoxelCount'};
+        channelVarsToRemoveInStreamLinedTable = {'Min','Max','Mode', 'Skewness', 'Kurtosis','Volume','NumberOfVoxels'};
     
         % suffixes
         % in an intensity variable name, the suffix indicates the processing applied to
@@ -242,7 +257,7 @@ classdef eggChamberDataSet < handle
             obj.inFolder = inputFolder;
             obj.collectConditionsAndSamples;
 
-            obj.prefixList = {obj.nucPrefix,obj.wholeImgPrefix,obj.eggChamberPrefix,obj.clusterPrefix};
+            obj.prefixList = {obj.nucPrefix,obj.wholeImgPrefix,obj.eggChamberPrefix,obj.clusterPrefix,obj.nucleoliPrefix,obj.plasmPrefix};
             obj.suffixList = {obj.rawSuffix,obj.plasmCorrSuffix,obj.eggChamberCorrSuffix,obj.wholeImgCorrSuffix};
             obj.backgroundIntensityPrefixList = {obj.wholeImgPrefix,obj.eggChamberPrefix};
 
@@ -262,18 +277,22 @@ classdef eggChamberDataSet < handle
                     obj.nucT = obj.combineEcTables(obj.nucT, loadEggChamberData(obj,i,j,removeNeighbors));
                 end
             end
-            obj.fullNucT = obj.nucT; % fullNucT backup copy of the exhaustive imported data table
+            obj.nucFullT = obj.nucT; % fullNucT backup copy of the exhaustive imported data table
             obj.getChannelList;
             obj.getEggChamberIDs;
             disp('done.');
         end    
 
+        %% load cluster wise data
         function loadAllClusterData(obj)
             warning('off','MATLAB:table:ModifiedAndSavedVarnames'); % mute unneeded warnings
             removeNeighbors = 1; % exclude from the data import the variables with neighbor in their name - we do not use them.
             
             % loop through conditions, find nuclei and load corresponding
             % data
+            datasetNucTable = table();
+            datasetNucFullTable = table();
+            datasetClustTable = table();
             for i=1:obj.nConditions
                 for j=1:obj.nSamples(i)
                     
@@ -284,88 +303,237 @@ classdef eggChamberDataSet < handle
                     % loop through nuclei and load the data
                     sampleNucTable = table();
                     sampleClustTable = table();
+                    sampleNucFullTable = table();
 
                     for k=1:numel(nucIDList)
                         disp(['Loading data from condition ',obj.conditionNames{i},...
                         ', sample ',obj.sampleNames{i}{j},...
                         ', nucleus ',num2str(nucIDList(k)),' ...']);
 
-                        % generate nuc & cluster table for current nucleus that contain all the data that is
-                        % available.
-                        [curNucT,curClustT] = obj.loadSampleClustTables(i,j,k);
+                        % generate nuc & cluster table for current nucleus 
+                        % that contain all the data that is available.
+                        [curNucT,curClustT] = obj.loadSampleClustTables(...
+                            i,j,nucIDList(k),removeNeighbors);
+
+                        % apend nucleus-wide info to the left of the cluster table
+                        if ~isempty(curClustT)
+                            curClustT = ...
+                                obj.appendNucVarsToClustTable(curClustT,i,j,nucIDList(k)); 
+                        end
 
                         % append each of the newly created tables to current sample nuc and clust tables
-
+                        sampleNucTable = obj.combineEcTables(sampleNucTable, curNucT);
+                        sampleNucFullTable = obj.combineEcTables(sampleNucFullTable, curNucT);
+                        sampleClustTable = obj.combineEcTables(sampleClustTable, curClustT);
                     end
+
                     % join table holding new nuc variables with existing nuc table for that sample
                     % using the nuclei labels as keys
+                    sampleNucTable = join(obj.nucT(...
+                        obj.nucT.condIdx == i & obj.nucT.sampleIdx == j,:),...
+                        sampleNucTable,'Keys','nucLabel');
 
+                    sampleNucFullTable = join(obj.nucFullT(...
+                        obj.nucFullT.condIdx == i & obj.nucFullT.sampleIdx == j,:),...
+                        sampleNucFullTable,'Keys','nucLabel');
                         
-                    % append sample nuc table to dataset nuc table 
-
-                    % append sample clust table to dataset clust table
-
+                    % append sample tables to dataset tables 
+                    datasetNucTable = obj.combineEcTables(datasetNucTable,sampleNucTable);
+                    datasetNucFullTable = obj.combineEcTables(datasetNucFullTable,sampleNucFullTable);
+                    datasetClustTable = obj.combineEcTables(datasetClustTable,sampleClustTable);
                 end
             end
-            % update object nucleus tables nucT, fullT
 
-            % update object cluster tables clustT
+            % update object tables nucT, fullT, clustT 
+            obj.nucT = datasetNucTable;
+            obj.nucFullT = datasetNucFullTable;
+            obj.clustT = datasetClustTable;
 
+            % streamline tables
+            obj.streamLineTable('nuc');
+            obj.streamLineTable('clust');
+            disp('Done.');
         end
 
-        function [curNucT,curClustT] = loadSampleClustTables(obj,condIdx,sampleIdx,nucLabel)
+        %% add nucleus and egg chamber ID to the left of the cluster table
+        function clustT = appendNucVarsToClustTable(obj,clustT,condIdx,sampleIdx,nucLabel)
+            % nucleus variables to be appended to the left of the cluster
+            % table to ease linking clusters to nuclei.
+            nucVarsToIncludeInClustTable = {'nucInputFileName','condIdx',...
+                'sampleIdx','eggChamberID','eggChamberStage','nucLabel'};
+
+            n = size(clustT,1);
+            % looping backwards because we are adding variables to the left of the table
+            % this way at the end the order of the added variables in the
+            % final table reflects the order in nucVarsToIncludeInClustTable
+            for i=numel(nucVarsToIncludeInClustTable):-1:1 
+                if ismember(nucVarsToIncludeInClustTable{i},obj.nucT.Properties.VariableNames)
+                    curT = repmat(...
+                        obj.nucT.(nucVarsToIncludeInClustTable{i})(...
+                        obj.nucT.condIdx == condIdx ...
+                        & obj.nucT.sampleIdx == sampleIdx ...
+                        & obj.nucT.nucLabel == nucLabel),...
+                        n,1);
+                    clustT = addvars(clustT,curT,...
+                        'NewVariableNames',nucVarsToIncludeInClustTable(i),...
+                        'Before',clustT.Properties.VariableNames{1});
+                end
+            end
+        end
+
+        %% remove variables containing the word neighbors in them
+        function tOut = removeNeighborVarsFromTable(~,tIn)
+            idx = cellfun(@contains,tIn.Properties.VariableNames,...
+                    repmat( {'Neighbors'},size(tIn.Properties.VariableNames) ),...
+                    'UniformOutput',0);
+            idx = cell2mat(idx);
+            tOut = tIn(:,~idx);
+        end
+
+        %% load cluster data for a given nucleus
+        % output are two tables, one which is nucleus metrics (nucleoplasm and nucleoli metrics)
+        % one which is cluster metrics.
+        function [curNucT,curClustT] = loadSampleClustTables(obj,...
+                condIdx,sampleIdx,nucLabel,removeNeighbors)
+
+            % where the data is
             clustDir = obj.getClusterDir(condIdx,sampleIdx);
             
-%             clusterWiseFileNames = {'plasmGeom.csv';...
-%             '_nucleoliGeom.csv';...
-%             '_plasmInt.csv';...
-%             '_nucleoliInt.csv';...
-%             '_clustInt_raw.csv';...
-%             '_clustInt_plasmCorr.csv'};
-% 
-%             % whether each file name of the previous list is channel dependent or not
-%             clusterWiseChannelDependent = logical([0;0;1;1;1;1;]);
-%     
-%             % whether each file name of the previous list contains a single row (whole image data) or
-%             % one row per nucleus
-%             clusterWiseSingleRow = logical([1;1;1;1;0;0;]);
-%     
-%             % prefix to add in front of each variable name when loading the
-%             % corresponding table
-%             clusterWisePrefix ={'plasm';'nucleoli';'plasm';'nucleoli';'clust';'clust';};
-%     
-%             % suffix to add at the end of each variable name when loading the
-%             % corresponding table
-%             clusterWiseSuffix ={'';'';'_raw';'_raw';'_raw';'_plasmCorr';};
             curNucT = table();
             curClustT = table();
             for i=1:numel(obj.clusterWiseFileNames)
-                curFileName = fullfile(clustDir,...
-                    ['nuc',nucLabel,obj.clusterWiseFileNames{i}]);
-                
-                % load table
-                if exist(curFileName,"file")
-                    curT = readtable(curFileName);
-                else
-                    disp(['Could not find file ',curFileName,' data will be missing ...']);
-                    curT = table();
-                end
-                
-                % add prefix and suffix to variable name
-                for k=1:numel(curT.Properties.VariableNames)
-                    if ~strcmp(curT.Properties.VariableNames{k},'Label')
-                        curT.Properties.VariableNames{k} = ...
-                            [obj.eggChamberWisePrefix{i},...
-                            'C',num2str(j),'_',...
-                            curT.Properties.VariableNames{k},...
-                            obj.eggChamberWiseSuffix{i}];
-                    end
-                end
-
+                if ~obj.clusterWiseChannelDependent(i)
+                    curFileName = fullfile(clustDir,...
+                        ['nuc',num2str(nucLabel),obj.clusterWiseFileNames{i}]);
                     
+                    % load table
+                    if exist(curFileName,"file")
+                        curT = readtable(curFileName);
+                    else
+                        disp(['Could not find file ',curFileName,...
+                            ' data will be missing ...']);
+                        curT = table();
+                    end
+
+                    % remove variables that contain the word neighbor
+                    if removeNeighbors
+                        curT = obj.removeNeighborVarsFromTable(curT);
+                    end
+                    
+                    % add prefix and suffix to variable name
+                    for k=1:numel(curT.Properties.VariableNames)
+                        if ~strcmp(curT.Properties.VariableNames{k},'Label')
+                            curT.Properties.VariableNames{k} = ...
+                                [obj.clusterWisePrefix{i},...
+                                curT.Properties.VariableNames{k},...
+                                obj.clusterWiseSuffix{i}];
+                        end
+                    end
+
+                    % make sure the label of the nucleus table is the
+                    % nucleus ID (it can be 255 in some cases)
+                    if obj.clusterWiseSingleRow(i)
+                        curT.Label = nucLabel;
+                    end
+                    
+                    % join loaded table to sample-wise table
+                    if ~isempty(curT)
+                        if obj.clusterWiseSingleRow(i)
+                            if isempty(curNucT)
+                                curNucT = curT;
+                            else
+                                curNucT = join(curNucT,curT,'Keys','Label');
+                            end
+                        else
+                            if isempty(curClustT)
+                                curClustT = curT;
+                            else
+                                curClustT = join(curClustT,curT,'Keys','Label');
+                            end
+                        end
+                    end
+
+                else
+                    for j=1:numel(obj.channelList)
+                        curFileName = fullfile(clustDir,...
+                            ['C',num2str(obj.channelList(j)),'_nuc',num2str(nucLabel),...
+                            obj.clusterWiseFileNames{i}]);
+                        %disp(curFileName);
+
+                        % load table
+                        if exist(curFileName,"file")
+                            curT = readtable(curFileName);
+                        else
+                            disp(['Could not find file ',curFileName,...
+                                ' data will be missing ...']);
+                            curT = table();
+                        end
+
+                        % remove variables that contain the word neighbor
+                        if removeNeighbors
+                            curT = obj.removeNeighborVarsFromTable(curT);
+                        end
+                        
+                        % add prefix and suffix to variable name
+                        for k=1:numel(curT.Properties.VariableNames)
+                            if ~strcmp(curT.Properties.VariableNames{k},'Label')
+                                curT.Properties.VariableNames{k} = ...
+                                    [obj.clusterWisePrefix{i},...
+                                    'C',num2str(obj.channelList(j)),'_',...
+                                    curT.Properties.VariableNames{k},...
+                                    obj.clusterWiseSuffix{i}];
+                            end
+                        end
+
+                        % make sure the label of the nucleus table is the
+                        % nucleus ID (it can be 255 in some cases)
+                        if obj.clusterWiseSingleRow(i)
+                            curT.Label = nucLabel;
+                        end
+
+                        % join loaded table to sample-wise table
+                        if ~isempty(curT)
+                            if obj.clusterWiseSingleRow(i)
+                                if isempty(curNucT)
+                                    curNucT = curT;
+                                else
+                                    curNucT = join(curNucT,curT,'Keys','Label');
+                                end
+                            else
+                                if isempty(curClustT)
+                                    curClustT = curT;
+                                else
+                                    curClustT = join(curClustT,curT,'Keys','Label');
+                                end
+                            end
+                        end
+                    end
+                end    
+            end 
+            
+            % rename Label variable to nucLabel/clustLabel
+            if ~isempty(curNucT)
+                curNucT =renamevars(curNucT,{'Label'},{'nucLabel'});
+            end
+            if ~isempty(curClustT)
+                curClustT =renamevars(curClustT,{'Label'},{'clustLabel'});
+            end
+
+            % in cluster table, copy one of the channel volume variables to
+            % a Volume variable 
+            % (this avoids all the volume info getting erased when streamlining the table)
+            idx = cellfun(@contains,curClustT.Properties.VariableNames,...
+                    repmat( {'Volume'},size(curClustT.Properties.VariableNames) ),...
+                    'UniformOutput',0);
+            idx = cell2mat(idx);
+            if sum(idx)>=1
+                idx = find(idx,1);
+                curClustT = addvars(curClustT,..curClustT.(curClustT.Properties.VariableNames{idx}),...
+                    'NewVariableNames',{'Volume'});
             end
             
-                    
+
+
         end
         
         %% using nuclei table, collect list of nuclei labels expected in current sample
@@ -376,12 +544,19 @@ classdef eggChamberDataSet < handle
         end
 
         %% remove unlikely to be used variables from Nuclei table
-        function streamLineNucleiTable(obj)
-            disp('Streamlining Nuclei table...');
+        % tableType should be either 'nuc' or 'clust'
+        function streamLineTable(obj,tableType)
+            disp(['Streamlining ',tableType,' table...']);
             [c,nChannels] = obj.getChannelList;
-            
-            if ismember('eggChamberID',obj.nucT.Properties.VariableNames) ...
-                    && ismember('eggChamberStage',obj.nucT.Properties.VariableNames) ...
+            switch tableType
+                case 'nuc'
+                    t = obj.nucT;
+                case 'clust'
+                    t = obj.clustT;
+            end
+
+            if ismember('eggChamberID',t.Properties.VariableNames) ...
+                    && ismember('eggChamberStage',t.Properties.VariableNames) ...
                     && obj.eggChamberSegChannel ~= 0
                 removeEggChamberSegChannelVars = 1;
             else
@@ -391,9 +566,9 @@ classdef eggChamberDataSet < handle
             % compile list of variables to remove
             varsToRemoveList = {};
             for i=1:numel(obj.prefixList)
-                for n=1:numel(obj.geomVarsToRemoveInStreamLinedNucleiTable)
-                    newVar = buildVarName(obj,...
-                        obj.prefixList{i},0,obj.geomVarsToRemoveInStreamLinedNucleiTable{n},'','geom');
+                for n=1:numel(obj.geomVarsToRemoveInStreamLinedTable)
+                    newVar = buildVarName(obj,obj.prefixList{i},0,...
+                        obj.geomVarsToRemoveInStreamLinedTable{n},'','geom');
                     varsToRemoveList = [varsToRemoveList; newVar];
                 end
 
@@ -406,12 +581,11 @@ classdef eggChamberDataSet < handle
                                 && c(j) == obj.eggChamberSegChannel
                             curVarList = obj.channelVarsBaseNameList;
                         else
-                            curVarList = obj.channelVarsToRemoveInStreamLinedNucleiTable;
+                            curVarList = obj.channelVarsToRemoveInStreamLinedTable;
                         end
 
                         for n=1:numel(curVarList)
-                            newVar = buildVarName(obj,...
-                                obj.prefixList{i},c(j),...
+                            newVar = obj.buildVarName(obj.prefixList{i},c(j),...
                                 curVarList{n},obj.suffixList{k},'channel');
                             varsToRemoveList = [varsToRemoveList; newVar];
                         end
@@ -421,9 +595,16 @@ classdef eggChamberDataSet < handle
 
             % remove variable names that arent present
             varsToRemoveList = varsToRemoveList(...
-                ismember(varsToRemoveList,obj.nucT.Properties.VariableNames));
+                ismember(varsToRemoveList,t.Properties.VariableNames));
 
-            obj.nucT = removevars(obj.nucT,varsToRemoveList);
+            t = removevars(t,varsToRemoveList);
+            
+            switch tableType
+                case 'nuc'
+                    obj.nucT = t;
+                case 'clust'
+                    obj.clustT = t;
+            end
 
             % reorder variables
             obj.reOrderNucleiVariables();
@@ -438,7 +619,7 @@ classdef eggChamberDataSet < handle
          function backgroundCorrectNucIntensity(obj)
             
             obj.nucT = bgCorrTable(obj.nucT);
-            obj.fullNucT = bgCorrTable(obj.fullNucT);
+            obj.nucFullT = bgCorrTable(obj.nucFullT);
 
             function tOut = bgCorrTable(tIn)
                 tOut = tIn;
@@ -1161,10 +1342,7 @@ classdef eggChamberDataSet < handle
     
             % remove variables that contain the word neighbor
             if removeNeighbors
-                idx = cellfun(@contains,t.Properties.VariableNames,...
-                    repmat( {'Neighbors'},size(t.Properties.VariableNames) ),'UniformOutput',0);
-                idx = cell2mat(idx);
-                t = t(:,~idx);
+                t = obj.removeNeighborVarsFromTable(t);
             end
         end
         
@@ -1343,6 +1521,11 @@ classdef eggChamberDataSet < handle
                     channelIndices = [channelIndices,c];
                 end
             end
+            channelIndices = channelIndices(~isnan(channelIndices));
+            if obj.eggChamberSegChannel ~=0
+                channelIndices = ...
+                    union(channelIndices,obj.eggChamberSegChannel);
+            end
             channelIndices = unique(channelIndices);
             nChannels = numel(channelIndices);
 
@@ -1430,24 +1613,24 @@ classdef eggChamberDataSet < handle
                     varName = baseName;
                 case 'geom'
                     if ~ismember(prefix,obj.prefixList)
-                        print('could not build variable name, prefix ',prefix,' not recognized');
+                        disp(['could not build variable name, prefix ',prefix,' not recognized']);
                         return
                     else
                         varName = [prefix,baseName];
                     end
                 case 'channel'
                     if ~ismember(prefix,obj.prefixList)
-                        print('could not build variable name, prefix ',prefix,' not recognized');
+                        disp(['could not build variable name, prefix ',prefix,' not recognized']);
                         return
                     else
                         obj.channelList = obj.getChannelList;
                         if ~ismember(channel,obj.channelList)
-                            print('could not build variable name, channel ',num2str(channel),' not recognized');
+                            disp(['could not build variable name, channel ',num2str(channel),' not recognized']);
                             return
                         end
     
                         if ~ismember(suffix,obj.suffixList)
-                            print('could not build variable name, suffix ',suffix,' not recognized');
+                            disp(['could not build variable name, suffix ',suffix,' not recognized']);
                             return
                         end
     
