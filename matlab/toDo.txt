@@ -100,6 +100,32 @@ Streamline table t.
 Load clusters
 
 
+Nucleoli
+
+C7_nuc11_nucleoliInt.csv 
+nuc15_nucleoliGeom.csv
+
+Geom values
+
+No files found -> varsFound = 0, move on
+All files found -> varsFound = 1, move on
+Partial files found -> varsFound = ?
+If missing all color channels
+If missing a color channel, use other channels as indicators of the data variables.
+If missing the geometry file
+
+List of vars loaded. 
+If new vars, append vars to the list. Join tables with function.
+If missing vars, Join table w function. 
+
+Loop through expected files for each metric
+If present, load, update variable names, concatenate horizontally into table.
+If absent, skip.
+
+
+
+
+
 
 
 
