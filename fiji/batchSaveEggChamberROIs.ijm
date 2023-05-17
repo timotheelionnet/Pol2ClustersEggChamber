@@ -129,8 +129,8 @@ macro "batchSaveEggChamberROIs"{
 		}else{
 			if(warningCleared == 0){
 				waitForUser("Analysis Folder already exists!", 
-					"Warning: this analysis will erase all prior analysis\n"
-					+"Click OK to proceed");
+					"Warning: this analysis will erase ALL prior egg chamber masks for the entire dataset\n"
+					+"Click OK to proceed, CANCEL ortherwise");
 				warningCleared = 1;
 			}
 			deleteList = getFileList(saveDir);
