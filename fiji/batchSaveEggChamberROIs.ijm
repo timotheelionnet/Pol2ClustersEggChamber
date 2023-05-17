@@ -66,7 +66,7 @@ macro "batchSaveEggChamberROIs"{
 	ctr = 0;
 	print(" ");
 	for (i = 0; i < lengthOf(dirList); i++) {
-	    if (endsWith(dirList[i], ".tif")) { 
+	    if (endsWith(dirList[i], ".tif") || endsWith(dirList[i], ".nd2")) { 
 	        fileList[ctr] = dirList[i];
 	        outSubDirList[ctr] = "";
 	        print("fname: "+fileList[ctr]+"; dir: "+outSubDirList[ctr]+"; ctr: "+ctr);
@@ -75,7 +75,7 @@ macro "batchSaveEggChamberROIs"{
 	    	subDirList = getFileList(inFolder+dirList[i]);
 	    	if (subDirList.length>0){
 	    		for (j = 0; j < lengthOf(subDirList); j++) {
-	    			if (endsWith(subDirList[j], ".tif")) { 
+	    			if (endsWith(subDirList[j], ".tif") || endsWith(subDirList[j], ".nd2")) { 
 				        fileList[ctr] = subDirList[j];
 				        outSubDirList[ctr] = dirList[i];
 				        print("fname: "+fileList[ctr]+"; dir: "+outSubDirList[ctr]+"; ctr: "+ctr);
@@ -112,7 +112,14 @@ macro "batchSaveEggChamberROIs"{
 		+ "A nucleus should overlap >80% with the egg chamber ROI for correct assignment.\n"
 		+ "It's ok if ROIs overlap a tiny bit. \n"
 		+ "DO NOT HIT OK now - do it only once you are done generating ROIs for all egg chambers in this stack!");
-		
+
+		if(roiManager("count") == 0){
+			waitForUser("It looks like you did not add any egg chambers to the ROI selector!\n", 
+				+"Click OK if you want to proceed without saving any egg chamber from this stack.\n"
+				+"Otherwise circle each of the egg chambers using the free selection tool, \n"
+				+ "then add each selection to the ROI manager (CMD+t).\n"
+				"Click OK when finished to save.");
+		}
 		// convert each egg chamber ROI into a 2D mask and
 		// save in dedicated subfolder of the output dir.
 		eggChamberSegFolderName = "eggChamberSEG/";
