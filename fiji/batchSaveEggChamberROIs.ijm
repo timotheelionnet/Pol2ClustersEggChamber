@@ -65,6 +65,7 @@ macro "batchSaveEggChamberROIs"{
 	outSubDirList = newArray(1000);
 	ctr = 0;
 	print(" ");
+	print("Starting batchSaveEggChamberROIs ...");
 	for (i = 0; i < lengthOf(dirList); i++) {
 	    if (endsWith(dirList[i], ".tif") || endsWith(dirList[i], ".nd2")) { 
 	        fileList[ctr] = dirList[i];
@@ -88,10 +89,55 @@ macro "batchSaveEggChamberROIs"{
 	fileList = Array.trim(fileList, ctr);
 	outSubDirList = Array.trim(outSubDirList, ctr);
 	
-	// create output subfolders if needed, i.e. all outSubDirList[i] in outFolder
+	// create analysis subfolders for each experimental condition (if not already there), 
+	// i.e. all outSubDirList[i] in outFolder
 	for (i = 0; i < outSubDirList.length; i++) {
 		if (File.exists(outFolder+outSubDirList[i]) == false){
 			File.makeDirectory(outFolder+outSubDirList[i]);
+		}
+	}
+	
+	// create analysis sub-subfolders for each image (if not already there)
+	for (i = 0; i < outSubDirList.length; i++) {
+		k = lastIndexOf(fileList[i], ".");
+		if(k!=-1){
+		    imgNameWOExt = substring(fileList[i],0,k);
+		}else{
+		    imgNameWOExt = fileList[i];
+		}
+		eggChamberDir = outFolder+outSubDirList[i]+imgNameWOExt+"/";
+		if (File.exists(eggChamberDir) == false){
+		        File.makeDirectory(eggChamberDir);
+		}
+	}
+	
+	// create eggChamberSEG sub-subfolders in each analysis subfolder if needed
+	// give warning if it already exists.
+	eggChamberSegFolderName = "eggChamberSEG/";
+	warningCleared = 0;
+	for (i = 0; i < outSubDirList.length; i++) {
+		k = lastIndexOf(fileList[i], ".");
+		if(k!=-1){
+		    imgNameWOExt = substring(fileList[i],0,k);
+		}else{
+		    imgNameWOExt = fileList[i];
+		}
+		eggChamberDir = outFolder+outSubDirList[i]+imgNameWOExt+"/";
+		saveDir = eggChamberDir+eggChamberSegFolderName;
+		if (File.exists(saveDir) == false){
+		        File.makeDirectory(saveDir);
+		}else{
+			if(warningCleared == 0){
+				waitForUser("Analysis Folder already exists!", 
+					"Warning: this analysis will erase all prior analysis\n"
+					+"Click OK to proceed");
+				warningCleared = 1;
+			}
+			deleteList = getFileList(saveDir);
+			for(j=0;j<deleteList.length;j++){
+				File.delete(saveDir+deleteList[j]);
+			}
+			print("deleted " + saveDir);
 		}
 	}
 	
@@ -114,15 +160,14 @@ macro "batchSaveEggChamberROIs"{
 		+ "DO NOT HIT OK now - do it only once you are done generating ROIs for all egg chambers in this stack!");
 
 		if(roiManager("count") == 0){
-			waitForUser("It looks like you did not add any egg chambers to the ROI selector!\n", 
+			waitForUser("No Annotation Found!", "It looks like you did not add any egg chambers to the ROI selector!\n" 
 				+"Click OK if you want to proceed without saving any egg chamber from this stack.\n"
 				+"Otherwise circle each of the egg chambers using the free selection tool, \n"
 				+ "then add each selection to the ROI manager (CMD+t).\n"
-				"Click OK when finished to save.");
+				+"Click OK when finished to save.");
 		}
 		// convert each egg chamber ROI into a 2D mask and
 		// save in dedicated subfolder of the output dir.
-		eggChamberSegFolderName = "eggChamberSEG/";
 		saveEggChamberROIs(outFolder,outSubDirList[i],fileList[i],eggChamberSegFolderName);	
 		
 		// close stack
@@ -139,30 +184,52 @@ macro "batchSaveEggChamberROIs"{
 	print("Done.");
 }
 
+// generate the name of the analysis subfolder with the name of the original z-stack
+function generateZStackOutputSubfolderName(outFolder,outSubDir,originalImgTitle){
+	// collect the name of the image without the file extension to use as an output subfolder
+	k = lastIndexOf(originalImgTitle, ".");
+	if(k!=-1){
+		imgNameWOExt = substring(originalImgTitle,0,k);
+	}else{
+		imgNameWOExt = originalImgTitle;
+	}
+		
+	// build output subdirectory with the same name as the image (if needed)
+	eggChamberDir = outFolder+outSubDir+imgNameWOExt+"/";
+	
+	return eggChamberDir;
+}
+
+// generate the name of the subfolder of the analysis subfolder called eggChamberSEG
+function generateEggChamberSegOutputSubfolderName(outFolder,outSubDir,originalImgTitle,EggChamberSegFolderName){
+	// collect the name of the image without the file extension to use as an output subfolder
+	k = lastIndexOf(originalImgTitle, ".");
+	if(k!=-1){
+		imgNameWOExt = substring(originalImgTitle,0,k);
+	}else{
+		imgNameWOExt = originalImgTitle;
+	}
+		
+	// build output subdirectory with the same name as the image (if needed)
+	eggChamberDir = outFolder+outSubDir+imgNameWOExt+"/";
+	
+	// build eggChamberTif subdirectory inside the output subdirectory just created (if needed)
+	saveDir = eggChamberDir+EggChamberSegFolderName;
+	
+	return saveDir;
+}
+
+
 // looks through the output folder for egg chamber segmentations
 // and generates one csv file that lists each egg chamber index (col 1)
 // and the a placeholder second column destined to hold the developmental stages (col 2)
 // to be manually curated later.
 function generateEggChamberCSV(outFolder,subDirName,
 						fileName,eggChamberSegFolderName,eggChamberSuffix){
-	// make sure directory names all have a "/" at the end
-	if (endsWith(outFolder, "/")!=true){
-		outFolder = outFolder + "/";
-	}
-	if ((lengthOf(subDirName)!=0) && (endsWith(subDirName, "/")!=true)){
-		subDirName = subDirName + "/";
-	}
-	if (endsWith(fileName, "/")!=true){
-		fileNameWOExt = substring(fileName,0,lastIndexOf(fileName, "."));
-		fileName = fileNameWOExt + "/";
-	}else{
-		fileNameWOExt = substring(fileName, 0, lengthOf(fileName)-1);
-	}
-	if (endsWith(eggChamberSegFolderName, "/")!=true){
-		eggChamberSegFolderName = eggChamberSegFolderName + "/";
-	}
-	// shortcut name
-	ecDir = outFolder+subDirName+fileName+eggChamberSegFolderName;
+	
+	// saving directory name
+	ecDir = generateEggChamberSegOutputSubfolderName(
+		outFolder,subDirName,fileName,eggChamberSegFolderName);
 	
 	// find all the egg chamber files in the folder and extract their indices into the 
 	// array ecIdx
@@ -191,7 +258,6 @@ function generateEggChamberCSV(outFolder,subDirName,
 
 // saves 2 arrays as a csv file in 2 columns. Arrays need to be the same size.
 function generate2columnCSVfromArrays(filePath,col1Array,col2Array,header1,header2){
-	// Define the value of n
     
     if (lengthOf(col1Array) != lengthOf(col2Array)){
     	print("2 arrays have different sizes, cannot save as csv table");
@@ -214,30 +280,14 @@ function generate2columnCSVfromArrays(filePath,col1Array,col2Array,header1,heade
 // 	- generates a 2D mask image with the value corresponding to the current ROI ID (ROI 0: value 1; ROI 1: value 2, etc)
 // 	- saves the 2D mask images in a subfolder called EggChamberSegFolderName
 
-function saveEggChamberROIs(outFolder,outSubDir,originalImgTitle,EggChamberSegFolderName) { 
+function saveEggChamberROIs(outFolder,outSubDir,originalImgTitle,eggChamberSegFolderName) { 
 
 	selectWindow(originalImgTitle);	
 	getDimensions(sizeX, sizeY, C, sizeZ, F);
 	
-	// collect the name of the image without the file extension to use as an output subfolder
-	k = lastIndexOf(originalImgTitle, ".");
-	if(k!=-1){
-		imgNameWOExt = substring(originalImgTitle,0,k);
-	}else{
-		imgNameWOExt = originalImgTitle;
-	}
-		
-	// build output subdirectory with the same name as the image (if needed)
-	eggChamberDir = outFolder+outSubDir+imgNameWOExt+"/";
-	if (File.exists(eggChamberDir) == false){
-			File.makeDirectory(eggChamberDir);
-	}
-	
-	// build eggChamberTif subdirectory inside the output subdirectory just created (if needed)
-	saveDir = eggChamberDir+EggChamberSegFolderName;
-	if (File.exists(saveDir) == false){
-			File.makeDirectory(saveDir);
-	}
+	// get the name of the output eggChamberTif subdirectory 
+	saveDir = generateEggChamberSegOutputSubfolderName(
+		outFolder,outSubDir,originalImgTitle,eggChamberSegFolderName);
 	
 	// loop through ROIs in ROI manager and generate a 2D mask image for each ROI
 	// where the values inside the mask encode the index of the ROI.
@@ -255,13 +305,13 @@ function saveEggChamberROIs(outFolder,outSubDir,originalImgTitle,EggChamberSegFo
 		idx = i+1; // adding offset so that output ROI masks start at 1, not 0
 		run("Multiply...", "value="+idx);
 		setMinAndMax(0, idx);
+		run("Grays");
 		
 		// save and close egg chamber segmentation mask
 		imgName = imgNameWOExt+"_eggChamber"+idx+".tif";
 		rename(imgName);
 		save(saveDir+imgName);
 		close();
-
 	}	
 	return;
 }
