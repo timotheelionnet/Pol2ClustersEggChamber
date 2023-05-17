@@ -38,6 +38,7 @@ X make table construction and methods modular whether or not one wants to quanti
 X what if nuclei #s don't match between nucleus analysis and cluster analysis? [just loading data from nuclei that are in the table already]
 - check manually that nuclei/cluster IDs match up
 - some nuclei ordering seems alphabetical. Check it is kosher/ Re-order
+- QC on nuclei based on geometry/sphericity/deviation from the mean volume to weed out poorly segmented ones?
 
 *********************************
 ** Documentation:

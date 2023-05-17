@@ -30,7 +30,7 @@ ec.streamLineTable('nuc');
 ec.loadAllClusterData();
 
 %%
-ec.streamLineTable('clust');
+tJoin = ec.addAverageClusterStatsToNucTable();
 
 %% generate summary statistics per egg chamber
 sumT = ec.generateEggChamberSummaryTable();
