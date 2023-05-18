@@ -29,6 +29,20 @@ ec.streamLineTable('nuc');
 %% load cluster data
 ec.loadAllClusterData();
 
+%% add nuc stats to cluster table
+clustJoin = ec.addNucStatsToClustTable();
+
+%% QC block
+figure; hold;
+[~,idx] = sort(ec.nucFullT.nucSphericity,'descend');
+plot(zscore(ec.nucFullT.nucSphericity(idx)),'DisplayName','sphericity');
+plot(zscore(ec.nucFullT.nucMeanBreadth(idx)),'DisplayName','Breadth');
+plot(zscore(ec.nucFullT.nucSurfaceArea(idx)),'DisplayName','surf Area');
+plot(zscore(tJoin.numClusters(idx)),'DisplayName','num Clusters');
+plot(zscore(ec.nucFullT.nucVolume(idx)),'DisplayName','Volume');
+plot(ec.nucFullT.nucSphericity(idx),'DisplayName','sphericity');
+
+
 %%
 tJoin = ec.addAverageClusterStatsToNucTable();
 

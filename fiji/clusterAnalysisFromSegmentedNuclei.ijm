@@ -179,7 +179,7 @@ macro "clusterAnalysisFromSegmentedNuclei" {
 					print("segmenting nucleoplasm of nucleus "+label+"...");
 					maskedNucleoplasmImgTitle = "maskedPlasm";
 				  	segmentNucleoplasm(curImg,nucleoplasmSegmentationChannel,maskedNucleoplasmImgTitle);
-			
+				  	
 				  	//subtract the average signal value in the nucleoplasm from all channels
 				  	tS = getTimeString();
 					print(tS);
@@ -811,12 +811,13 @@ function segmentNucleoplasm(curImg,nucleoplasmSegmentationChannel,outputImgName)
 	
 	// close intermediates
 	close("pol2tmp");
-	close("masksBinary");
+	//close("masksBinary");
 	
 	// make a 0/255 mask for the nucleoplasm alone using autothresholding
 	// of the signal channel only within the nucleus mask
 	selectWindow("maskedNucleusIntensity");
 	getDimensions(w, h, c, nzs, f);
+	run("Smooth", "stack");
 	
 	for (izs = 0; izs < nzs; izs++) {
 		Stack.setPosition(1, izs+1, 1);
@@ -826,8 +827,12 @@ function segmentNucleoplasm(curImg,nucleoplasmSegmentationChannel,outputImgName)
 		}
 	}
 	run("8-bit");
-	rename(maskedNucleoplasmImgTitle);
+	rename(outputImgName);
+	run("Options...", "iterations=1 count=1 black do=Nothing");
 	run("Close-", "stack"); 
+	run("16-bit");
+	imageCalculator("Multiply stack", outputImgName, "masksBinary");
+	close("masksBinary");
 }
 
 // computes geometry metrics of objects contained in maskChannel of inputWindowName

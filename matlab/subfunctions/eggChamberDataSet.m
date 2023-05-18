@@ -355,6 +355,31 @@ classdef eggChamberDataSet < handle
             disp('Done.');
         end
 
+        %% add nucleus stats to cluster table
+        function tJoin = addNucStatsToClustTable(obj)
+            % select only the variables that aren't already in clusters
+            nucStatsVars = setdiff(obj.nucT.Properties.VariableNames, ...
+                obj.clustT.Properties.VariableNames);
+            nucStatsVars = [nucStatsVars,'nucLabel'];
+            idx = find(ismember(nucStatsVars,obj.nucT.Properties.VariableNames));
+            
+            tJoin = table();    
+            for ctr=1:size(obj.clustT,1)
+                i = obj.clustT.condIdx(ctr);
+                j = obj.clustT.sampleIdx(ctr);
+                k = obj.clustT.nucLabel(ctr);
+
+                % extract nuc stats for current nucleus
+                nT = obj.nucT(...
+                   obj.nucT.condIdx == i...
+                   & obj.nucT.sampleIdx == j ...
+                   & obj.nucT.nucLabel == k,idx);
+
+                nT = join(obj.clustT(ctr,:),nT,'Keys','nucLabel');
+                tJoin = obj.combineEcTables(tJoin,nT);  
+            end
+        end
+
         %% add average cluster stats to nuc tables
         function tJoin = addAverageClusterStatsToNucTable(obj)
             % generate list of cluster variables to average out

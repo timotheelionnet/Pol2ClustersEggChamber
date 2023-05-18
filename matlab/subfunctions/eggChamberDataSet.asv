@@ -355,6 +355,31 @@ classdef eggChamberDataSet < handle
             disp('Done.');
         end
 
+        %% add nucleus stats to cluster table
+        function tJoin = addNucStatsToClustTable(obj)
+            % select only the variables that aren't already in clusters
+            nucStatsVars = setdiff(obj.nucT.Properties.VariableNames, ...
+                obj.clustT.Properties.VariableNames);
+            nucStatsVars = [nucStatsVars,'nucLabel'];
+            idx = find(ismember(nucStatsVars,obj.nucT.Properties.VariableNames));
+            
+            tJoin = table();    
+            for ctr=1:size(obj.clustT,1)
+                i = obj.clustT.condIdx(ctr);
+                j = obj.clustT.sampleIdx(ctr);
+                k = obj.clustT.nucLabel(ctr);
+
+                % extract nuc stats for current nucleus
+                nT = obj.nucT(...
+                   obj.nucT.condIdx == i...
+                   & obj.nucT.sampleIdx == j ...
+                   & obj.nucT.nucLabel == k,idx);
+
+                nT = join(obj.clustT(ctr,:),nT,'Keys','nucLabel');
+                tJoin = obj.combineEcTables(tJoin,nT);  
+            end
+        end
+
         %% add average cluster stats to nuc tables
         function tJoin = addAverageClusterStatsToNucTable(obj)
             % generate list of cluster variables to average out
@@ -382,15 +407,15 @@ classdef eggChamberDataSet < handle
                     nC = size(cT,1); % number of clusters in current nucleus
 
                     % average/std cluster metrics and keep only meaningful variables
-                    cT = varfun(@mean,cT,'InputVariables',@isnumeric);
+                    cT1 = varfun(@mean,cT,'InputVariables',@isnumeric);
                     cT2 = varfun(@std,cT,'InputVariables',@isnumeric);
                     
                     % update variable names from mean_clust to avgClust
-                    newVars = cellfun(@strrep,cT.Properties.VariableNames,...
-                        repmat({'mean_clust'},size(cT.Properties.VariableNames)),...
-                        repmat({'avgClust'},size(cT.Properties.VariableNames)),...
+                    newVars = cellfun(@strrep,cT1.Properties.VariableNames,...
+                        repmat({'mean_clust'},size(cT1.Properties.VariableNames)),...
+                        repmat({'avgClust'},size(cT1.Properties.VariableNames)),...
                         'UniformOutput',0);
-                    cT = renamevars(cT,cT.Properties.VariableNames,newVars);
+                    cT1 = renamevars(cT1,cT1.Properties.VariableNames,newVars);
                     
                     % update variable names from std_clust to stdClust
                     newVars = cellfun(@strrep,cT2.Properties.VariableNames,...
@@ -399,11 +424,13 @@ classdef eggChamberDataSet < handle
                         'UniformOutput',0);
                     cT2 = renamevars(cT2,cT2.Properties.VariableNames,newVars);
                     
-                    % add a nucLabel variable and
-                    cT = addvars(cT,k,'NewVariableNames',{'nucLabel'});
+                    % add a nucLabel variable to join tables (and
+                    % validation later)
+                    cT1 = addvars(cT1,k,'NewVariableNames',{'nucLabel'});
                     cT2 = addvars(cT2,k,'NewVariableNames',{'nucLabel'});
+                    cT = join(cT1,cT2,'Keys','nucLabel');
 
-                    % comnpute the number of clusters per nucleus 
+                    % compute the number of clusters per nucleus 
                     cT = addvars(cT,nC,'NewVariableNames',{'numClusters'});   
                 else
                     % no clusters found in current nucleus, generating a
@@ -418,12 +445,21 @@ classdef eggChamberDataSet < handle
                         repmat({'clust'},size(cT.Properties.VariableNames)),...
                         repmat({'avgClust'},size(cT.Properties.VariableNames)),...
                         'UniformOutput',0);
-                    cT = renamevars(cT,cT.Properties.VariableNames,newVars);
+                    cT1 = renamevars(cT,cT.Properties.VariableNames,newVars);
 
-                    % add a nucLabel variable (used for validation later)
-                    cT = addvars(cT,k,'NewVariableNames',{'nucLabel'});
+                    % same for stdClust
+                    newVars = cellfun(@strrep,cT.Properties.VariableNames,...
+                        repmat({'clust'},size(cT.Properties.VariableNames)),...
+                        repmat({'stdClust'},size(cT.Properties.VariableNames)),...
+                        'UniformOutput',0);
+                    cT2 = renamevars(cT,cT.Properties.VariableNames,newVars);
 
-                    % add a nucLabel variable (used for validation later)
+                    % add a nucLabel variable (used for joinig and validation later)
+                    cT1 = addvars(cT1,k,'NewVariableNames',{'nucLabel'});
+                    cT2 = addvars(cT2,k,'NewVariableNames',{'nucLabel'});
+                    cT = join(cT1,cT2,'Keys','nucLabel');
+
+                    % compute the number of clusters per nucleus 
                     cT = addvars(cT,0,'NewVariableNames',{'numClusters'});
 
                 end

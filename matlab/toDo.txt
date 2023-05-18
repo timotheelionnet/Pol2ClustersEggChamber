@@ -39,6 +39,7 @@ X what if nuclei #s don't match between nucleus analysis and cluster analysis? [
 - check manually that nuclei/cluster IDs match up
 - some nuclei ordering seems alphabetical. Check it is kosher/ Re-order?
 - QC on nuclei based on geometry/sphericity/deviation from the mean volume to weed out poorly segmented ones?
+- Fiji: erase previous nuclei masks when performing a new cluster detection run. Or save folder under different name.
 
 *********************************
 ** Documentation:
@@ -67,6 +68,9 @@ X generate summary stats of clusters and add to nuclei table
 - unclear how EC stage, z impact metrics, need function to plot a vs b to figure that out.
 - also maybe have a volume cutoff and/or DAPI std to be able to exclude poorly segmented nuclei if we think they will be an issue.
 - prepare simple scripts for nucleus only analysis, cluster analysis, +/- egg chamber staging.
+- why is the volume of plasm + nucleoli not equal to nucVolume? The delta is small (~1% of nuclei volume) but non zero. -> reduced the delta to < 1e-4 of the total volume by facing the morphology closing operation in Fiji. I'm guessing the closing can make the nucleoplasm slightly larger than the nucleus? Maybe need to be remarked at the end.
+
+- build list of nuclei that are problematic
 
 *********************************
 ** Fiji bugs
