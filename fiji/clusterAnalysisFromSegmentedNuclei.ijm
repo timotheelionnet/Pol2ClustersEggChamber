@@ -104,7 +104,7 @@ var threshFactor = 3;
 var verbose = 1;
 
 macro "clusterAnalysisFromSegmentedNuclei" {
-	//%setBatchMode(true);
+	setBatchMode(true);
 	run("Close All");
 	inputParameters();
 	
@@ -127,13 +127,11 @@ macro "clusterAnalysisFromSegmentedNuclei" {
 		print(conditionList[i]);
 	}
 	
-	//%for(i=0;i<conditionList.length;i++){
-	for(i=0;i<1;i++){
+	for(i=0;i<conditionList.length;i++){
 		// loop though eggchambers (second level of subfolders from input folder)
 		sampleList = getSubdirList(inFolder+conditionList[i]);
 		
-		//%for(j=0;j<sampleList.length;j++){
-		for(j=0;j<1;j++){	
+		for(j=0;j<sampleList.length;j++){	
 			// reconstruct file dir
 			curImgFilePath = inFolder + conditionList[i] + sampleList[j] + segmentationSubFolderName;
 			// reconstruct file name
@@ -156,8 +154,7 @@ macro "clusterAnalysisFromSegmentedNuclei" {
 				nucleiFound = cropNuclei("mergedSegmentation",border,saveStacks);
 				
 				// loop through nuclei, segment nucleoplasm and clusters
-				//%for (k = 0; k < nucleiFound.length; k++) {
-				for (k = 0; k < 1; k++) {
+				for (k = 0; k < nucleiFound.length; k++) {
 					label = nucleiFound[k];
 					tS = getTimeString();
 					print(tS);
@@ -223,13 +220,12 @@ macro "clusterAnalysisFromSegmentedNuclei" {
 				  	imgOutName = "nuc"+label +"_masks.tif";
 				  	selectWindow(maskedNucleoplasmImgTitle);
 				  	run("16-bit");
-				  	addChannelToImg(curImg,maskedNucleoplasmImgTitle,"tmp",1);
-				  	addChannelToImg("tmp",maskedClustersImgTitle,imgOutName,1);
-				  	return;
-					//%selectWindow("tmp");
-					//%close();
-					//%selectWindow(curImg);
-					//%close();
+				  	addChannelToImg2(curImg,maskedNucleoplasmImgTitle,"tmp",1);
+				  	addChannelToImg2("tmp",maskedClustersImgTitle,imgOutName,1);
+					selectWindow("tmp");
+					close();
+					selectWindow(curImg);
+					close();
 					
 				  	// collect intensity measurements on the nucleoplasm
 					nucleoplasmIntensityAndGeometryMeasurementAllChannels(
@@ -242,20 +238,20 @@ macro "clusterAnalysisFromSegmentedNuclei" {
 						File.makeDirectory(tifSaveDir);
 					}
 				  	save(tifSaveDir+imgOutName);
-				  	//%close(imgOutName);
+				  	close(imgOutName);
 			
 					// save nucleoplasm-background corrected image
 					bgCorrImgOutName = "nuc"+label +"_masks_plasmCorr.tif";
 					tS = getTimeString();
 					print(tS);
 				  	print("generating output background-corrected image of nucleus "+label+"...");
-				  	addChannelToImg(imgBgCorr,maskedNucleoplasmImgTitle,"tmp",0);
-				  	addChannelToImg("tmp",maskedClustersImgTitle,bgCorrImgOutName,0);
+				  	addChannelToImg2(imgBgCorr,maskedNucleoplasmImgTitle,"tmp",0);
+				  	addChannelToImg2("tmp",maskedClustersImgTitle,bgCorrImgOutName,0);
 					selectWindow(bgCorrImgOutName);
 				  	save(tifSaveDir+bgCorrImgOutName);
-				  	//%close(bgCorrImgOutName);
+				  	close(bgCorrImgOutName);
 				  	if (isOpen(maskedClustersImgTitle)){
-				  		//%close(maskedClustersImgTitle);	
+				  		close(maskedClustersImgTitle);	
 				  	}
 				  	tS = getTimeString();
 					print(tS);
@@ -267,7 +263,7 @@ macro "clusterAnalysisFromSegmentedNuclei" {
 						clusterDetectionChannel,threshFactor,MedianFilterRadiusClusters,
 						MedianFilterRadiusBackground);
 				}
-				//%close("mergedSegmentation");
+				close("mergedSegmentation");
 			}else{
 				print("Could not find file "+curImgFilePath+curImgFileName+"; skipping...");
 			}
@@ -574,7 +570,7 @@ function normalizePixelValuesToBitDepth(imgName){
 			selectWindow("tmpChannel");
 			rename("renormImg");
 		}else{
-			addChannelToImg("renormImg","tmpChannel","renormImg",0);
+			addChannelToImg2("renormImg","tmpChannel","renormImg",0);
 		}
 	}
 	
@@ -1000,7 +996,7 @@ function getLabelBoundingBox3(inputObjectIDsTitle,inputImgDataTitle,outputImgTit
 	rename("isolatedCroppedNucleus"+label);
 	
 	// create cropped image holding initial data + nucleus segmentation
-	addChannelToImg("croppedNucleus"+label,"isolatedCroppedNucleus"+label,outputImgTitle,0);
+	addChannelToImg2("croppedNucleus"+label,"isolatedCroppedNucleus"+label,outputImgTitle,0);
 
 	// close intermediates
 	selectWindow("isolatedNucleus"+label);
@@ -1010,7 +1006,7 @@ function getLabelBoundingBox3(inputObjectIDsTitle,inputImgDataTitle,outputImgTit
 }
 
 // appends an extra color channel (channelSource) to a hyperstack (imgSource) and renames the result newImgName 
-function addChannelToImg(imgSource,channelSource,newImgName,keepSourceImgs){
+function addChannelToImg2(imgSource,channelSource,newImgName,keepSourceImgs){
 
 	selectWindow(imgSource);
 	Stack.setDisplayMode("color");
@@ -1063,10 +1059,10 @@ function addChannelToImg(imgSource,channelSource,newImgName,keepSourceImgs){
 }
 
 // appends an extra color channel (channelSource) to a hyperstack (imgSource) and renames the result newImgName 
+// function updated from v1 to accomodate 8 and up channel images (using concatenate rather than merge)
 function addChannelToImg2(imgSource,channelSource,newImgName,keepSourceImgs){
 
 	selectWindow(imgSource);
-	Stack.setDisplayMode("color");
 	b1 = bitDepth();
 	selectWindow(channelSource);
 	b2 = bitDepth();
@@ -1083,11 +1079,13 @@ function addChannelToImg2(imgSource,channelSource,newImgName,keepSourceImgs){
 		keepString = "";
 	}
 	
+	strResStart = "  title=" + newImgName + keepString + " open ";
+	strRecomposeStart = "  title=" + imgSource + " open ";
+	
 	selectWindow(imgSource);
 	getDimensions(w, h, c, z, f);
 	if(c==1){
 		argumentString1 = "image1="+imgSource+" image2="+channelSource+" image3=[-- None --]";
-		argumentString0 = "image1="+imgSource+" image2="+channelSource+" create";	
 	}else{
 		run("Split Channels");
 		argumentString0 = "";
@@ -1095,29 +1093,40 @@ function addChannelToImg2(imgSource,channelSource,newImgName,keepSourceImgs){
 			argumentString0 = argumentString0 + "image"+i+"=C"+i+"-"+imgSource+" ";
 		}
 		i = c+1;
-		argumentString1 = argumentString0 + "c"+i+"="+channelSource+" create"+keepString;
-		argumentString0 = argumentString0 + " create";
+		argumentString1 = argumentString0 + "image"+i+"="+channelSource;
+		argumentString0 = argumentString0 +" image"+i+"=[-- None --]";
+		i = i+1;
+		argumentString1 = argumentString1 +" image"+i+"=[-- None --]";
 	}
 
 	if(keepSourceImgs == 1){
 		// add channel to split channels from original image, keep sources
-		run("Merge Channels...", argumentString1+keepString);
+		run("Concatenate...", strResStart + argumentString1);
 		rename(newImgName);
-
+		run("Re-order Hyperstack ...", "channels=[Frames (t)] slices=[Slices (z)] frames=[Channels (c)]");
+		if(c+1>=8){
+			Stack.setDisplayMode("color");
+		}
 		if(c!=1){
 			//recombine split channels into original image
-			run("Merge Channels...", argumentString0);
-			rename(imgSource);
+			run("Concatenate...", strRecomposeStart + argumentString0);
+			run("Re-order Hyperstack ...", "channels=[Frames (t)] slices=[Slices (z)] frames=[Channels (c)]");
+			if(c>=8){
+			Stack.setDisplayMode("color");
+		}
+			for(i=1;i<=c;i++){
+				close("C"+i+"-"+imgSource);
+			}
 		}
 	}else{
-		run("Merge Channels...", argumentString1);
+		run("Concatenate...", strResStart + argumentString1);
+		run("Re-order Hyperstack ...", "channels=[Frames (t)] slices=[Slices (z)] frames=[Channels (c)]");
+		if(c+1>=8){
+			Stack.setDisplayMode("color");
+		}
 		rename(newImgName);
 	}
 }
-
-///////
-run("Concatenate...", "  title=newStack keep open image1=nuc1_masks-1.tif image2=nuc1_masks-2.tif image3=nuc1_masks-3.tif image4=[-- None --]");
-//////
 
 // collect names of subfolders within inFolder and
 // store into subDirList, so that the path to subFolder i is
