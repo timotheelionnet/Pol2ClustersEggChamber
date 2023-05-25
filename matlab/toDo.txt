@@ -1,9 +1,9 @@
 To do:
 *********************************
-** Curent Functions small updates 
+** Current Functions small updates 
 In generateEggChamberSummaryTable
- -Generate summary statistics per condition, and save as text file.
- -Include table and summary stats for egg chambers of desired stages. Also include clusters if the Data is there.
+ - Generate summary statistics per condition, and save as text file.
+ - Include table and summary stats for egg chambers of desired stages. Also include clusters if the Data is there.
 
 - in scatterPlotMetricBySample: Exclude egg chamber stages but plot by sample?
 
@@ -70,7 +70,7 @@ X generate summary stats of clusters and add to nuclei table
 - prepare simple scripts for nucleus only analysis, cluster analysis, +/- egg chamber staging.
 - why is the volume of plasm + nucleoli not equal to nucVolume? The delta is small (~1% of nuclei volume) but non zero. -> reduced the delta to < 1e-4 of the total volume by facing the morphology closing operation in Fiji. I'm guessing the closing can make the nucleoplasm slightly larger than the nucleus? Maybe need to be remarked at the end.
 
-- build list of nuclei that are problematic
+- build list of nuclei that are problemati
 
 *********************************
 ** Fiji bugs
