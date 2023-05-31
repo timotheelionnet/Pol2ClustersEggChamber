@@ -33,14 +33,12 @@ ec.streamLineTable('nuc');
 % does NOT add summary cluster metrics to nucT and nucFullT
 ec.loadAllClusterData();
 
-%% add cluster data to nuc table
-% takes metrics from clustT, averages them over each nucleus
-% and copies them as extra variables of the nuc table
-tJoin = ec.addAverageClusterStatsToNucTable();
-
 %% add nuc stats to cluster table
-% takes metrics from nucT and copies them as extra variables of the cluster table
+% takes metrics from nucT and copies them in extra variables of the cluster table
 clustJoin = ec.addNucStatsToClustTable();
+
+%% add cluster data to nuc table
+tJoin = ec.addAverageClusterStatsToNucTable();
 
 %% QC block
 figure; hold;

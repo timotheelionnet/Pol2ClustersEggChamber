@@ -1,5 +1,42 @@
 To do:
 *********************************
+Immediate fixes:
+- change eggChamber -> "sampleROI" in suffixes. 
+- Change condIdx to cond_Idx. Same for sampleIdx, eggChamberID, eggChamberStage, nucLabel, clustLabel. stdClustVolume
+- make sure that variables follow the pattern: Channel string: C1 to C5 <prefix><channelString>_<metricName>_<suffix>
+- bg subtraction functions, check that suffixes are the following: 
+- wholeImgSubtracted
+- sampleROISubtracted
+- plasmSubtracted
+- nucleoliSubtracted
+- build wiki/benchling to document metric names and meanings.
+
+- addNucStatsToClustTable -> modify to make work for fullNucT AND nucT.
+- same for addAverageClusterStatsToNucTable -> modify to copy paste all cluster metrics from cluster table to FullNucT
+- change numClusters to nucNumCLusters in addAverageClusterStatsToNucTable. Add numCluster to list of accepted variables.
+- check for order of operations when merging cluster metrics and background correcting metrics. prob need to background correct everything first. Write one larger function that runs all those data processing steps in order to avoid issues: bg-correct nuclei, bg-correct clusters, merge clusters into nuc table, merge nuc data into cluster table. End up w 2 giant data tables.
+- check if methods are robust for datasets without clusters. (Clusters is an empty table and make all functions do nothing when that's the case).
+- generate a method which computes the z score of each nucleus along all of the metrics, by eggchamber stage. Same for cluster table.
+- viz as heat map - make sure that the ticks make it easy to go to each nucleus to check for problem ones. Cluster by metrics since so many will be redundant. Build list of variables that are metrics vs status/ID labels.
+
+- for QC of nuclei. Goal: identify which nuclei are poorly segmented based on metrics.
+Perform modified z-score of nuclear metrics (by egg chamber stage).
+Find file names, nuclei indices of nuclei that are outliers based on different metrics.
+Look at nuclei visually. Assay whether metrics reflect segmentation performance.
+Vice versa -> id nuclei that are poorly segmented. 
+- check for nuclei with extreme z-scores for the cluster metrics as possible indications of issues.
+- u-map or t-sne of nuclei metrics to ID outliers?
+
+
+- QC clustering performance. Do clusters look legit?
+Take nuclei at random. Check clustering performance. 
+If clustering isn't good enough, check how to redo analysis without overwriting existing results? Carbon copy csvs to another output folder that reproduces that architecture of the original one?
+
+- rewrite/update a table streamlining function? Probably makes sense to streamline once at the end? Or make sure streamlining works regardless of when we call it.
+
+- u-map or t-sne of nuclei metrics to ID outliers?
+
+*********************************
 ** Current Functions small updates 
 In generateEggChamberSummaryTable
  - Generate summary statistics per condition, and save as text file.
@@ -40,10 +77,17 @@ X what if nuclei #s don't match between nucleus analysis and cluster analysis? [
 - some nuclei ordering seems alphabetical. Check it is kosher/ Re-order?
 - QC on nuclei based on geometry/sphericity/deviation from the mean volume to weed out poorly segmented ones?
 - Fiji: erase previous nuclei masks when performing a new cluster detection run. Or save folder under different name.
+- add nuc_sphericity and other nuc geometry features to cluster table?
+- compute modified z scores by egg chamber stages.
+- addNucStatsToClustTable: use nucFullT instead of nucT.
+- Check order of operations when merging cluster metrics into nuc table and vice versa.
+- check for order of operations when merging cluster metrics and background correcting metrics. prob need to background correct everything first. Write one larger function that runs all those data processing steps in order to avoid issues: bg-correct nuclei, bg-correct clusters, merge clusters into nuc table, merge nuc data into cluster table. End up w 2 giant data tables.
+
+- change "eggChamber" prefix in metrics computed across DAPI+ volume to avoid confusion.
 
 *********************************
 ** Documentation:
-- data org: add screen cap.
+- data org: add screen cap of folder architecture
 - nuclei segmentation walk through.
 - cluster detection walk through.
 
@@ -68,7 +112,7 @@ X generate summary stats of clusters and add to nuclei table
 - unclear how EC stage, z impact metrics, need function to plot a vs b to figure that out.
 - also maybe have a volume cutoff and/or DAPI std to be able to exclude poorly segmented nuclei if we think they will be an issue.
 - prepare simple scripts for nucleus only analysis, cluster analysis, +/- egg chamber staging.
-- why is the volume of plasm + nucleoli not equal to nucVolume? The delta is small (~1% of nuclei volume) but non zero. -> reduced the delta to < 1e-4 of the total volume by facing the morphology closing operation in Fiji. I'm guessing the closing can make the nucleoplasm slightly larger than the nucleus? Maybe need to be remarked at the end.
+x why is the volume of plasm + nucleoli not equal to nucVolume? The delta is small (~1% of nuclei volume) but non zero. -> reduced the delta to < 1e-4 of the total volume by facing the morphology closing operation in Fiji. I'm guessing the closing can make the nucleoplasm slightly larger than the nucleus? Maybe need to be remarked at the end.
 
 - build list of nuclei that are problemati
 
@@ -89,6 +133,72 @@ alpha,
 addMeanAndErrorBar
 Different grouping spacing modes?
 Should I trim the data table as an easier way to process the data plotting?
+
+*********************************
+Data wrangling:
+Build table joining every single metric
+Add corrected intensity values. 
+Nucleus/nucleolus/plasm metrics: correction by:
+	- raw
+	- wholeImg, 
+	- eggChamber
+
+Mean std median mode min max kurtosis skewness numVoxels Volume (10 metrics)
+20 nuc geometry and status metrics
+50 nuclei channel metrics
+10 * 5 channels = 50 metrics for eggChamber
+Same for wholeImg
+Nucleoli = 50 channel metrics for nucleoli + 30 metrics for geometry
+Plasm = 50 metrics for plasm + 30 metrics for geometry
+
+70+ 100+ 160 = 330 metrics uncorrected. Without background correction, without clusters.
+150 metrics are nuc/nucleolus/plasm channel variables, I.e. subject to bg correction.
+180 remain. 180+ 150*3 = 630 for background corrected data.
+
+Strategy: aggregate data in giant table
+Ensure prefix/suffix system is rigorous for unambiguous naming.
+nuc:
+wholeImg
+eggChamber -> "sampleROI" 
+Plasm
+Nucleoli
+Cond
+Sample
+eggChamber
+Clust
+avgClust
+stdClust
+
+-> Change numClusters to nuc_NumClusters
+
+Cluster:
+Clust
+Nuc
+Plasm
+Nucleoli
+
+Suffix:
+- raw
+- plasmCorr (means from raw data, performed in Fiji)
+- wholeImgSubtracted
+- sampleROISubtracted
+- plasmSubtracted
+- nucleoliSubtracted
+
+Channel string: C1 to C5
+<prefix><channelString>_<metricName>_<suffix>
+
+Change condIdx to cond_Idx
+Same for sampleIdx, eggChamberID, eggChamberStage, nucLabel, clustLabel.
+
+stdClustVolume
+
+Clusters: correction by: 
+	- wholeImg, 
+	- eggChamber, 
+	- nucleus, 
+	- nucleolus, 
+	- plasm.
 
 
 
