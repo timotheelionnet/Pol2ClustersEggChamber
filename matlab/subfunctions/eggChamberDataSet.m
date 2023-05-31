@@ -76,39 +76,42 @@ classdef eggChamberDataSet < handle
 
         % ******************** eggchamber data I/O properties
 
-        %  name of the subfolder where the egg chamber data is stored
-        eggChamberCsvFolderName = 'eggChamberCSV';
-    
-        % name of the subfolder where the 2D segmentations of the egg chambers are stored
-        % should hold a file called eggChamberStages.csv - it is optional.
-        eggChamberSegFolderName = 'eggChamberSEG';
-        eggChamberSegFileName = 'eggChamberStages.csv';
-    
-        % file names (of name base in the case of channel dependent file names)
-        eggChamberWiseFileNames = {'allNucGeom.csv';...
+        % name of the subfolder where the FOV-level (nucleus-wise, sampleROI-wise and wholeImg-wise) data is stored
+        sampleFOVCsvFolderName = 'eggChamberCSV';
+        % The folder should contain following files:
+        % - allNucGeom.csv: geometry metrics of each nucleus
+        % - C1_allNucInt.csv: nuclear-wise intensity metrics in channel 1
+        % - C1_eggChamberInt.csv: sampleROI-wise intensity metrics in channel 1 (sample ROI is one giant ROI that covers broadly all egg chambers of the image)
+        % - C1_wholeImgInt.csv: image-wise intensity metrics in channel 1
+        sampleFOVWiseFileNames = {'allNucGeom.csv';...
             '_allNucInt.csv';...
             '_wholeImgInt.csv';...
             '_eggChamberInt.csv'};
-    
-        % whether each file name of the previous list is channel dependent or not
-        eggChamberWiseChannelDependent = logical([0;...
+
+        % whether each file name of the previous list is channel-dependent or not
+        sampleFOVWiseChannelDependent = logical([0;...
             1;...
             1;...
             1;]);
     
         % whether each file name of the previous list contains a single row (whole image data) or
         % one row per nucleus
-        eggChamberWiseSingleRow = logical([0;...
+        sampleFOVWiseSingleRow = logical([0;...
             0;...
             1;...
             1;]);
         
         % prefix to add in front of each variable name when loading the
         % corresponding table
-        eggChamberWisePrefix ={'nuc';...
+        sampleFOVWisePrefix ={'nuc';...
             'nuc';...
             'wholeImg';...
-            'eggChamber'};
+            'sampleROI'};
+
+        % name of the optional subfolder where the 2D segmentations of the egg chambers are stored
+        eggChamberSegFolderName = 'eggChamberSEG';
+        % if used, the folder should hold a file called:
+        eggChamberSegFileName = 'eggChamberStages.csv';
     
         % suffix to add at the end of each variable name when loading the
         % corresponding table
@@ -150,30 +153,29 @@ classdef eggChamberDataSet < handle
         % ******************** Nuclei Table variables properties
 
         % the variables (i.e. columns) which store the sample and condition ID
-        sampleVarList = {'condIdx', 'sampleIdx','nucInputFileName'};
+        sampleVarList = {'cond_Idx', 'sample_Idx','nuc_InputFileName'};
         
         % prefixes 
         % in a variable name, the prefix indicates what structure/ROI type the metric is applied to
         nucPrefix = 'nuc';
         wholeImgPrefix = 'wholeImg';
-        eggChamberPrefix = 'eggChamber';
+        sampleROIPrefix = 'sampleROI';
         nucleoliPrefix = 'nucleoli';
         plasmPrefix = 'plasm';
         clusterPrefix = 'clust';
         prefixList;
     
         % list of the variable basenames that pertain to geometry - note
-        % that the eggChamberID and eggChamberStage fall into that category
-        geomVarsBaseNameList = {'Label', 'Volume', 'SurfaceArea',...
+        % that the eggChamber_Idx and eggChamber_Stage fall into that category
+        geomVarsBaseNameList = {'Label', 'Volume', 'SurfaceArea','Idx','Stage',......
             'MeanBreadth', 'Sphericity', 'EulerNumber', ...
-        'Box_X_Min', 'Box_X_Max', 'Box_Y_Min', 'Box_Y_Max', ...
-        'Box_Z_Min', 'Box_Z_Max', 'Centroid_X', 'Centroid_Y', 'Centroid_Z', ...
+        'BoxXMin', 'BoxXMax', 'BoxYMin', 'BoxYMax', ...
+        'BoxZMin', 'BoxZMax', 'CentroidX', 'CentroidY', 'CentroidZ', ...
         'Dist',...
-        'eggChamberID','eggChamberStage',...
-        'Elli_Center_X','Elli_Center_Y','Elli_Center_Z',...
-        'InscrBall_Center_X','InscrBall_Center_Y','InscrBall_Center_Z','InscrBall_Radius'...
-        'Elli_R1','Elli_R2','Elli_R3','Elli_R1_R2','Elli_R2_R3','Elli_R1_R3',...
-        'Elli_Azim','Elli_Elev','Elli_Roll',...
+        'ElliCenterX','ElliCenterY','ElliCenterZ',...
+        'InscrBallCenterX','InscrBallCenterY','InscrBallCenterZ','InscrBallRadius'...
+        'ElliR1','ElliR2','ElliR3','ElliR1R2','ElliR2R3','ElliR1R3',...
+        'ElliAzim','ElliElev','ElliRoll',...
         'VoxelCount'}; 
         % make sure that no entry in geomVarsBaseNameList is also part of the name of one of the entries in channelVarsBaseNameList
     
@@ -185,13 +187,13 @@ classdef eggChamberDataSet < handle
 
         % name of variables to remove in streamlined table
         geomVarsToRemoveInStreamLinedTable = {'SurfaceArea','MeanBreadth', 'Sphericity', 'EulerNumber', ...
-        'Box_X_Min', 'Box_X_Max', 'Box_Y_Min', 'Box_Y_Max', ...
-        'Box_Z_Min', 'Box_Z_Max', 'Centroid_X', 'Centroid_Y', 'Centroid_Z', ...
+        'BoxXMin', 'BoxXMax', 'BoxYMin', 'BoxYMax', ...
+        'BoxZMin', 'BoxZMax', 'CentroidX', 'CentroidY', 'CentroidZ', ...
         'Dist',...
-        'Elli_Center_X','Elli_Center_Y','Elli_Center_Z',...
-        'InscrBall_Center_X','InscrBall_Center_Y','InscrBall_Center_Z','InscrBall_Radius'...
-        'Elli_R1','Elli_R2','Elli_R3','Elli_R1_R2','Elli_R2_R3','Elli_R1_R3',...
-        'Elli_Azim','Elli_Elev','Elli_Roll',...
+        'ElliCenterX','ElliCenterY','ElliCenterZ',...
+        'InscrBallCenterX','InscrBallCenterY','InscrBallCenterZ','InscrBallRadius'...
+        'ElliR1','ElliR2','ElliR3','ElliR1R2','ElliR2R3','ElliR1R3',...
+        'ElliAzim','ElliElev','ElliRoll',...
         'VoxelCount'};
         channelVarsToRemoveInStreamLinedTable = {'Min','Max','Mode', 'Skewness', 'Kurtosis','Volume','NumberOfVoxels'};
     
@@ -200,8 +202,8 @@ classdef eggChamberDataSet < handle
         % the intensity
         rawSuffix = 'raw';
         plasmCorrSuffix = 'plasmCorr';
-        eggChamberCorrSuffix = 'eggChamberCorr';
-        wholeImgCorrSuffix = 'wholeImgCorr';
+        sampleROISubtractedSuffix = 'sampleROISub';
+        wholeImgSubtractedSuffix = 'wholeImgSub';
         suffixList;
     
         % variable names are built as follows:
@@ -257,9 +259,9 @@ classdef eggChamberDataSet < handle
             obj.inFolder = inputFolder;
             obj.collectConditionsAndSamples;
 
-            obj.prefixList = {obj.nucPrefix,obj.wholeImgPrefix,obj.eggChamberPrefix,obj.clusterPrefix,obj.nucleoliPrefix,obj.plasmPrefix};
-            obj.suffixList = {obj.rawSuffix,obj.plasmCorrSuffix,obj.eggChamberCorrSuffix,obj.wholeImgCorrSuffix};
-            obj.backgroundIntensityPrefixList = {obj.wholeImgPrefix,obj.eggChamberPrefix};
+            obj.prefixList = {obj.nucPrefix,obj.wholeImgPrefix,obj.sampleROIPrefix,obj.clusterPrefix,obj.nucleoliPrefix,obj.plasmPrefix};
+            obj.suffixList = {obj.rawSuffix,obj.plasmCorrSuffix,obj.sampleROISubtractedSuffix,obj.wholeImgSubtractedSuffix};
+            obj.backgroundIntensityPrefixList = {obj.wholeImgPrefix,obj.sampleROIPrefix};
 
         end
         
@@ -335,12 +337,12 @@ classdef eggChamberDataSet < handle
                     % join table holding new nuc variables with existing nuc table for that sample
                     % using the nuclei labels as keys
                     sampleNucTable = join(obj.nucT(...
-                        obj.nucT.condIdx == i & obj.nucT.sampleIdx == j,:),...
-                        sampleNucTable,'Keys','nucLabel');
+                        obj.nucT.cond_Idx == i & obj.nucT.sample_Idx == j,:),...
+                        sampleNucTable,'Keys','nuc_Label');
 
                     sampleNucFullTable = join(obj.nucFullT(...
-                        obj.nucFullT.condIdx == i & obj.nucFullT.sampleIdx == j,:),...
-                        sampleNucFullTable,'Keys','nucLabel');
+                        obj.nucFullT.cond_Idx == i & obj.nucFullT.sample_Idx == j,:),...
+                        sampleNucFullTable,'Keys','nuc_Label');
                         
                     % append sample tables to dataset tables 
                     datasetNucTable = obj.combineEcTables(datasetNucTable,sampleNucTable);
@@ -365,28 +367,28 @@ classdef eggChamberDataSet < handle
         % duplicates with cluster table variables, and adds then as new variables on the
         % cluster table Each row of the cluster table - i.e. each cluster - gets assigned 
         % values of the metric for the nucleus it belongs to.
-        % (nucLabel column is used to match clusters with their parent
+        % (nuc_Label column is used to match clusters with their parent
         % nuclei).
         function tJoin = addNucStatsToClustTable(obj)
             % select only the variables that aren't already in clusters
             nucStatsVars = setdiff(obj.nucT.Properties.VariableNames, ...
                 obj.clustT.Properties.VariableNames);
-            nucStatsVars = [nucStatsVars,'nucLabel'];
+            nucStatsVars = [nucStatsVars,'nuc_Label'];
             idx = find(ismember(obj.nucT.Properties.VariableNames,nucStatsVars));
             
             tJoin = table();
             for ctr=1:size(obj.clustT,1)
-                i = obj.clustT.condIdx(ctr);
-                j = obj.clustT.sampleIdx(ctr);
-                k = obj.clustT.nucLabel(ctr);
+                i = obj.clustT.cond_Idx(ctr);
+                j = obj.clustT.sample_Idx(ctr);
+                k = obj.clustT.nuc_Label(ctr);
 
                 % extract nuc stats for current nucleus
                 nT = obj.nucT(...
-                   obj.nucT.condIdx == i...
-                   & obj.nucT.sampleIdx == j ...
-                   & obj.nucT.nucLabel == k,idx);
+                   obj.nucT.cond_Idx == i...
+                   & obj.nucT.sample_Idx == j ...
+                   & obj.nucT.nuc_Label == k,idx);
 
-                nT2 = join(obj.clustT(ctr,:),nT,'Keys','nucLabel');
+                nT2 = join(obj.clustT(ctr,:),nT,'Keys','nuc_Label');
                 tJoin = obj.combineEcTables(tJoin,nT2);  
             end
         end
@@ -398,20 +400,20 @@ classdef eggChamberDataSet < handle
             idx = find(cell2mat( cellfun( @contains, cv,...
                         repmat({'clust'}, size(cv)),...
                         'UniformOutput',0) )); 
-            cIdx = find(ismember(cv,{'clustLabel'}));
+            cIdx = find(ismember(cv,{'clust_Label'}));
             idx = setdiff(idx,cIdx); % indices of the variables to average (in clustT table)            
             
             t = table();
             for ctr=1:size(obj.nucT,1)
-                i = obj.nucT.condIdx(ctr);
-                j = obj.nucT.sampleIdx(ctr);
-                k = obj.nucT.nucLabel(ctr);
+                i = obj.nucT.cond_Idx(ctr);
+                j = obj.nucT.sample_Idx(ctr);
+                k = obj.nucT.nuc_Label(ctr);
                 
                 % extract cluster values for current nucleus
                 cT = obj.clustT(...
-                   obj.clustT.condIdx == i...
-                   & obj.clustT.sampleIdx == j ...
-                   & obj.clustT.nucLabel == k,idx);
+                   obj.clustT.cond_Idx == i...
+                   & obj.clustT.sample_Idx == j ...
+                   & obj.clustT.nuc_Label == k,idx);
 
                 if ~isempty(cT)
                     nC = size(cT,1); % number of clusters in current nucleus
@@ -434,11 +436,11 @@ classdef eggChamberDataSet < handle
                         'UniformOutput',0);
                     cT2 = renamevars(cT2,cT2.Properties.VariableNames,newVars);
                     
-                    % add a nucLabel variable to join tables (and
+                    % add a nuc_Label variable to join tables (and
                     % validation later)
-                    cT1 = addvars(cT1,k,'NewVariableNames',{'nucLabel'});
-                    cT2 = addvars(cT2,k,'NewVariableNames',{'nucLabel'});
-                    cT = join(cT1,cT2,'Keys','nucLabel');
+                    cT1 = addvars(cT1,k,'NewVariableNames',{'nuc_Label'});
+                    cT2 = addvars(cT2,k,'NewVariableNames',{'nuc_Label'});
+                    cT = join(cT1,cT2,'Keys','nuc_Label');
 
                     % compute the number of clusters per nucleus 
                     cT = addvars(cT,nC,'NewVariableNames',{'numClusters'});   
@@ -464,10 +466,10 @@ classdef eggChamberDataSet < handle
                         'UniformOutput',0);
                     cT2 = renamevars(cT,cT.Properties.VariableNames,newVars);
 
-                    % add a nucLabel variable (used for joinig and validation later)
-                    cT1 = addvars(cT1,k,'NewVariableNames',{'nucLabel'});
-                    cT2 = addvars(cT2,k,'NewVariableNames',{'nucLabel'});
-                    cT = join(cT1,cT2,'Keys','nucLabel');
+                    % add a nuc_Label variable (used for joinig and validation later)
+                    cT1 = addvars(cT1,k,'NewVariableNames',{'nuc_Label'});
+                    cT2 = addvars(cT2,k,'NewVariableNames',{'nuc_Label'});
+                    cT = join(cT1,cT2,'Keys','nuc_Label');
 
                     % compute the number of clusters per nucleus 
                     cT = addvars(cT,0,'NewVariableNames',{'numClusters'});
@@ -504,7 +506,7 @@ classdef eggChamberDataSet < handle
                 else
                     
                     tJoin = removevars(tJoin,{'nucLabel_t'});
-                    tJoin = renamevars(tJoin,{'nucLabel_nuc2'},{'nucLabel'});
+                    tJoin = renamevars(tJoin,{'nucLabel_nuc2'},{'nuc_Label'});
                 end
             end
         end
@@ -521,8 +523,8 @@ classdef eggChamberDataSet < handle
                     t = obj.clustT;
             end
 
-            if ismember('eggChamberID',t.Properties.VariableNames) ...
-                    && ismember('eggChamberStage',t.Properties.VariableNames) ...
+            if ismember('eggChamber_Idx',t.Properties.VariableNames) ...
+                    && ismember('eggChamber_Stage',t.Properties.VariableNames) ...
                     && obj.eggChamberSegChannel ~= 0
                 removeEggChamberSegChannelVars = 1;
             else
@@ -659,8 +661,8 @@ classdef eggChamberDataSet < handle
         function sumT = generateEggChamberSummaryTable(obj)
             conditionName = {};
             sampleName = {};
-            eggChamberID = [];
-            eggChamberStage = [];
+            eggChamber_Idx = [];
+            eggChamber_Stage = [];
             numberOfNucleiInEggChamber = [];
             for i=1:obj.nConditions
                 for j=1:obj.nSamples(i)
@@ -668,10 +670,10 @@ classdef eggChamberDataSet < handle
                         conditionName = ...
                             [conditionName; obj.conditionNames{i}];
                         sampleName = [sampleName; obj.sampleNames{i}{j}];
-                        eggChamberID = ...
-                            [eggChamberID; obj.eggChamberIDs{i}{j}(k)];
-                        eggChamberStage = ...
-                            [eggChamberStage; ...
+                        eggChamber_Idx = ...
+                            [eggChamber_Idx; obj.eggChamberIDs{i}{j}(k)];
+                        eggChamber_Stage = ...
+                            [eggChamber_Stage; ...
                             obj.eggChamberStages{i}{j}(k)];
                         numberOfNucleiInEggChamber = ...
                             [numberOfNucleiInEggChamber; ...
@@ -679,8 +681,8 @@ classdef eggChamberDataSet < handle
                     end
                 end
             end
-            sumT = table(conditionName,sampleName,eggChamberID,...
-                eggChamberStage,numberOfNucleiInEggChamber);
+            sumT = table(conditionName,sampleName,eggChamber_Idx,...
+                eggChamber_Stage,numberOfNucleiInEggChamber);
         end
         
         %% scatter plot a metric by sample
@@ -707,8 +709,8 @@ classdef eggChamberDataSet < handle
                     % collect values for the desired metric from all nuclei for the
                     % current sample/condition
                     x = obj.nucT.(varName)(...
-                        obj.nucT.condIdx ==obj.condIndices(j) ...
-                        & obj.nucT.sampleIdx == s(k));
+                        obj.nucT.cond_Idx ==obj.condIndices(j) ...
+                        & obj.nucT.sample_Idx == s(k));
             
                     % generate slightly offset x coordinates for each nucleus,
                     % centered around the sample X
@@ -724,14 +726,14 @@ classdef eggChamberDataSet < handle
             
                         % y coordinate for each nucleus of current condition/sample
                         curYPlot = obj.nucT.(varName)(...
-                            obj.nucT.condIdx ==obj.condIndices(j) ...
-                            & obj.nucT.sampleIdx == s(k))';
+                            obj.nucT.cond_Idx ==obj.condIndices(j) ...
+                            & obj.nucT.sample_Idx == s(k))';
             
                     elseif nNuclei == 1
                         curXPlot = xSampleVals{j}(k);
                         curYPlot = obj.nucT.(varName)(...
-                            obj.nucT.condIdx ==obj.condIndices(j) ...
-                            & obj.nucT.sampleIdx == s(k))';
+                            obj.nucT.cond_Idx ==obj.condIndices(j) ...
+                            & obj.nucT.sample_Idx == s(k))';
             
                     elseif nNuclei == 0
                         curXPlot = [];
@@ -800,9 +802,9 @@ classdef eggChamberDataSet < handle
                             % collect values for the desired metric from all nuclei for the
                             % current sample/condition
                             x = obj.nucT.(varName)(...
-                                obj.nucT.condIdx ==obj.condIndices(i) ...
-                                & obj.nucT.sampleIdx == s(j) ...
-                                & obj.nucT.eggChamberID == obj.eggChamberIDs{i}{j}(k));
+                                obj.nucT.cond_Idx ==obj.condIndices(i) ...
+                                & obj.nucT.sample_Idx == s(j) ...
+                                & obj.nucT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k));
                     
                             % generate slightly offset x coordinates for each nucleus,
                             % centered around the sample X
@@ -819,16 +821,16 @@ classdef eggChamberDataSet < handle
                     
                                 % y coordinate for each nucleus of current condition/sample
                                 curYPlot = obj.nucT.(varName)(...
-                                    obj.nucT.condIdx ==obj.condIndices(i) ...
-                                    & obj.nucT.sampleIdx == s(j)...
-                                    & obj.nucT.eggChamberID == obj.eggChamberIDs{i}{j}(k))';
+                                    obj.nucT.cond_Idx ==obj.condIndices(i) ...
+                                    & obj.nucT.sample_Idx == s(j)...
+                                    & obj.nucT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k))';
                     
                             elseif nNuclei == 1
                                 curXPlot = xEggChamberVals{i}{j}(k);
                                 curYPlot = obj.nucT.(varName)(...
-                                    obj.nucT.condIdx ==obj.condIndices(i) ...
-                                    & obj.nucT.sampleIdx == s(j)...
-                                    & obj.nucT.eggChamberID == obj.eggChamberIDs{i}{j}(k))';
+                                    obj.nucT.cond_Idx ==obj.condIndices(i) ...
+                                    & obj.nucT.sample_Idx == s(j)...
+                                    & obj.nucT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k))';
                     
                             elseif nNuclei == 0
                                 curXPlot = [];
@@ -1001,24 +1003,24 @@ classdef eggChamberDataSet < handle
         
         %% get the condition and sample Idx from the name of a sample folder 
         % (which should be the name of the initial image)
-        function [sampleIdx,conditionIdx] = getSampleIdx(obj,cName,sName)
+        function [sample_Idx,conditionIdx] = getSampleIdx(obj,cName,sName)
             conditionIdx = find(ismember( obj.conditionNames,cName));
-            sampleIdx = find(ismember( obj.sampleNames{conditionIdx},sName));
+            sample_Idx = find(ismember( obj.sampleNames{conditionIdx},sName));
         end
     
         %% get the list of expected files to be generated by a complete
         % analysis of the eggChamber data (only channel-independent files).
         function fNames = expectedEggChamberAnalysisFilesChannelIndependentFiles(obj)
-            fNames = obj.eggChamberWiseFileNames(...
-                ~obj.eggChamberWiseChannelDependent);
+            fNames = obj.sampleFOVWiseFileNames(...
+                ~obj.sampleFOVWiseChannelDependent);
         end
     
         %% get the list of expected files to be generated by the
         % analysis of the eggChamber data for a specific channel .
         function fNames = expectedEggChamberAnalysisFilesChannelFiles(obj,channelIdx)
            
-            nameList = obj.eggChamberWiseFileNames(...
-                obj.eggChamberWiseChannelDependent);
+            nameList = obj.sampleFOVWiseFileNames(...
+                obj.sampleFOVWiseChannelDependent);
     
             fNames = {};
             for i=1:numel( nameList )
@@ -1040,7 +1042,7 @@ classdef eggChamberDataSet < handle
         end
         
         %% get the name of the folder holding the eggChamber related csv files.
-        function analysisDir = getEggChamberAnalysisDir(obj,conditionIdx,sampleIdx)
+        function analysisDir = getEggChamberAnalysisDir(obj,conditionIdx,sample_Idx)
             if isempty(obj.conditionNames)
                 disp('condition folder appears empty.');
                 analysisDir = [];
@@ -1048,12 +1050,12 @@ classdef eggChamberDataSet < handle
             end
             analysisDir = fullfile(obj.inFolder,...
                 obj.conditionNames{conditionIdx},...
-                obj.sampleNames{conditionIdx}{sampleIdx},...
-                obj.eggChamberCsvFolderName);
+                obj.sampleNames{conditionIdx}{sample_Idx},...
+                obj.sampleFOVCsvFolderName);
         end
         
         %% get the name of the folder holding the eggChamber related segmentation files.
-        function eggSegDir = getEggChamberSegDir(obj,conditionIdx,sampleIdx)
+        function eggSegDir = getEggChamberSegDir(obj,conditionIdx,sample_Idx)
             if isempty(obj.conditionNames)
                 disp('condition appears empty.');
                 eggSegDir = [];
@@ -1061,12 +1063,12 @@ classdef eggChamberDataSet < handle
             end
             eggSegDir = fullfile(obj.inFolder,...
                 obj.conditionNames{conditionIdx},...
-                obj.sampleNames{conditionIdx}{sampleIdx},...
+                obj.sampleNames{conditionIdx}{sample_Idx},...
                 obj.eggChamberSegFolderName);
         end
 
         %% get the name of the folder holding the cluster related csv files.
-        function clustDir = getClusterDir(obj,conditionIdx,sampleIdx)
+        function clustDir = getClusterDir(obj,conditionIdx,sample_Idx)
             if isempty(obj.conditionNames)
                 disp('condition appears empty.');
                 clustDir = [];
@@ -1074,17 +1076,17 @@ classdef eggChamberDataSet < handle
             end
             clustDir = fullfile(obj.inFolder,...
                 obj.conditionNames{conditionIdx},...
-                obj.sampleNames{conditionIdx}{sampleIdx},...
+                obj.sampleNames{conditionIdx}{sample_Idx},...
                 obj.clusterFolderName);
         end
         
         %% check whether all files expected from the analysis of the 
         % eggchamber data are present in the analysis folder
         function [channelsFound,eggChamberSegFound] = areEggChamberAnalysisFilesPresent(obj,...
-                                conditionIdx,sampleIdx)
+                                conditionIdx,sample_Idx)
     
             % check that the analysis dir is present
-            analysisDir = obj.getEggChamberAnalysisDir(conditionIdx,sampleIdx);
+            analysisDir = obj.getEggChamberAnalysisDir(conditionIdx,sample_Idx);
             
             if ~exist(analysisDir, 'dir')
                 channelsFound = 0;
@@ -1093,7 +1095,7 @@ classdef eggChamberDataSet < handle
             end
     
             % check that the egg chamber seg dir is present
-            eggSegDir = obj.getEggChamberSegDir(conditionIdx,sampleIdx);
+            eggSegDir = obj.getEggChamberSegDir(conditionIdx,sample_Idx);
             
             if ~exist(eggSegDir, 'dir')
                 eggChamberSegFound = 0;
@@ -1137,7 +1139,7 @@ classdef eggChamberDataSet < handle
         end
         
         %% load the tables corresponding to one sample
-        % conditionIDx, sampleIdx relative to conditionNames and
+        % conditionIDx, sample_Idx relative to conditionNames and
         % sampleNames cell arrays. 
         % loads whole-image metrics (wholeImg and eggChamber prefix),
         % as well as whole nucleus geometry and intensity metrics.
@@ -1152,11 +1154,11 @@ classdef eggChamberDataSet < handle
         % removeNeighbors is a flag - set to 1 to remove variables that contain the word neighbor
         % (these are generated by Fiji but tend to not be useful for our
         % analyses).
-        function t = loadEggChamberData(obj,conditionIdx,sampleIdx,removeNeighbors)
+        function t = loadEggChamberData(obj,conditionIdx,sample_Idx,removeNeighbors)
             
             % check that data is present
             [c,eggSegFound] = obj.areEggChamberAnalysisFilesPresent(...
-                conditionIdx,sampleIdx);
+                conditionIdx,sample_Idx);
             if c == 0
                 t = [];
                 return
@@ -1189,7 +1191,7 @@ classdef eggChamberDataSet < handle
                 end
             end
     
-            analysisDir = obj.getEggChamberAnalysisDir(conditionIdx,sampleIdx);
+            analysisDir = obj.getEggChamberAnalysisDir(conditionIdx,sample_Idx);
             
             tS = []; % full table place holder for data that is single row 
             % - e.g. whole image intensity, whole egg chamber intensity.
@@ -1198,29 +1200,30 @@ classdef eggChamberDataSet < handle
             % loop through files, load each as a table curT and append the 
             % variables curT holds as new columns into t (or tS if single
             % row)
-            for i=1:numel(obj.eggChamberWiseFileNames)
-                if ~obj.eggChamberWiseChannelDependent(i)
+            for i=1:numel(obj.sampleFOVWiseFileNames)
+                if ~obj.sampleFOVWiseChannelDependent(i)
                     % load table
                     curT = readtable( fullfile(analysisDir,...
-                        obj.eggChamberWiseFileNames{i}) );
+                        obj.sampleFOVWiseFileNames{i}) );
                     
                     % remove useless variable name (if present)
                     if ismember('Var1',curT.Properties.VariableNames)
                         curT = removevars( curT,'Var1');
                     end
     
-                    % add prefix and suffix to variable name
+                    % add prefix and suffix to variable name, remove
+                    % underscores in metric name
                     for k=1:numel(curT.Properties.VariableNames)
                         if ~strcmp(curT.Properties.VariableNames{k},'Label')
                             curT.Properties.VariableNames{k} = ...
-                                [obj.eggChamberWisePrefix{i},...
-                                curT.Properties.VariableNames{k},...
+                                [obj.sampleFOVWisePrefix{i},'_',...
+                                strrep(curT.Properties.VariableNames{k},'_',''),...
                                 obj.eggChamberWiseSuffix{i}];
                         end
                     end
                     
                     % append to full table
-                    if obj.eggChamberWiseSingleRow(i)
+                    if obj.sampleFOVWiseSingleRow(i)
                         if isempty(tS)
                             tS = curT;
                         else
@@ -1238,7 +1241,7 @@ classdef eggChamberDataSet < handle
                         % load table
                         curT = readtable( fullfile(analysisDir,...
                             ['C',num2str(j),...
-                            obj.eggChamberWiseFileNames{i}]) );
+                            obj.sampleFOVWiseFileNames{i}]) );
                         
                         % remove useless variable name (if present)
                         if ismember('Var1',curT.Properties.VariableNames)
@@ -1249,7 +1252,7 @@ classdef eggChamberDataSet < handle
                         for k=1:numel(curT.Properties.VariableNames)
                             if ~strcmp(curT.Properties.VariableNames{k},'Label')
                                 curT.Properties.VariableNames{k} = ...
-                                    [obj.eggChamberWisePrefix{i},...
+                                    [obj.sampleFOVWisePrefix{i},...
                                     'C',num2str(j),'_',...
                                     curT.Properties.VariableNames{k},...
                                     obj.eggChamberWiseSuffix{i}];
@@ -1257,7 +1260,7 @@ classdef eggChamberDataSet < handle
                         end
     
                         % append to full table
-                        if obj.eggChamberWiseSingleRow(i)
+                        if obj.sampleFOVWiseSingleRow(i)
                             if isempty(tS)
                                 tS = curT;
                             else
@@ -1279,14 +1282,14 @@ classdef eggChamberDataSet < handle
             tS.Label = t.Label;
             t = join(t,tS,'Keys','Label');
     
-            % rename Label variable to nucLabel
-            t =renamevars(t,{'Label'},{'nucLabel'});
+            % rename Label variable to nuc_Label
+            t =renamevars(t,{'Label'},{'nuc_Label'});
     
             % add condition and sample index variables
             cIdx = repmat(conditionIdx,size(t,1),1);
-            sIdx = repmat(sampleIdx,size(t,1),1);
+            sIdx = repmat(sample_Idx,size(t,1),1);
             t = addvars(t,cIdx,sIdx,...
-                'NewVariableNames',{'condIdx','sampleIdx'},...
+                'NewVariableNames',{'cond_Idx','sample_Idx'},...
                 'Before',1);
     
             % if egg chamber stage file is present, add a variable for the egg
@@ -1295,21 +1298,21 @@ classdef eggChamberDataSet < handle
                 % get the name of the variable holding the median nucleus
                 % intensity in the channel that holds the egg chamber
                 % segmenentation ID (the median int will be used as the ID).
-                eggChamberIDVariable = [obj.eggChamberWisePrefix{2},'C',...
+                eggChamberIDVariable = [obj.sampleFOVWisePrefix{2},'C',...
                     num2str(obj.eggChamberSegChannel),'_Median',obj.eggChamberWiseSuffix{2}];
                 
                 % convert the egg chamber ID into and egg chamber stage based
                 % on the key saved in the file.
-                ecStage = obj.getEggChamberStageData(t.(eggChamberIDVariable),conditionIdx,sampleIdx);
+                ecStage = obj.getEggChamberStageData(t.(eggChamberIDVariable),conditionIdx,sample_Idx);
                 
                 % copy the eggChamber variable with ean easy to interpret file
                 % name
                 t = addvars(t,t.(eggChamberIDVariable),...
-                'NewVariableNames',{'eggChamberID'});
+                'NewVariableNames',{'eggChamber_Idx'});
     
                 % add egg Chamber stage variable to table
                 t = addvars(t,ecStage,...
-                'NewVariableNames',{'eggChamberStage'});
+                'NewVariableNames',{'eggChamber_Stage'});
             end
     
             % remove variables that contain the word neighbor
@@ -1418,24 +1421,25 @@ classdef eggChamberDataSet < handle
         end
         
         %%
-        function ecStage = getEggChamberStageData(obj, eggChamberID,conditionIdx,sampleIdx)
+        function ecStage = getEggChamberStageData(obj, eggChamber_Idx,conditionIdx,sample_Idx)
             % load cell stage key file
-            eggSegDir = obj.getEggChamberSegDir(conditionIdx,sampleIdx);
+            eggSegDir = obj.getEggChamberSegDir(conditionIdx,sample_Idx);
             ecStageFile = fullfile(eggSegDir,obj.eggChamberSegFileName);
     
             % reads the egg chamber stage key file as a 2-column table w
-            % variable names eggChamberID and eggChamberStage.
+            % variable names eggChamber_Idx and eggChamber_Stage.
             tEC = readtable(ecStageFile);
-    
+            tEC = renamevars(tEC,{'eggChamberID','eggChamberStage'},{'eggChamber_Idx','eggChamber_Stage'});
+
             % convert key file to Containers.map object.
-            ecMap = containers.Map(tEC.eggChamberID,tEC.eggChamberStage);
-            ecStage = zeros(numel(eggChamberID),1);
-            ecVals = unique(eggChamberID);
+            ecMap = containers.Map(tEC.eggChamber_Idx,tEC.eggChamber_Stage);
+            ecStage = zeros(numel(eggChamber_Idx),1);
+            ecVals = unique(eggChamber_Idx);
             for i=1:numel(ecVals)
                 if ~isKey(ecMap,ecVals(i))
-                    ecStage(eggChamberID==ecVals(i)) = 0;
+                    ecStage(eggChamber_Idx==ecVals(i)) = 0;
                 else
-                    ecStage(eggChamberID==ecVals(i)) = cell2mat(values(ecMap,{ecVals(i)}));
+                    ecStage(eggChamber_Idx==ecVals(i)) = cell2mat(values(ecMap,{ecVals(i)}));
                 end
             end
         end
@@ -1444,40 +1448,40 @@ classdef eggChamberDataSet < handle
         function reOrderNucleiVariables(obj)
             % order should go:
             % input file name
-            % condIdx
-            % sampleIdx
-            % eggChamberID (optional)
+            % cond_Idx
+            % sample_Idx
+            % eggChamber_Idx (optional)
             % eggchamber stage (optional)
-            % nucLabel
-            % nucVolume 
+            % nuc_Label
+            % nuc_Volume 
             
             vStart = obj.nucT.Properties.VariableNames{1};
-            obj.nucT = movevars(obj.nucT,'nucInputFileName','Before',vStart);
-            obj.nucT = movevars(obj.nucT,'condIdx','After','nucInputFileName');
-            obj.nucT = movevars(obj.nucT,'sampleIdx','After','condIdx');
-            if ismember('eggChamberID',obj.nucT.Properties.VariableNames)
-                obj.nucT = movevars(obj.nucT,'eggChamberID','After','sampleIdx');
+            obj.nucT = movevars(obj.nucT,'nuc_InputFileName','Before',vStart);
+            obj.nucT = movevars(obj.nucT,'cond_Idx','After','nuc_InputFileName');
+            obj.nucT = movevars(obj.nucT,'sample_Idx','After','cond_Idx');
+            if ismember('eggChamber_Idx',obj.nucT.Properties.VariableNames)
+                obj.nucT = movevars(obj.nucT,'eggChamber_Idx','After','sample_Idx');
             end
 
-            if ismember('eggChamberStage',obj.nucT.Properties.VariableNames)
-                obj.nucT = movevars(obj.nucT,'eggChamberStage','After','eggChamberID');
-                obj.nucT = movevars(obj.nucT,'nucLabel','After','eggChamberStage');
+            if ismember('eggChamber_Stage',obj.nucT.Properties.VariableNames)
+                obj.nucT = movevars(obj.nucT,'eggChamber_Stage','After','eggChamber_Idx');
+                obj.nucT = movevars(obj.nucT,'nuc_Label','After','eggChamber_Stage');
             else
-                if ismember('eggChamberID',obj.nucT.Properties.VariableNames)
-                    obj.nucT = movevars(obj.nucT,'nucLabel','After','eggChamberID');
+                if ismember('eggChamber_Idx',obj.nucT.Properties.VariableNames)
+                    obj.nucT = movevars(obj.nucT,'nuc_Label','After','eggChamber_Idx');
                 else
-                    obj.nucT = movevars(obj.nucT,'nucLabel','After','sampleIdx');
+                    obj.nucT = movevars(obj.nucT,'nuc_Label','After','sample_Idx');
                 end
             end
-            obj.nucT = movevars(obj.nucT,'nucVolume','After','nucLabel');
+            obj.nucT = movevars(obj.nucT,'nuc_Volume','After','nuc_Label');
         end
 
         %%
         function sortNucleiRowsByEggChamber(obj)
-            if ismember('eggChamberID',obj.nucT.Properties.VariableNames)
-                obj.nucT = sortrows(obj.nucT,{'condIdx','sampleIdx','eggChamberID','nucLabel'});
+            if ismember('eggChamber_Idx',obj.nucT.Properties.VariableNames)
+                obj.nucT = sortrows(obj.nucT,{'cond_Idx','sample_Idx','eggChamber_Idx','nuc_Label'});
             else
-                disp('Cannot sort table by egg chamber, eggChamberID column missing. Skipping.');
+                disp('Cannot sort table by egg chamber, eggChamber_Idx column missing. Skipping.');
             end
 
         end
@@ -1612,7 +1616,7 @@ classdef eggChamberDataSet < handle
         end
         
          %% find whether a given variable (varName) is a sample variable, a
-        % geometry variable or a channel variable. ALso outputs the
+        % geometry variable or a channel variable. Also outputs the
         % baseName of the variable. Returns empty values if unrecognized.
         function [varType,baseNameRecognized]= getVarType(obj,varName)
             if ismember(varName,obj.sampleVarList)
@@ -1656,12 +1660,12 @@ classdef eggChamberDataSet < handle
             % defaulted to zero if the egg chamber stage info is missing.
         % ecNumNucPerEC is a nested cell array where ecNumNucPerEC{i}{j} is a ecN{i}{j} x 1
             % numerical array holding the number of nuclei per segmented egg chambers in condition i sample j.
-        % ecN, ecID and ecStage are defaulted to {} if the eggChamberID
+        % ecN, ecID and ecStage are defaulted to {} if the eggChamber_Idx
             % variable is absent from the data table.
         function  [ecID,ecN,ecStage,ecNumNucPerEC] = getEggChamberIDs(obj)
-            % check whether the eggChamberID variable is present. If not, return
+            % check whether the eggChamber_Idx variable is present. If not, return
             % empty cell arrays.
-            if ~ismember('eggChamberID',obj.nucT.Properties.VariableNames)
+            if ~ismember('eggChamber_Idx',obj.nucT.Properties.VariableNames)
                 disp('Cannot compile egg chamber IDs, column missing. Skipping.');
                 ecID = {};
                 ecN = {};
@@ -1683,17 +1687,17 @@ classdef eggChamberDataSet < handle
                 ecStage{i} = cell(obj.nSamples(i),1);
                 for j=1:obj.nSamples(i)
                     ecID{i}{j} = ...
-                        unique(obj.nucT.eggChamberID(...
-                        obj.nucT.condIdx == i & obj.nucT.sampleIdx == j));
+                        unique(obj.nucT.eggChamber_Idx(...
+                        obj.nucT.cond_Idx == i & obj.nucT.sample_Idx == j));
                     ecN{i}(j) = numel(ecID{i}{j});
 
-                    curT = obj.nucT( obj.nucT.condIdx == i & obj.nucT.sampleIdx == j,:);
+                    curT = obj.nucT( obj.nucT.cond_Idx == i & obj.nucT.sample_Idx == j,:);
                     for k=1:numel(ecID{i}{j})
-                        ecNumNucPerEC{i}{j}(k) = sum(curT.eggChamberID == ecID{i}{j}(k));
-                        if ismember('eggChamberStage',obj.nucT.Properties.VariableNames)
+                        ecNumNucPerEC{i}{j}(k) = sum(curT.eggChamber_Idx == ecID{i}{j}(k));
+                        if ismember('eggChamber_Stage',obj.nucT.Properties.VariableNames)
                             ecStage{i}{j}(k) = ...
                             unique(...
-                            curT.eggChamberStage(curT.eggChamberID == ecID{i}{j}(k)));
+                            curT.eggChamber_Stage(curT.eggChamber_Idx == ecID{i}{j}(k)));
                         else
                             ecStage{i}{j} = zeros(size(ecID));
                         end
@@ -1707,11 +1711,11 @@ classdef eggChamberDataSet < handle
         end      
 
     %% add nucleus and egg chamber ID to the left of the cluster table
-        function clustT = appendNucVarsToClustTable(obj,clustT,condIdx,sampleIdx,nucLabel)
+        function clustT = appendNucVarsToClustTable(obj,clustT,cond_Idx,sample_Idx,nuc_Label)
             % nucleus variables to be appended to the left of the cluster
             % table to ease linking clusters to nuclei.
-            nucVarsToIncludeInClustTable = {'nucInputFileName','condIdx',...
-                'sampleIdx','eggChamberID','eggChamberStage','nucLabel'};
+            nucVarsToIncludeInClustTable = {'nuc_InputFileName','cond_Idx',...
+                'sample_Idx','eggChamber_Idx','eggChamber_Stage','nuc_Label'};
 
             n = size(clustT,1);
             % looping backwards because we are adding variables to the left of the table
@@ -1721,9 +1725,9 @@ classdef eggChamberDataSet < handle
                 if ismember(nucVarsToIncludeInClustTable{i},obj.nucT.Properties.VariableNames)
                     curT = repmat(...
                         obj.nucT.(nucVarsToIncludeInClustTable{i})(...
-                        obj.nucT.condIdx == condIdx ...
-                        & obj.nucT.sampleIdx == sampleIdx ...
-                        & obj.nucT.nucLabel == nucLabel),...
+                        obj.nucT.cond_Idx == cond_Idx ...
+                        & obj.nucT.sample_Idx == sample_Idx ...
+                        & obj.nucT.nuc_Label == nuc_Label),...
                         n,1);
                     clustT = addvars(clustT,curT,...
                         'NewVariableNames',nucVarsToIncludeInClustTable(i),...
@@ -1745,17 +1749,17 @@ classdef eggChamberDataSet < handle
         % output are two tables, one which is nucleus metrics (nucleoplasm and nucleoli metrics)
         % one which is cluster metrics.
         function [curNucT,curClustT] = loadSampleClustTables(obj,...
-                condIdx,sampleIdx,nucLabel,removeNeighbors)
+                cond_Idx,sample_Idx,nuc_Label,removeNeighbors)
 
             % where the data is
-            clustDir = obj.getClusterDir(condIdx,sampleIdx);
+            clustDir = obj.getClusterDir(cond_Idx,sample_Idx);
             
             curNucT = table();
             curClustT = table();
             for i=1:numel(obj.clusterWiseFileNames)
                 if ~obj.clusterWiseChannelDependent(i)
                     curFileName = fullfile(clustDir,...
-                        ['nuc',num2str(nucLabel),obj.clusterWiseFileNames{i}]);
+                        ['nuc',num2str(nuc_Label),obj.clusterWiseFileNames{i}]);
                     
                     % load table
                     if exist(curFileName,"file")
@@ -1771,12 +1775,13 @@ classdef eggChamberDataSet < handle
                         curT = obj.removeNeighborVarsFromTable(curT);
                     end
                     
-                    % add prefix and suffix to variable name
+                    % add prefix and suffix to variable name, remove
+                    % underscores in the metric name
                     for k=1:numel(curT.Properties.VariableNames)
                         if ~strcmp(curT.Properties.VariableNames{k},'Label')
                             curT.Properties.VariableNames{k} = ...
-                                [obj.clusterWisePrefix{i},...
-                                curT.Properties.VariableNames{k},...
+                                [obj.clusterWisePrefix{i},'_',...
+                                strrep(curT.Properties.VariableNames{k},'_',''),...
                                 obj.clusterWiseSuffix{i}];
                         end
                     end
@@ -1784,7 +1789,7 @@ classdef eggChamberDataSet < handle
                     % make sure the label of the nucleus table is the
                     % nucleus ID (it can be 255 in some cases)
                     if obj.clusterWiseSingleRow(i)
-                        curT.Label = nucLabel;
+                        curT.Label = nuc_Label;
                     end
                     
                     % join loaded table to sample-wise table
@@ -1807,7 +1812,7 @@ classdef eggChamberDataSet < handle
                 else
                     for j=1:numel(obj.channelList)
                         curFileName = fullfile(clustDir,...
-                            ['C',num2str(obj.channelList(j)),'_nuc',num2str(nucLabel),...
+                            ['C',num2str(obj.channelList(j)),'_nuc',num2str(nuc_Label),...
                             obj.clusterWiseFileNames{i}]);
                         %disp(curFileName);
 
@@ -1839,7 +1844,7 @@ classdef eggChamberDataSet < handle
                         % make sure the label of the nucleus table is the
                         % nucleus ID (it can be 255 in some cases)
                         if obj.clusterWiseSingleRow(i)
-                            curT.Label = nucLabel;
+                            curT.Label = nuc_Label;
                         end
 
                         % join loaded table to sample-wise table
@@ -1862,12 +1867,12 @@ classdef eggChamberDataSet < handle
                 end    
             end 
             
-            % rename Label variable to nucLabel/clustLabel
+            % rename Label variable to nuc_Label/clust_Label
             if ~isempty(curNucT)
-                curNucT =renamevars(curNucT,{'Label'},{'nucLabel'});
+                curNucT =renamevars(curNucT,{'Label'},{'nuc_Label'});
             end
             if ~isempty(curClustT)
-                curClustT =renamevars(curClustT,{'Label'},{'clustLabel'});
+                curClustT =renamevars(curClustT,{'Label'},{'clust_Label'});
             end
 
             % in cluster table, copy one of the channel volume variables to
@@ -1881,15 +1886,15 @@ classdef eggChamberDataSet < handle
                 idx = find(idx,1);
                 curClustT = addvars(curClustT,...
                     curClustT.(curClustT.Properties.VariableNames{idx}),...
-                    'NewVariableNames',{'clustVolume'});
+                    'NewVariableNames',{'clust_Volume'});
             end
         end
         
         %% using nuclei table, collect list of nuclei labels expected in current sample
-        function nucIDList = getExpectedNucIDsFromTable(obj,condIdx, sampleIdx)
-            nucIDList = obj.nucT.nucLabel(...
-                obj.nucT.condIdx == condIdx ...
-                & obj.nucT.sampleIdx == sampleIdx);
+        function nucIDList = getExpectedNucIDsFromTable(obj,cond_Idx, sample_Idx)
+            nucIDList = obj.nucT.nuc_Label(...
+                obj.nucT.cond_Idx == cond_Idx ...
+                & obj.nucT.sample_Idx == sample_Idx);
         end
     end
 end

@@ -1,8 +1,8 @@
 To do:
 *********************************
 Immediate fixes:
-- change eggChamber -> "sampleROI" in suffixes. 
-- Change condIdx to cond_Idx. Same for sampleIdx, eggChamberID, eggChamberStage, nucLabel, clustLabel. stdClustVolume
+X change eggChamber -> "sampleROI" in suffixes. 
+X Change condIdx to cond_Idx. Same for sampleIdx, eggChamberID, eggChamberStage, nucLabel, clustLabel. stdClustVolume
 - make sure that variables follow the pattern: Channel string: C1 to C5 <prefix><channelString>_<metricName>_<suffix>
 - bg subtraction functions, check that suffixes are the following: 
 - wholeImgSubtracted
@@ -35,6 +35,8 @@ If clustering isn't good enough, check how to redo analysis without overwriting 
 - rewrite/update a table streamlining function? Probably makes sense to streamline once at the end? Or make sure streamlining works regardless of when we call it.
 
 - u-map or t-sne of nuclei metrics to ID outliers?
+
+- update the Fiji sampleROI-wise output files to not call them eggChamber. Update the file naming expected by Matlab.
 
 *********************************
 ** Current Functions small updates 
