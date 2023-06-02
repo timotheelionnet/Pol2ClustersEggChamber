@@ -116,9 +116,9 @@ classdef eggChamberDataSet < handle
         % suffix to add at the end of each variable name when loading the
         % corresponding table
         eggChamberWiseSuffix ={'';...
-            '_raw';...
-            '_raw';...
-            '_raw'};
+            'raw';...
+            'raw';...
+            'raw'};
         
         % maximum number of channels (used when searching for data files) 
         maxChannels = 10;
@@ -148,12 +148,12 @@ classdef eggChamberDataSet < handle
 
         % suffix to add at the end of each variable name when loading the
         % corresponding table
-        clusterWiseSuffix ={'';'';'_raw';'_raw';'_raw';'_plasmCorr';};
+        clusterWiseSuffix ={'';'';'raw';'raw';'raw';'plasmCorr';};
 
         % ******************** Nuclei Table variables properties
 
         % the variables (i.e. columns) which store the sample and condition ID
-        sampleVarList = {'cond_Idx', 'sample_Idx','nuc_InputFileName'};
+        sampleVarList = {'cond_Idx', 'sample_Idx','sample_InputFileName'};
         
         % prefixes 
         % in a variable name, the prefix indicates what structure/ROI type the metric is applied to
@@ -165,7 +165,7 @@ classdef eggChamberDataSet < handle
         clusterPrefix = 'clust';
         prefixList;
     
-        % list of the variable basenames that pertain to geometry - note
+        % list of the variable basenames that pertain to each nucleus and its geometry - note
         % that the eggChamber_Idx and eggChamber_Stage fall into that category
         geomVarsBaseNameList = {'Label', 'Volume', 'SurfaceArea','Idx','Stage',......
             'MeanBreadth', 'Sphericity', 'EulerNumber', ...
@@ -175,18 +175,20 @@ classdef eggChamberDataSet < handle
         'ElliCenterX','ElliCenterY','ElliCenterZ',...
         'InscrBallCenterX','InscrBallCenterY','InscrBallCenterZ','InscrBallRadius'...
         'ElliR1','ElliR2','ElliR3','ElliR1R2','ElliR2R3','ElliR1R3',...
-        'ElliAzim','ElliElev','ElliRoll',...
-        'VoxelCount'}; 
+        'ElliAzim','ElliElev','ElliRoll','VoxelCount',...
+        'NumClusters'}; 
         % make sure that no entry in geomVarsBaseNameList is also part of the name of one of the entries in channelVarsBaseNameList
     
         % list of the variable basenames that pertain to an intensity metric
-        channelVarsBaseNameList = {'Mean', 'StdDev', 'Max', 'Min','Median', 'Mode', 'Skewness', 'Kurtosis','Volume','NumberOfVoxels'}; 
+        channelVarsBaseNameList = {'Mean', 'StdDev', 'Max', 'Min','Median',...
+            'Mode', 'Skewness', 'Kurtosis','Volume','NumberOfVoxels'}; 
         % the fact that 'Mean' is also part of a variable ('MeanBreadth') in geomVarsBaseNameList shouldnt be an issue
         % note that Volume is both an intensity and a geometry metric,
         % annoyingly
 
         % name of variables to remove in streamlined table
-        geomVarsToRemoveInStreamLinedTable = {'SurfaceArea','MeanBreadth', 'Sphericity', 'EulerNumber', ...
+        geomVarsToRemoveInStreamLinedTable = {'SurfaceArea','MeanBreadth', ...
+        'Sphericity', 'EulerNumber', ...
         'BoxXMin', 'BoxXMax', 'BoxYMin', 'BoxYMax', ...
         'BoxZMin', 'BoxZMax', 'CentroidX', 'CentroidY', 'CentroidZ', ...
         'Dist',...
@@ -195,7 +197,8 @@ classdef eggChamberDataSet < handle
         'ElliR1','ElliR2','ElliR3','ElliR1R2','ElliR2R3','ElliR1R3',...
         'ElliAzim','ElliElev','ElliRoll',...
         'VoxelCount'};
-        channelVarsToRemoveInStreamLinedTable = {'Min','Max','Mode', 'Skewness', 'Kurtosis','Volume','NumberOfVoxels'};
+        channelVarsToRemoveInStreamLinedTable = {'Min','Max','Mode', ...
+            'Skewness', 'Kurtosis','Volume','NumberOfVoxels'};
     
         % suffixes
         % in an intensity variable name, the suffix indicates the processing applied to
@@ -212,7 +215,7 @@ classdef eggChamberDataSet < handle
             % geometry variables: <prefix><geomVarBaseName>
     
             % channel variables:
-            % <prefix>C<channelIdx>_<channelVarsBaseNameList>_<suffix>
+            % <prefix>_C<channelIdx><channelVarsBaseNameList>_<suffix>
         
         % nucleus intensity background subtraction settings
         % these variables will get the bg intensity subtracted from them
@@ -231,6 +234,10 @@ classdef eggChamberDataSet < handle
         % when performing background subtraction, use the median intensity
         % of the reference region.
         metricToSubtract = 'Median';
+
+        % nucleus variables to include in cluster table
+        nucVarsToIncludeInClustTable = {'sample_InputFileName','cond_Idx',...
+                'sample_Idx','eggChamber_Idx','eggChamber_Stage','nuc_Label'};
 
         % ************************** plotting settings    
 
@@ -326,6 +333,7 @@ classdef eggChamberDataSet < handle
                         if ~isempty(curClustT)
                             curClustT = ...
                                 obj.appendNucVarsToClustTable(curClustT,i,j,nucIDList(k)); 
+                            
                         end
 
                         % append each of the newly created tables to current sample nuc and clust tables
@@ -355,7 +363,7 @@ classdef eggChamberDataSet < handle
             obj.nucT = datasetNucTable;
             obj.nucFullT = datasetNucFullTable;
             obj.clustT = datasetClustTable;
-
+            
             % streamline tables
             obj.streamLineTable('nuc');
             obj.streamLineTable('clust');
@@ -425,14 +433,14 @@ classdef eggChamberDataSet < handle
                     % update variable names from mean_clust to avgClust
                     newVars = cellfun(@strrep,cT1.Properties.VariableNames,...
                         repmat({'mean_clust'},size(cT1.Properties.VariableNames)),...
-                        repmat({'avgClust'},size(cT1.Properties.VariableNames)),...
+                        repmat({'nucAvgClust'},size(cT1.Properties.VariableNames)),...
                         'UniformOutput',0);
                     cT1 = renamevars(cT1,cT1.Properties.VariableNames,newVars);
                     
                     % update variable names from std_clust to stdClust
                     newVars = cellfun(@strrep,cT2.Properties.VariableNames,...
                         repmat({'std_clust'},size(cT2.Properties.VariableNames)),...
-                        repmat({'stdClust'},size(cT2.Properties.VariableNames)),...
+                        repmat({'nucStdClust'},size(cT2.Properties.VariableNames)),...
                         'UniformOutput',0);
                     cT2 = renamevars(cT2,cT2.Properties.VariableNames,newVars);
                     
@@ -443,7 +451,7 @@ classdef eggChamberDataSet < handle
                     cT = join(cT1,cT2,'Keys','nuc_Label');
 
                     % compute the number of clusters per nucleus 
-                    cT = addvars(cT,nC,'NewVariableNames',{'numClusters'});   
+                    cT = addvars(cT,nC,'NewVariableNames',{'nuc_NumClusters'});   
                 else
                     % no clusters found in current nucleus, generating a
                     % row of NaN values
@@ -472,7 +480,7 @@ classdef eggChamberDataSet < handle
                     cT = join(cT1,cT2,'Keys','nuc_Label');
 
                     % compute the number of clusters per nucleus 
-                    cT = addvars(cT,0,'NewVariableNames',{'numClusters'});
+                    cT = addvars(cT,0,'NewVariableNames',{'nuc_NumClusters'});
 
                 end
 
@@ -499,14 +507,14 @@ classdef eggChamberDataSet < handle
                 tJoin = removevars(tJoin,{'Key'});
 
                 % QC check
-                if sum(abs(tJoin.nucLabel_nuc2 - tJoin.nucLabel_t)) ~=0
-                    failedIndices = find(abs(tJoin.nucLabel_nuc2 - tJoin.nucLabel_t)~=0)
-                    disp(['QC failed, nucLabels of cluster metrics and nuc table do not match;',...
+                if sum(abs(tJoin.nuc_Label_nuc2 - tJoin.nuc_Label_t)) ~=0
+                    failedIndices = find(abs(tJoin.nuc_Label_nuc2 - tJoin.nuc_Label_t)~=0)
+                    disp(['QC failed, nuc_Labels of cluster metrics and nuc table do not match;',...
                         ' cannot add cluster metrics to nucT.']);
                 else
                     
-                    tJoin = removevars(tJoin,{'nucLabel_t'});
-                    tJoin = renamevars(tJoin,{'nucLabel_nuc2'},{'nuc_Label'});
+                    tJoin = removevars(tJoin,{'nuc_Label_t'});
+                    tJoin = renamevars(tJoin,{'nuc_Label_nuc2'},{'nuc_Label'});
                 end
             end
         end
@@ -551,7 +559,7 @@ classdef eggChamberDataSet < handle
                         else
                             curVarList = obj.channelVarsToRemoveInStreamLinedTable;
                         end
-
+                        
                         for n=1:numel(curVarList)
                             newVar = obj.buildVarName(obj.prefixList{i},c(j),...
                                 curVarList{n},obj.suffixList{k},'channel');
@@ -601,8 +609,10 @@ classdef eggChamberDataSet < handle
                 for i=1:nChannels
                     for j=1:numel(obj.backgroundIntensityPrefixList)
                         
-                        varToSubtract{i,j} = [obj.backgroundIntensityPrefixList{j},...
-                            'C',num2str(c(i)),'_',obj.metricToSubtract,'_',obj.rawSuffix];
+                        varToSubtract{i,j} = obj.buildVarName(...
+                            obj.backgroundIntensityPrefixList{j},c(i),...
+                        obj.metricToSubtract,obj.rawSuffix,'channel');
+                        
                     end
                 end
                 
@@ -632,7 +642,7 @@ classdef eggChamberDataSet < handle
                 
                     % find variables in t that are relative to the current color channel
                     idxC = cell2mat( cellfun( @contains, varList,...
-                        repmat({['C',num2str(c(i)),'_']}, size(varList)),...
+                        repmat({['_C',num2str(c(i))]}, size(varList)),...
                         'UniformOutput',0) );
                 
                     curVarList = varList(idxC);
@@ -640,7 +650,7 @@ classdef eggChamberDataSet < handle
                         for k =1:numel(curVarList)
                             newVarName = strrep(curVarList{k},...
                                 ['_',obj.rawSuffix],...
-                                ['_',obj.backgroundIntensityPrefixList{j},'Corr']);
+                                ['_',obj.backgroundIntensityPrefixList{j},'Subtracted']);
     
                             newVar = tIn.(curVarList{k}) - tIn.(varToSubtract{i,j});
     
@@ -1214,11 +1224,14 @@ classdef eggChamberDataSet < handle
                     % add prefix and suffix to variable name, remove
                     % underscores in metric name
                     for k=1:numel(curT.Properties.VariableNames)
-                        if ~strcmp(curT.Properties.VariableNames{k},'Label')
+                        if strcmp(curT.Properties.VariableNames{k},'InputFileName')
+                            curT.Properties.VariableNames{k} = 'sample_InputFileName';
+
+                        elseif ~strcmp(curT.Properties.VariableNames{k},'Label')
                             curT.Properties.VariableNames{k} = ...
-                                [obj.sampleFOVWisePrefix{i},'_',...
+                                obj.buildVarName(obj.sampleFOVWisePrefix{i},0,...
                                 strrep(curT.Properties.VariableNames{k},'_',''),...
-                                obj.eggChamberWiseSuffix{i}];
+                                obj.eggChamberWiseSuffix{i},'geom');
                         end
                     end
                     
@@ -1252,10 +1265,9 @@ classdef eggChamberDataSet < handle
                         for k=1:numel(curT.Properties.VariableNames)
                             if ~strcmp(curT.Properties.VariableNames{k},'Label')
                                 curT.Properties.VariableNames{k} = ...
-                                    [obj.sampleFOVWisePrefix{i},...
-                                    'C',num2str(j),'_',...
+                                    obj.buildVarName(obj.sampleFOVWisePrefix{i},j,...
                                     curT.Properties.VariableNames{k},...
-                                    obj.eggChamberWiseSuffix{i}];
+                                    obj.eggChamberWiseSuffix{i},'channel');
                             end
                         end
     
@@ -1298,8 +1310,11 @@ classdef eggChamberDataSet < handle
                 % get the name of the variable holding the median nucleus
                 % intensity in the channel that holds the egg chamber
                 % segmenentation ID (the median int will be used as the ID).
-                eggChamberIDVariable = [obj.sampleFOVWisePrefix{2},'C',...
-                    num2str(obj.eggChamberSegChannel),'_Median',obj.eggChamberWiseSuffix{2}];
+                eggChamberIDVariable = obj.buildVarName(...
+                    obj.sampleFOVWisePrefix{2},...
+                    obj.eggChamberSegChannel,...
+                    'Median',...
+                    obj.eggChamberWiseSuffix{2},'channel');
                 
                 % convert the egg chamber ID into and egg chamber stage based
                 % on the key saved in the file.
@@ -1456,8 +1471,8 @@ classdef eggChamberDataSet < handle
             % nuc_Volume 
             
             vStart = obj.nucT.Properties.VariableNames{1};
-            obj.nucT = movevars(obj.nucT,'nuc_InputFileName','Before',vStart);
-            obj.nucT = movevars(obj.nucT,'cond_Idx','After','nuc_InputFileName');
+            obj.nucT = movevars(obj.nucT,'sample_InputFileName','Before',vStart);
+            obj.nucT = movevars(obj.nucT,'cond_Idx','After','sample_InputFileName');
             obj.nucT = movevars(obj.nucT,'sample_Idx','After','cond_Idx');
             if ismember('eggChamber_Idx',obj.nucT.Properties.VariableNames)
                 obj.nucT = movevars(obj.nucT,'eggChamber_Idx','After','sample_Idx');
@@ -1535,15 +1550,17 @@ classdef eggChamberDataSet < handle
                     end
                 case 'channel'
                     k = strfind(varName,baseNameRecognized);
-                    p = varName(1:k-1); % p should be something like nucC1_
+                    p = varName(1:k-1); % p should be something like nuc_C1
                     for i=1:numel(obj.prefixList)
                         if contains(p,obj.prefixList{i})
                             prefix = obj.prefixList{i};
                             % now that we found the prefix in our string (say 'nuc' in 'nucC1_'), we
-                            % collect the channel ID by starting two
-                            % characters after the end of the prefix, and
-                            % removing the last character ('_'):
-                            channel = str2double(p(length(prefix)+2:end-1));
+                            % collect the channel ID by removing both the
+                            % prefix and any '_' and 'C'
+                            p = strrep(p,prefix,'');
+                            p = strrep(p,'_','');
+                            p = strrep(p,'C','');
+                            channel = str2double(p);
                         end
                     end
 
@@ -1556,11 +1573,11 @@ classdef eggChamberDataSet < handle
             end
         end
 
-         %% build a variable name based on its constituents
-         function varName = buildVarName(obj,prefix,channel,baseName,suffix,chosenVarType)
+        %% build a variable name based on its constituents
+        function varName = buildVarName(obj,prefix,channel,baseName,suffix,chosenVarType)
 
             varName = [];
-            
+            varType = [];
             if ismember(baseName,obj.sampleVarList) 
                 varType = 'sample';
             end
@@ -1584,6 +1601,11 @@ classdef eggChamberDataSet < handle
                 end
             end
 
+            if isempty(varType)
+                disp(['Cannot build variable, basename ',baseName,' not recognized.']);
+                return
+            end
+
             switch varType
                 case 'sample'
                     varName = baseName;
@@ -1592,30 +1614,32 @@ classdef eggChamberDataSet < handle
                         disp(['could not build variable name, prefix ',prefix,' not recognized']);
                         return
                     else
-                        varName = [prefix,baseName];
+                        varName = [prefix,'_',baseName];
                     end
                 case 'channel'
                     if ~ismember(prefix,obj.prefixList)
                         disp(['could not build variable name, prefix ',prefix,' not recognized']);
                         return
                     else
-                        obj.channelList = obj.getChannelList;
-                        if ~ismember(channel,obj.channelList)
-                            disp(['could not build variable name, channel ',num2str(channel),' not recognized']);
-                            return
-                        end
+                        % commented this part out so we can build variable
+                        % names before the channels are loaded.
+                        %obj.channelList = obj.getChannelList;
+                        %if ~ismember(channel,obj.channelList)
+                        %    disp(['could not build variable name, channel ',num2str(channel),' not recognized']);
+                        %    return
+                        %end
     
                         if ~ismember(suffix,obj.suffixList)
                             disp(['could not build variable name, suffix ',suffix,' not recognized']);
                             return
                         end
     
-                        varName = [prefix,'C',num2str(channel),'_',baseName,'_',suffix];
+                        varName = [prefix,'_C',num2str(channel),baseName,'_',suffix];
                     end
             end        
         end
         
-         %% find whether a given variable (varName) is a sample variable, a
+        %% find whether a given variable (varName) is a sample variable, a
         % geometry variable or a channel variable. Also outputs the
         % baseName of the variable. Returns empty values if unrecognized.
         function [varType,baseNameRecognized]= getVarType(obj,varName)
@@ -1714,23 +1738,21 @@ classdef eggChamberDataSet < handle
         function clustT = appendNucVarsToClustTable(obj,clustT,cond_Idx,sample_Idx,nuc_Label)
             % nucleus variables to be appended to the left of the cluster
             % table to ease linking clusters to nuclei.
-            nucVarsToIncludeInClustTable = {'nuc_InputFileName','cond_Idx',...
-                'sample_Idx','eggChamber_Idx','eggChamber_Stage','nuc_Label'};
 
             n = size(clustT,1);
             % looping backwards because we are adding variables to the left of the table
             % this way at the end the order of the added variables in the
             % final table reflects the order in nucVarsToIncludeInClustTable
-            for i=numel(nucVarsToIncludeInClustTable):-1:1 
-                if ismember(nucVarsToIncludeInClustTable{i},obj.nucT.Properties.VariableNames)
+            for i=numel(obj.nucVarsToIncludeInClustTable):-1:1 
+                if ismember(obj.nucVarsToIncludeInClustTable{i},obj.nucT.Properties.VariableNames)
                     curT = repmat(...
-                        obj.nucT.(nucVarsToIncludeInClustTable{i})(...
+                        obj.nucT.(obj.nucVarsToIncludeInClustTable{i})(...
                         obj.nucT.cond_Idx == cond_Idx ...
                         & obj.nucT.sample_Idx == sample_Idx ...
                         & obj.nucT.nuc_Label == nuc_Label),...
                         n,1);
                     clustT = addvars(clustT,curT,...
-                        'NewVariableNames',nucVarsToIncludeInClustTable(i),...
+                        'NewVariableNames',obj.nucVarsToIncludeInClustTable(i),...
                         'Before',clustT.Properties.VariableNames{1});
                 end
             end
@@ -1780,9 +1802,9 @@ classdef eggChamberDataSet < handle
                     for k=1:numel(curT.Properties.VariableNames)
                         if ~strcmp(curT.Properties.VariableNames{k},'Label')
                             curT.Properties.VariableNames{k} = ...
-                                [obj.clusterWisePrefix{i},'_',...
+                                obj.buildVarName(obj.clusterWisePrefix{i},0,...
                                 strrep(curT.Properties.VariableNames{k},'_',''),...
-                                obj.clusterWiseSuffix{i}];
+                                obj.clusterWiseSuffix{i},'geom');
                         end
                     end
 
@@ -1830,18 +1852,19 @@ classdef eggChamberDataSet < handle
                             curT = obj.removeNeighborVarsFromTable(curT);
                         end
                         
-                        % add prefix and suffix to variable name
+                        % add prefix and suffix to each variable name
                         for k=1:numel(curT.Properties.VariableNames)
                             if ~strcmp(curT.Properties.VariableNames{k},'Label')
-                                curT.Properties.VariableNames{k} = ...
-                                    [obj.clusterWisePrefix{i},...
-                                    'C',num2str(obj.channelList(j)),'_',...
-                                    curT.Properties.VariableNames{k},...
-                                    obj.clusterWiseSuffix{i}];
+                                oldName = curT.Properties.VariableNames{k};
+                                newName = obj.buildVarName(obj.clusterWisePrefix{i},...
+                                    obj.channelList(j),...
+                                    strrep(oldName,'_',''),...
+                                    obj.clusterWiseSuffix{i},'channel');
+                                curT.Properties.VariableNames{k} = newName;
                             end
                         end
 
-                        % make sure the label of the nucleus table is the
+                        % make sure the label of the nucleoplasm and nucleoli tables is the
                         % nucleus ID (it can be 255 in some cases)
                         if obj.clusterWiseSingleRow(i)
                             curT.Label = nuc_Label;

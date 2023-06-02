@@ -3,7 +3,7 @@ To do:
 Immediate fixes:
 X change eggChamber -> "sampleROI" in suffixes. 
 X Change condIdx to cond_Idx. Same for sampleIdx, eggChamberID, eggChamberStage, nucLabel, clustLabel. stdClustVolume
-- make sure that variables follow the pattern: Channel string: C1 to C5 <prefix><channelString>_<metricName>_<suffix>
+x make sure that variables follow the pattern: Channel string: C1 to C5 <prefix><channelString>_<metricName>_<suffix>
 - bg subtraction functions, check that suffixes are the following: 
 - wholeImgSubtracted
 - sampleROISubtracted
@@ -11,9 +11,11 @@ X Change condIdx to cond_Idx. Same for sampleIdx, eggChamberID, eggChamberStage,
 - nucleoliSubtracted
 - build wiki/benchling to document metric names and meanings.
 
+- fix variable reordering
+
 - addNucStatsToClustTable -> modify to make work for fullNucT AND nucT.
 - same for addAverageClusterStatsToNucTable -> modify to copy paste all cluster metrics from cluster table to FullNucT
-- change numClusters to nucNumCLusters in addAverageClusterStatsToNucTable. Add numCluster to list of accepted variables.
+x change numClusters to nucNumCLusters in addAverageClusterStatsToNucTable. Add numCluster to list of accepted variables.
 - check for order of operations when merging cluster metrics and background correcting metrics. prob need to background correct everything first. Write one larger function that runs all those data processing steps in order to avoid issues: bg-correct nuclei, bg-correct clusters, merge clusters into nuc table, merge nuc data into cluster table. End up w 2 giant data tables.
 - check if methods are robust for datasets without clusters. (Clusters is an empty table and make all functions do nothing when that's the case).
 - generate a method which computes the z score of each nucleus along all of the metrics, by eggchamber stage. Same for cluster table.
@@ -195,7 +197,19 @@ Same for sampleIdx, eggChamberID, eggChamberStage, nucLabel, clustLabel.
 
 stdClustVolume
 
-Clusters: correction by: 
+Prefix:
+Nuc - wholeImg, sampleROI - min / median / mode?
+Plasm - wholeImg, sampleROI - min / median / mode?
+Nucleoli - wholeImg, sampleROI - min / median / mode?
+WholeImg - --
+sampleROI - -- 
+Clust - plasm, nucleoli - wholeImg, sampleROI - min / median
+
+Suffix:
+Raw only
+
+Clusters: subtraction by:
+	- sampleROI 
 	- wholeImg, 
 	- eggChamber, 
 	- nucleus, 
@@ -203,7 +217,13 @@ Clusters: correction by:
 	- plasm.
 
 
+****
+sampleROI mode is an approximation of the levels within the egg chamber, outside of nuclei
+wholeImgMode is an approximation of the background.
 
+How to correct?
+Intensity of nuclei. 
+Intensity of egg chamber cytoplasm
 
 
 

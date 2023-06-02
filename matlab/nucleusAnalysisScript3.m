@@ -17,7 +17,7 @@ ec = eggChamberDataSet(fijiOutFolder);
 % nuclei from all samples (one row per nucleus) and compiles dozens of
 % metrics of size and intensity in every channel. (creates nucT as a backup copy)
 ec.loadAllEggChamberNucleiData;
-
+%%
 % cleans up the ec.nucT table by:
     % removing useless metrics
     % removing data from the dummy channel used as a marker of eggChamberID
