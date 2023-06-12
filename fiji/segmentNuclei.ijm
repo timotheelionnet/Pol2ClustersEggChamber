@@ -42,7 +42,7 @@ macro "segmentNuclei"{
 	ctr = 0;
 	print(" ");
 	for (i = 0; i < lengthOf(dirList); i++) {
-	    if (endsWith(dirList[i], ".tif")) { 
+	    if (endsWith(dirList[i], ".tif") || endsWith(dirList[i], ".nd2")) { 
 	        fileList[ctr] = dirList[i];
 	        outSubDirList[ctr] = "";
 	        print("fname: "+fileList[ctr]+"; dir: "+outSubDirList[ctr]+"; ctr: "+ctr);
@@ -51,7 +51,7 @@ macro "segmentNuclei"{
 	    	subDirList = getFileList(inFolder+dirList[i]);
 	    	if (subDirList.length>0){
 	    		for (j = 0; j < lengthOf(subDirList); j++) {
-	    			if (endsWith(subDirList[j], ".tif")) { 
+	    			if (endsWith(subDirList[j], ".tif") || endsWith(subDirList[j], ".nd2")) { 
 				        fileList[ctr] = subDirList[j];
 				        outSubDirList[ctr] = dirList[i];
 				        print("fname: "+fileList[ctr]+"; dir: "+outSubDirList[ctr]+"; ctr: "+ctr);
@@ -65,12 +65,12 @@ macro "segmentNuclei"{
 	outSubDirList = Array.trim(outSubDirList, ctr);
 	
 	// create output subfolders if needed, i.e. all outSubDirList[i] in outFolder
+	print("Found ",ctr," files to process.");
 	for (i = 0; i < outSubDirList.length; i++) {
 		if (File.exists(outFolder+outSubDirList[i]) == false){
 			File.makeDirectory(outFolder+outSubDirList[i]);
 		}
 	}
-	
 	
 	print("segmenting nuclei...");
 	for (i = 0; i < fileList.length; i++) {
@@ -1051,18 +1051,24 @@ function segmentNuclei3D(originalImgTitle,outputImgTitle,nucleiChannel,avgNuclei
 	
 	// ratio of the nuclear diameter to the size of the structuring element for the last dilation
 	dilationFactor = 15;
+
+	// minimum pixel size (in microns) allowed for full image processing. If the pixel size is smaller,
+	// the script downsamples the image by a factor of two.
+	minPixSize = 0.3;
 	
 	selectWindow(originalImgTitle);
 	run("Duplicate...", "title=hoechst duplicate channels="+nucleiChannel);
 	
 	//downsize image to accelerate segmentation
-	getDimensions(sizeX, sizeY, C, sizeZ, F);
-	x2 = round(sizeX/2);
-	y2 = round(sizeY/2);
-	z2 = round(sizeZ/2);
-	run("Size...", "width="+x2+" height="+y2+" depth="+z2
-		+" constrain average interpolation=Bicubic");
-	
+	getVoxelSize(dX, dY, dZ, u);
+	if(dX>minPixSize){
+		getDimensions(sizeX, sizeY, C, sizeZ, F);
+		x2 = round(sizeX/2);
+		y2 = round(sizeY/2);
+		z2 = round(sizeZ/2);
+		run("Size...", "width="+x2+" height="+y2+" depth="+z2
+			+" constrain average interpolation=Bicubic");
+	}
 	// collect um <-> voxel conversion factors
 	getVoxelSize(dX, dY, dZ, u);
 	

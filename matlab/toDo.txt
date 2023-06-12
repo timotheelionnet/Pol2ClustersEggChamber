@@ -10,6 +10,7 @@ x make sure that variables follow the pattern: Channel string: C1 to C5 <prefix>
 - plasmSubtracted
 - nucleoliSubtracted
 - build wiki/benchling to document metric names and meanings.
+- remove streamline table commands in loadable functions
 
 - fix variable reordering
 
