@@ -10,9 +10,8 @@ x make sure that variables follow the pattern: Channel string: C1 to C5 <prefix>
 - plasmSubtracted
 - nucleoliSubtracted
 - build wiki/benchling to document metric names and meanings.
+- remove streamline table commands in loadable functions
 
-- what is the best background to use? Seems like geometric mean of min and mode might be the best (or just reg mean?)
-For eggchamber background correction, 
 - fix variable reordering
 
 - addNucStatsToClustTable -> modify to make work for fullNucT AND nucT.
@@ -226,6 +225,7 @@ wholeImgMode is an approximation of the background.
 How to correct?
 Intensity of nuclei. 
 Intensity of egg chamber cytoplasm
+
 
 
 
