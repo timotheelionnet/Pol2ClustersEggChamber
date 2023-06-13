@@ -36,11 +36,11 @@ ec.loadAllClusterData();
 %% add cluster data to nuc table
 % takes metrics from clustT, averages them over each nucleus
 % and copies them as extra variables of the nuc table
-tJoin = ec.addAverageClusterStatsToNucTable();
+ec.nucFullT = ec.addAverageClusterStatsToNucTable();
 
 %% add nuc stats to cluster table
 % takes metrics from nucT and copies them as extra variables of the cluster table
-clustJoin = ec.addNucStatsToClustTable();
+ec.clustT = ec.addNucStatsToClustTable();
 
 %% QC block
 figure; hold;

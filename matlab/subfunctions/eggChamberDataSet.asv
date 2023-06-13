@@ -229,7 +229,7 @@ classdef eggChamberDataSet < handle
         
         % lits of the prefixes of the ROIs to use as reference for background subtraction
         % of nuclei intensities (wholeImg and eggChamber)
-        backgroundIntensityPrefixList;
+        nucBackgroundIntensityPrefixList;
 
         % when performing background subtraction, use the median intensity
         % of the reference region.
@@ -268,7 +268,7 @@ classdef eggChamberDataSet < handle
 
             obj.prefixList = {obj.nucPrefix,obj.wholeImgPrefix,obj.sampleROIPrefix,obj.clusterPrefix,obj.nucleoliPrefix,obj.plasmPrefix};
             obj.suffixList = {obj.rawSuffix,obj.plasmCorrSuffix,obj.sampleROISubtractedSuffix,obj.wholeImgSubtractedSuffix};
-            obj.backgroundIntensityPrefixList = {obj.wholeImgPrefix,obj.sampleROIPrefix};
+            obj.nucBackgroundIntensityPrefixList = {obj.wholeImgPrefix,obj.sampleROIPrefix};
 
         end
         
@@ -363,12 +363,10 @@ classdef eggChamberDataSet < handle
             obj.nucT = datasetNucTable;
             obj.nucFullT = datasetNucFullTable;
             obj.clustT = datasetClustTable;
-            size(obj.clustT)
-
+            
             % streamline tables
             obj.streamLineTable('nuc');
             obj.streamLineTable('clust');
-            size(obj.clustT)
             disp('Done.');
         end
 
@@ -572,7 +570,6 @@ classdef eggChamberDataSet < handle
             end
 
             % remove variable names that arent present
-            varsToRemoveList
             varsToRemoveList = varsToRemoveList(...
                 ismember(varsToRemoveList,t.Properties.VariableNames));
 
@@ -604,22 +601,8 @@ classdef eggChamberDataSet < handle
                 tOut = tIn;
 
                 [c,nChannels] = obj.getChannelList;
-                
-                % collect the background columns to subtract
-                varToSubtract = cell(...
-                    nChannels,numel(obj.backgroundIntensityPrefixList));
-    
-                for i=1:nChannels
-                    for j=1:numel(obj.backgroundIntensityPrefixList)
-                        
-                        varToSubtract{i,j} = obj.buildVarName(...
-                            obj.backgroundIntensityPrefixList{j},c(i),...
-                        obj.metricToSubtract,obj.rawSuffix,'channel');
-                        
-                    end
-                end
-                
-                % keep only in t the variables that need subtracting
+
+                % find column indices of the variables that need subtracting
                 varList = tIn.Properties.VariableNames;
                 idx = [];
                 for i=1:numel(obj.varsToBeSubtracted)
@@ -631,14 +614,56 @@ classdef eggChamberDataSet < handle
                 
                 % remove variables relative to background regions from the 'to be
                 % subtracted' list
-                for i=1:numel(obj.backgroundIntensityPrefixList)
+                for i=1:numel(obj.nucBackgroundIntensityPrefixList)
                     curIdx = find(cell2mat( cellfun( @contains, varList,...
-                        repmat(obj.backgroundIntensityPrefixList(i), size(varList)),...
+                        repmat(obj.nucBackgroundIntensityPrefixList(i), size(varList)),...
                         'UniformOutput',0) ));
                     idx = setdiff(idx,curIdx);
                 end
-                
                 varList = tIn.Properties.VariableNames(idx);
+
+                % loop through variables to subtract (wholeImg and sampleROI)
+                for v = 1:numel(obj.nucBackgroundIntensityPrefixList)
+
+                    % loop through color channels
+                    for i=1:nChannels
+
+                        % build variable to subtract
+                        switch obj.nucBackgroundIntensityPrefixList(v)
+                            case 'sampleROI'
+                                % use the mode of the intensity within the
+                                % sample ROI as the background value
+                                subVarName = obj.buildVarName(...
+                                    obj.nucBackgroundIntensityPrefixList{v},c(i),...
+                                    'Mode',obj.rawSuffix,'channel');
+                                subVar = tIn.(subVarName);
+
+                            case 'wholeImg'
+                                % use the geometric mean between the min and the mode 
+                                % of the intensity within the
+                                % whole img as the background value (+1 added to avoid geometric means equal to zero)
+                                min1 = obj.buildVarName(...
+                                    obj.nucBackgroundIntensityPrefixList{v},c(i),...
+                                    'Min',obj.rawSuffix,'channel');
+                                mode1 = obj.buildVarName(...
+                                    obj.nucBackgroundIntensityPrefixList{v},c(i),...
+                                    'Mode',obj.rawSuffix,'channel');
+                                subVar = geomean([tIn.(min1)+1,tIn.(mode1)],2);
+                        end
+
+                        % find variables in t that are relative to the current color channel
+                        idxC = cell2mat( cellfun( @contains, varList,...
+                            repmat({['_C',num2str(c(i))]}, size(varList)),...
+                            'UniformOutput',0) );
+
+````
+
+                    end
+                
+                
+                end
+                %%%%%%
+                
                 
                 % loop through channels and background correct
                 for i=1:nChannels
@@ -649,11 +674,11 @@ classdef eggChamberDataSet < handle
                         'UniformOutput',0) );
                 
                     curVarList = varList(idxC);
-                    for j=1:numel(obj.backgroundIntensityPrefixList)
+                    for j=1:numel(obj.nucBackgroundIntensityPrefixList)
                         for k =1:numel(curVarList)
                             newVarName = strrep(curVarList{k},...
                                 ['_',obj.rawSuffix],...
-                                ['_',obj.backgroundIntensityPrefixList{j},'Subtracted']);
+                                ['_',obj.nucBackgroundIntensityPrefixList{j},'Subtracted']);
     
                             newVar = tIn.(curVarList{k}) - tIn.(varToSubtract{i,j});
     
@@ -1553,15 +1578,17 @@ classdef eggChamberDataSet < handle
                     end
                 case 'channel'
                     k = strfind(varName,baseNameRecognized);
-                    p = varName(1:k-1); % p should be something like nucC1_
+                    p = varName(1:k-1); % p should be something like nuc_C1
                     for i=1:numel(obj.prefixList)
                         if contains(p,obj.prefixList{i})
                             prefix = obj.prefixList{i};
                             % now that we found the prefix in our string (say 'nuc' in 'nucC1_'), we
-                            % collect the channel ID by starting two
-                            % characters after the end of the prefix, and
-                            % removing the last character ('_'):
-                            channel = str2double(p(length(prefix)+2:end-1));
+                            % collect the channel ID by removing both the
+                            % prefix and any '_' and 'C'
+                            p = strrep(p,prefix,'');
+                            p = strrep(p,'_','');
+                            p = strrep(p,'C','');
+                            channel = str2double(p);
                         end
                     end
 

@@ -5,20 +5,22 @@ X change eggChamber -> "sampleROI" in suffixes.
 X Change condIdx to cond_Idx. Same for sampleIdx, eggChamberID, eggChamberStage, nucLabel, clustLabel. stdClustVolume
 x make sure that variables follow the pattern: Channel string: C1 to C5 <prefix><channelString>_<metricName>_<suffix>
 - bg subtraction functions, check that suffixes are the following: 
-- wholeImgSubtracted
-- sampleROISubtracted
-- plasmSubtracted
-- nucleoliSubtracted
+- wholeImgSubtracted; metric found
+- sampleROISubtracted; metric found
+- plasmSubtracted; use median plasm
+- nucleoliSubtracted; use median nucleoli
 - build wiki/benchling to document metric names and meanings.
 
 - what is the best background to use? Seems like geometric mean of min and mode might be the best (or just reg mean?)
-For eggchamber background correction, 
+For eggchamber background correction, use the sampleROI mode. For wholeImg use geomMean of (Min +1, Mode).
 - fix variable reordering
 
 - addNucStatsToClustTable -> modify to make work for fullNucT AND nucT.
 - same for addAverageClusterStatsToNucTable -> modify to copy paste all cluster metrics from cluster table to FullNucT
 x change numClusters to nucNumCLusters in addAverageClusterStatsToNucTable. Add numCluster to list of accepted variables.
-- check for order of operations when merging cluster metrics and background correcting metrics. prob need to background correct everything first. Write one larger function that runs all those data processing steps in order to avoid issues: bg-correct nuclei, bg-correct clusters, merge clusters into nuc table, merge nuc data into cluster table. End up w 2 giant data tables.
+- check for order of operations when merging cluster metrics and background correcting metrics. 
+prob need to background correct everything first. 
+Write one larger function that runs all those data processing steps in order to avoid issues: bg-correct nuclei, bg-correct clusters, merge clusters into nuc table, merge nuc data into cluster table. End up w 2 giant data tables.
 - check if methods are robust for datasets without clusters. (Clusters is an empty table and make all functions do nothing when that's the case).
 - generate a method which computes the z score of each nucleus along all of the metrics, by eggchamber stage. Same for cluster table.
 - viz as heat map - make sure that the ticks make it easy to go to each nucleus to check for problem ones. Cluster by metrics since so many will be redundant. Build list of variables that are metrics vs status/ID labels.
@@ -30,7 +32,6 @@ Look at nuclei visually. Assay whether metrics reflect segmentation performance.
 Vice versa -> id nuclei that are poorly segmented. 
 - check for nuclei with extreme z-scores for the cluster metrics as possible indications of issues.
 - u-map or t-sne of nuclei metrics to ID outliers?
-
 
 - QC clustering performance. Do clusters look legit?
 Take nuclei at random. Check clustering performance. 
