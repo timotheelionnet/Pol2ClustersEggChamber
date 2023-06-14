@@ -205,8 +205,8 @@ classdef eggChamberDataSet < handle
         % the intensity
         rawSuffix = 'raw';
         plasmCorrSuffix = 'plasmCorr';
-        sampleROISubtractedSuffix = 'sampleROISub';
-        wholeImgSubtractedSuffix = 'wholeImgSub';
+        sampleROISubtractedSuffix = 'sampleROISubtracted';
+        wholeImgSubtractedSuffix = 'wholeImgSubtracted';
         suffixList;
     
         % variable names are built as follows:
@@ -230,6 +230,10 @@ classdef eggChamberDataSet < handle
         % lits of the prefixes of the ROIs to use as reference for background subtraction
         % of nuclei intensities (wholeImg and eggChamber)
         nucBackgroundIntensityPrefixList;
+
+        % lits of the prefixes of the ROIs to use as reference for background subtraction
+        % of cluster intensities (plasm and nucleoli)
+        clustBackgroundIntensityPrefixList;
 
         % when performing background subtraction, use the median intensity
         % of the reference region.
@@ -269,6 +273,7 @@ classdef eggChamberDataSet < handle
             obj.prefixList = {obj.nucPrefix,obj.wholeImgPrefix,obj.sampleROIPrefix,obj.clusterPrefix,obj.nucleoliPrefix,obj.plasmPrefix};
             obj.suffixList = {obj.rawSuffix,obj.plasmCorrSuffix,obj.sampleROISubtractedSuffix,obj.wholeImgSubtractedSuffix};
             obj.nucBackgroundIntensityPrefixList = {obj.wholeImgPrefix,obj.sampleROIPrefix};
+            obj.clustBackgroundIntensityPrefixList = {obj.plasmPrefix,obj.nucleoliPrefix};
 
         end
         
@@ -379,10 +384,10 @@ classdef eggChamberDataSet < handle
         % nuclei).
         function tJoin = addNucStatsToClustTable(obj)
             % select only the variables that aren't already in clusters
-            nucStatsVars = setdiff(obj.nucT.Properties.VariableNames, ...
+            nucStatsVars = setdiff(obj.nucFullT.Properties.VariableNames, ...
                 obj.clustT.Properties.VariableNames);
             nucStatsVars = [nucStatsVars,'nuc_Label'];
-            idx = find(ismember(obj.nucT.Properties.VariableNames,nucStatsVars));
+            idx = find(ismember(obj.nucFullT.Properties.VariableNames,nucStatsVars));
             
             tJoin = table();
             for ctr=1:size(obj.clustT,1)
@@ -391,10 +396,10 @@ classdef eggChamberDataSet < handle
                 k = obj.clustT.nuc_Label(ctr);
 
                 % extract nuc stats for current nucleus
-                nT = obj.nucT(...
-                   obj.nucT.cond_Idx == i...
-                   & obj.nucT.sample_Idx == j ...
-                   & obj.nucT.nuc_Label == k,idx);
+                nT = obj.nucFullT(...
+                   obj.nucFullT.cond_Idx == i...
+                   & obj.nucFullT.sample_Idx == j ...
+                   & obj.nucFullT.nuc_Label == k,idx);
 
                 nT2 = join(obj.clustT(ctr,:),nT,'Keys','nuc_Label');
                 tJoin = obj.combineEcTables(tJoin,nT2);  
@@ -594,7 +599,6 @@ classdef eggChamberDataSet < handle
         %% perform background subtraction on nuclei intensity values
          function backgroundCorrectNucIntensity(obj)
             
-            obj.nucT = bgCorrTable(obj.nucT);
             obj.nucFullT = bgCorrTable(obj.nucFullT);
 
             function tOut = bgCorrTable(tIn)
@@ -629,7 +633,7 @@ classdef eggChamberDataSet < handle
                     for i=1:nChannels
 
                         % build variable to subtract
-                        switch obj.nucBackgroundIntensityPrefixList(v)
+                        switch obj.nucBackgroundIntensityPrefixList{v}
                             case 'sampleROI'
                                 % use the mode of the intensity within the
                                 % sample ROI as the background value
@@ -651,37 +655,19 @@ classdef eggChamberDataSet < handle
                                 subVar = geomean([tIn.(min1)+1,tIn.(mode1)],2);
                         end
 
-                        % find variables in t that are relative to the current color channel
+                        % find variables in tIn that are relative to the current color channel
                         idxC = cell2mat( cellfun( @contains, varList,...
                             repmat({['_C',num2str(c(i))]}, size(varList)),...
                             'UniformOutput',0) );
-
-````
-
-                    end
-                
-                
-                end
-                %%%%%%
-                
-                
-                % loop through channels and background correct
-                for i=1:nChannels
-                
-                    % find variables in t that are relative to the current color channel
-                    idxC = cell2mat( cellfun( @contains, varList,...
-                        repmat({['_C',num2str(c(i))]}, size(varList)),...
-                        'UniformOutput',0) );
-                
-                    curVarList = varList(idxC);
-                    for j=1:numel(obj.nucBackgroundIntensityPrefixList)
+                        
+                        curVarList = varList(idxC);
                         for k =1:numel(curVarList)
                             newVarName = strrep(curVarList{k},...
                                 ['_',obj.rawSuffix],...
-                                ['_',obj.nucBackgroundIntensityPrefixList{j},'Subtracted']);
+                                ['_',obj.nucBackgroundIntensityPrefixList{v},'Subtracted']);
     
-                            newVar = tIn.(curVarList{k}) - tIn.(varToSubtract{i,j});
-    
+                            newVar = tIn.(curVarList{k}) - subVar;
+
                             % overwrite background corrected variable if it already exists,
                             % create a new var otherwise
                             if ismember(newVarName,tIn.Properties.VariableNames)
@@ -692,7 +678,98 @@ classdef eggChamberDataSet < handle
                         end
                     end
                 end
-            end         
+            end
+         end
+
+         %% perform background subtraction on cluster intensity values
+         function tOut = backgroundCorrectClustIntensity(obj)
+            
+            tIn = obj.clustT;
+            tOut = tIn;
+
+            [c,nChannels] = obj.getChannelList;
+            
+            % find column indices of the variables that contain the clust_
+            % prefix
+            varList = tIn.Properties.VariableNames;
+            idx = cell2mat( cellfun( @contains, varList,...
+                    repmat({'clust_'}, size(varList)),...
+                    'UniformOutput',0) );
+            varList = varList(idx);
+
+            % find column indices of the variables that need subtracting
+            idx = [];
+            for i=1:numel(obj.varsToBeSubtracted)
+                curIdx = find(cell2mat( cellfun( @contains, varList,...
+                    repmat(obj.varsToBeSubtracted(i), size(varList)),...
+                    'UniformOutput',0) ));
+                idx = [idx,curIdx];
+            end
+            
+            % remove variables relative to background regions prefixes from the 'to be
+            % subtracted' list
+            for i=1:numel(obj.clustBackgroundIntensityPrefixList)
+                curIdx = find(cell2mat( cellfun( @contains, varList,...
+                    repmat(obj.clustBackgroundIntensityPrefixList(i), size(varList)),...
+                    'UniformOutput',0) ));
+                idx = setdiff(idx,curIdx);
+            end
+            varList = tIn.Properties.VariableNames(idx);
+
+            % remove any variables relative to nucleus from the 'to be
+            % subtracted' list
+            nucVarsPrefix = {obj.nucPrefix,obj.wholeImgPrefix,obj.sampleROIPrefix};
+            for i=1:numel(nucVarsPrefix)
+                curIdx = find(cell2mat( cellfun( @contains, varList,...
+                    repmat(nucVarsPrefix(i), size(varList)),...
+                    'UniformOutput',0) ));
+                idx = [idx,curIdx];
+            end
+            idx = setdiff(1:numel(varList),idx);
+            varList = varList(idx);
+
+            %ignore non-raw variables
+            idx = find(cell2mat( cellfun( @contains, varList,...
+                    repmat({'_raw'}, size(varList)),...
+                    'UniformOutput',0) ));
+            varList = varList(idx);
+
+            % loop through variables to subtract (wholeImg and sampleROI)
+            for v = 1:numel(obj.clustBackgroundIntensityPrefixList)
+
+                % loop through color channels
+                for i=1:nChannels
+
+                    % build variable to subtract
+                    subVarName = obj.buildVarName(...
+                                obj.clustBackgroundIntensityPrefixList{v},c(i),...
+                                'Median',obj.rawSuffix,'channel');
+                    subVar = tIn.(subVarName);
+
+                    % find variables in tIn that are relative to the current color channel
+                    idxC = cell2mat( cellfun( @contains, varList,...
+                        repmat({['_C',num2str(c(i))]}, size(varList)),...
+                        'UniformOutput',0) );
+                    
+                    curVarList = varList(idxC);
+                    for k =1:numel(curVarList)
+                        newVarName = strrep(curVarList{k},...
+                            ['_',obj.rawSuffix],...
+                            ['_',obj.clustBackgroundIntensityPrefixList{v},'Subtracted']);
+
+                        newVar = tIn.(curVarList{k}) - subVar;
+
+                        % overwrite background corrected variable if it already exists,
+                        % create a new var otherwise
+                        if ismember(newVarName,tIn.Properties.VariableNames)
+                            tOut.(newVarName) = newVar;
+                        else
+                            tOut = addvars(tOut,newVar,'NewVariableNames',newVarName);
+                        end
+                    end
+                end
+            end
+            %obj.clustT = tOut;
         end
 
         %% generate table holding summary statistics for each egg chamber

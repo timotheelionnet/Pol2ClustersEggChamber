@@ -231,6 +231,10 @@ classdef eggChamberDataSet < handle
         % of nuclei intensities (wholeImg and eggChamber)
         nucBackgroundIntensityPrefixList;
 
+        % lits of the prefixes of the ROIs to use as reference for background subtraction
+        % of cluster intensities (plasm and nucleoli)
+        clustBackgroundIntensityPrefixList;
+
         % when performing background subtraction, use the median intensity
         % of the reference region.
         metricToSubtract = 'Median';
@@ -269,6 +273,7 @@ classdef eggChamberDataSet < handle
             obj.prefixList = {obj.nucPrefix,obj.wholeImgPrefix,obj.sampleROIPrefix,obj.clusterPrefix,obj.nucleoliPrefix,obj.plasmPrefix};
             obj.suffixList = {obj.rawSuffix,obj.plasmCorrSuffix,obj.sampleROISubtractedSuffix,obj.wholeImgSubtractedSuffix};
             obj.nucBackgroundIntensityPrefixList = {obj.wholeImgPrefix,obj.sampleROIPrefix};
+            obj.clustBackgroundIntensityPrefixList = {obj.plasmPrefix,obj.nucleoliPrefix};
 
         end
         
@@ -379,10 +384,10 @@ classdef eggChamberDataSet < handle
         % nuclei).
         function tJoin = addNucStatsToClustTable(obj)
             % select only the variables that aren't already in clusters
-            nucStatsVars = setdiff(obj.nucT.Properties.VariableNames, ...
+            nucStatsVars = setdiff(obj.nucFullT.Properties.VariableNames, ...
                 obj.clustT.Properties.VariableNames);
             nucStatsVars = [nucStatsVars,'nuc_Label'];
-            idx = find(ismember(obj.nucT.Properties.VariableNames,nucStatsVars));
+            idx = find(ismember(obj.nucFullT.Properties.VariableNames,nucStatsVars));
             
             tJoin = table();
             for ctr=1:size(obj.clustT,1)
@@ -391,10 +396,10 @@ classdef eggChamberDataSet < handle
                 k = obj.clustT.nuc_Label(ctr);
 
                 % extract nuc stats for current nucleus
-                nT = obj.nucT(...
-                   obj.nucT.cond_Idx == i...
-                   & obj.nucT.sample_Idx == j ...
-                   & obj.nucT.nuc_Label == k,idx);
+                nT = obj.nucFullT(...
+                   obj.nucFullT.cond_Idx == i...
+                   & obj.nucFullT.sample_Idx == j ...
+                   & obj.nucFullT.nuc_Label == k,idx);
 
                 nT2 = join(obj.clustT(ctr,:),nT,'Keys','nuc_Label');
                 tJoin = obj.combineEcTables(tJoin,nT2);  
@@ -402,7 +407,7 @@ classdef eggChamberDataSet < handle
         end
 
         %% add average cluster stats to nuc tables
-        function tJoin = addAverageClusterStatsToNucTable(obj)
+        function addAverageClusterStatsToNucTable(obj)
             % generate list of cluster variables to average out
             cv = obj.clustT.Properties.VariableNames;
             idx = find(cell2mat( cellfun( @contains, cv,...
@@ -412,10 +417,10 @@ classdef eggChamberDataSet < handle
             idx = setdiff(idx,cIdx); % indices of the variables to average (in clustT table)            
             
             t = table();
-            for ctr=1:size(obj.nucT,1)
-                i = obj.nucT.cond_Idx(ctr);
-                j = obj.nucT.sample_Idx(ctr);
-                k = obj.nucT.nuc_Label(ctr);
+            for ctr=1:size(obj.nucFullT,1)
+                i = obj.nucFullT.cond_Idx(ctr);
+                j = obj.nucFullT.sample_Idx(ctr);
+                k = obj.nucFullT.nuc_Label(ctr);
                 
                 % extract cluster values for current nucleus
                 cT = obj.clustT(...
@@ -490,14 +495,14 @@ classdef eggChamberDataSet < handle
             
             % join t (average cluster metrics per nucleus) with the nucT table
             % holding all other nuclei metrics
-            if size(t,1) ~= size(obj.nucT,1)
+            if size(t,1) ~= size(obj.nucFullT,1)
                 disp(['Cannot append average cluster values to nucleus table; ',...
-                    'Nuc table has ',num2str(size(obj.nucT,1)),' rows while ',...
+                    'Nuc table has ',num2str(size(obj.nucFullT,1)),' rows while ',...
                     'Clust table has ',num2str(size(t,1)),' rows.']);
             else
                 % add dummy column to each variable to use as 
-                dummyKey = (1:size(obj.nucT,1))';
-                nuc2 = addvars(obj.nucT,dummyKey,'NewVariableNames',{'Key'});
+                dummyKey = (1:size(obj.nucFullT,1))';
+                nuc2 = addvars(obj.nucFullT,dummyKey,'NewVariableNames',{'Key'});
                 t = addvars(t,dummyKey,'NewVariableNames',{'Key'});
                 
                 % add new cluster averaged values to nuc table.
@@ -517,6 +522,7 @@ classdef eggChamberDataSet < handle
                     tJoin = renamevars(tJoin,{'nuc_Label_nuc2'},{'nuc_Label'});
                 end
             end
+            obj.nucFullT = tJoin;
         end
 
         %% remove unlikely to be used variables from Nuclei table
@@ -674,6 +680,76 @@ classdef eggChamberDataSet < handle
                     end
                 end
             end
+         end
+
+         %% perform background subtraction on cluster intensity values
+         function backgroundCorrectClustIntensity(obj)
+            
+            tIn = obj.clustT;
+            tOut = tIn;
+
+            [c,nChannels] = obj.getChannelList;
+            
+            % find column indices of the variables that contain the clust_
+            % prefix
+            varList = tIn.Properties.VariableNames;
+            idx = cell2mat( cellfun( @contains, varList,...
+                    repmat({'clust_'}, size(varList)),...
+                    'UniformOutput',0) );
+            varList = varList(idx);
+
+            % find column indices of the variables that need subtracting
+            idx = [];
+            for i=1:numel(obj.varsToBeSubtracted)
+                curIdx = find(cell2mat( cellfun( @contains, varList,...
+                    repmat(obj.varsToBeSubtracted(i), size(varList)),...
+                    'UniformOutput',0) ));
+                idx = [idx,curIdx];
+            end
+            varList = varList(idx);
+
+            %ignore non-raw variables
+            idx = cell2mat( cellfun( @contains, varList,...
+                    repmat({'_raw'}, size(varList)),...
+                    'UniformOutput',0) );
+            varList = varList(idx);
+
+            % loop through variables to subtract (plasm and nucleoli)
+            for v = 1:numel(obj.clustBackgroundIntensityPrefixList)
+
+                % loop through color channels
+                for i=1:nChannels
+
+                    % build variable to subtract
+                    subVarName = obj.buildVarName(...
+                                obj.clustBackgroundIntensityPrefixList{v},c(i),...
+                                'Median',obj.rawSuffix,'channel');
+                    subVar = tIn.(subVarName);
+
+                    % find variables in tIn that are relative to the current color channel
+                    idxC = cell2mat( cellfun( @contains, varList,...
+                        repmat({['_C',num2str(c(i))]}, size(varList)),...
+                        'UniformOutput',0) );
+                    
+                    curVarList = varList(idxC);
+                    for k =1:numel(curVarList)
+                        newVarName = strrep(curVarList{k},...
+                            ['_',obj.rawSuffix],...
+                            ['_',obj.clustBackgroundIntensityPrefixList{v},'Subtracted']);
+
+                        newVar = tIn.(curVarList{k}) - subVar;
+
+                        % overwrite background corrected variable if it already exists,
+                        % create a new var otherwise
+                        if ismember(newVarName,tIn.Properties.VariableNames)
+                            tOut.(newVarName) = newVar;
+                        else
+                            tOut = addvars(tOut,newVar,'NewVariableNames',newVarName);
+                        end
+                    end
+                end
+            end
+            obj.clustT = tOut;
         end
 
         %% generate table holding summary statistics for each egg chamber

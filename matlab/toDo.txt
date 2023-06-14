@@ -11,7 +11,7 @@ x make sure that variables follow the pattern: Channel string: C1 to C5 <prefix>
 - nucleoliSubtracted; use median nucleoli
 - build wiki/benchling to document metric names and meanings.
 
-- what is the best background to use? Seems like geometric mean of min and mode might be the best (or just reg mean?)
+x what is the best background to use? Seems like geometric mean of min and mode might be the best (or just reg mean?)
 For eggchamber background correction, use the sampleROI mode. For wholeImg use geomMean of (Min +1, Mode).
 - fix variable reordering
 

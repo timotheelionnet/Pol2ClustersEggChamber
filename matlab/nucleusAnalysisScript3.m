@@ -25,7 +25,7 @@ ec.loadAllEggChamberNucleiData;
     % the first columns
     % ordering the rows by eggChamberID.
 % ec.nucFullT retains all metrics.
-ec.streamLineTable('nuc');
+%ec.streamLineTable('nuc');
 
 %% load cluster data
 % populates the table ec.clustT
@@ -33,14 +33,20 @@ ec.streamLineTable('nuc');
 % does NOT add summary cluster metrics to nucT and nucFullT
 ec.loadAllClusterData();
 
-%% add cluster data to nuc table
-% takes metrics from clustT, averages them over each nucleus
-% and copies them as extra variables of the nuc table
-ec.nucFullT = ec.addAverageClusterStatsToNucTable();
+%% background correct nuclei intensity
+ec.backgroundCorrectNucIntensity;
 
 %% add nuc stats to cluster table
 % takes metrics from nucT and copies them as extra variables of the cluster table
 ec.clustT = ec.addNucStatsToClustTable();
+
+%% ackground correct clusters intensity
+ec.backgroundCorrectClustIntensity();
+
+%% add cluster data to nuc table
+% takes metrics from clustT, averages them over each nucleus
+% and copies them as extra variables of the nuc table
+ec.addAverageClusterStatsToNucTable();
 
 %% QC block
 figure; hold;
