@@ -163,6 +163,7 @@ classdef eggChamberDataSet < handle
         nucleoliPrefix = 'nucleoli';
         plasmPrefix = 'plasm';
         clusterPrefix = 'clust';
+        eggChamberPrefix = 'eggChamber';
         prefixList;
     
         % list of the variable basenames that pertain to each nucleus and its geometry - note
@@ -270,7 +271,7 @@ classdef eggChamberDataSet < handle
             obj.inFolder = inputFolder;
             obj.collectConditionsAndSamples;
 
-            obj.prefixList = {obj.nucPrefix,obj.wholeImgPrefix,obj.sampleROIPrefix,obj.clusterPrefix,obj.nucleoliPrefix,obj.plasmPrefix};
+            obj.prefixList = {obj.nucPrefix,obj.wholeImgPrefix,obj.sampleROIPrefix,obj.clusterPrefix,obj.nucleoliPrefix,obj.plasmPrefix,obj.eggChamberPrefix};
             obj.suffixList = {obj.rawSuffix,obj.plasmCorrSuffix,obj.sampleROISubtractedSuffix,obj.wholeImgSubtractedSuffix};
             obj.nucBackgroundIntensityPrefixList = {obj.wholeImgPrefix,obj.sampleROIPrefix};
             obj.clustBackgroundIntensityPrefixList = {obj.plasmPrefix,obj.nucleoliPrefix};
@@ -803,9 +804,9 @@ classdef eggChamberDataSet < handle
 
                     % collect values for the desired metric from all nuclei for the
                     % current sample/condition
-                    x = obj.nucT.(varName)(...
-                        obj.nucT.cond_Idx ==obj.condIndices(j) ...
-                        & obj.nucT.sample_Idx == s(k));
+                    x = obj.nucFullT.(varName)(...
+                        obj.nucFullT.cond_Idx ==obj.condIndices(j) ...
+                        & obj.nucFullT.sample_Idx == s(k));
             
                     % generate slightly offset x coordinates for each nucleus,
                     % centered around the sample X
@@ -820,15 +821,15 @@ classdef eggChamberDataSet < handle
                             + (0:(nNuclei-1))*nucSpacing;
             
                         % y coordinate for each nucleus of current condition/sample
-                        curYPlot = obj.nucT.(varName)(...
-                            obj.nucT.cond_Idx ==obj.condIndices(j) ...
-                            & obj.nucT.sample_Idx == s(k))';
+                        curYPlot = obj.nucFullT.(varName)(...
+                            obj.nucFullT.cond_Idx ==obj.condIndices(j) ...
+                            & obj.nucFullT.sample_Idx == s(k))';
             
                     elseif nNuclei == 1
                         curXPlot = xSampleVals{j}(k);
-                        curYPlot = obj.nucT.(varName)(...
-                            obj.nucT.cond_Idx ==obj.condIndices(j) ...
-                            & obj.nucT.sample_Idx == s(k))';
+                        curYPlot = obj.nucFullT.(varName)(...
+                            obj.nucFullT.cond_Idx ==obj.condIndices(j) ...
+                            & obj.nucFullT.sample_Idx == s(k))';
             
                     elseif nNuclei == 0
                         curXPlot = [];
@@ -871,7 +872,7 @@ classdef eggChamberDataSet < handle
             
             % check that the metric is present in the data table.
             varName = obj.buildVarName(prefix,channel,baseName,suffix,'geom');
-            if ~ismember( varName, obj.nucT.Properties.VariableNames)
+            if ~ismember( varName, obj.nucFullT.Properties.VariableNames)
                 disp(['Variable ',varName,' absent from table, cannot plot.']);
                 return
             end
@@ -883,23 +884,30 @@ classdef eggChamberDataSet < handle
             % collect the x values to plot each condition/sample at
             [xEggChamberVals, xEggChamberIDs] = ...
                 obj.getSampleXValuesByEggChamber(eggChamberStagesToInclude);
-
+            
+            % generate color maps
+            nc = numel(obj.condIndices);
+            cmData =cbrewer('qual', 'Set1', max(nc,3));
+            
             % collect the values of the metric for each condition/sample
-            xPlot = [];
-            yPlot = [];
+            
             xSampleValsVec = [];
             xSampleIDsVec = {};
+            yMin = Inf;
+            yMax = -Inf;
             for i=1:numel(obj.condIndices)
+                xPlot = [];
+                yPlot = [];
                 s = obj.sampleIndices{i};
                 for j=1:obj.nSamples(i)
                     for k=1:obj.eggChamberNumber{i}(j)
                         if ismember(obj.eggChamberStages{i}{j}(k),eggChamberStagesToInclude)
                             % collect values for the desired metric from all nuclei for the
                             % current sample/condition
-                            x = obj.nucT.(varName)(...
-                                obj.nucT.cond_Idx ==obj.condIndices(i) ...
-                                & obj.nucT.sample_Idx == s(j) ...
-                                & obj.nucT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k));
+                            x = obj.nucFullT.(varName)(...
+                                obj.nucFullT.cond_Idx ==obj.condIndices(i) ...
+                                & obj.nucFullT.sample_Idx == s(j) ...
+                                & obj.nucFullT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k));
                     
                             % generate slightly offset x coordinates for each nucleus,
                             % centered around the sample X
@@ -915,17 +923,17 @@ classdef eggChamberDataSet < handle
                                     + (0:(nNuclei-1))*nucSpacing;
                     
                                 % y coordinate for each nucleus of current condition/sample
-                                curYPlot = obj.nucT.(varName)(...
-                                    obj.nucT.cond_Idx ==obj.condIndices(i) ...
-                                    & obj.nucT.sample_Idx == s(j)...
-                                    & obj.nucT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k))';
+                                curYPlot = obj.nucFullT.(varName)(...
+                                    obj.nucFullT.cond_Idx ==obj.condIndices(i) ...
+                                    & obj.nucFullT.sample_Idx == s(j)...
+                                    & obj.nucFullT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k))';
                     
                             elseif nNuclei == 1
                                 curXPlot = xEggChamberVals{i}{j}(k);
-                                curYPlot = obj.nucT.(varName)(...
-                                    obj.nucT.cond_Idx ==obj.condIndices(i) ...
-                                    & obj.nucT.sample_Idx == s(j)...
-                                    & obj.nucT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k))';
+                                curYPlot = obj.nucFullT.(varName)(...
+                                    obj.nucFullT.cond_Idx ==obj.condIndices(i) ...
+                                    & obj.nucFullT.sample_Idx == s(j)...
+                                    & obj.nucFullT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k))';
                     
                             elseif nNuclei == 0
                                 curXPlot = [];
@@ -935,17 +943,154 @@ classdef eggChamberDataSet < handle
                             % append coordinates of current condition/sample to global list
                             xPlot = [xPlot,curXPlot];
                             yPlot = [yPlot,curYPlot];
-                    
+
+                            xErr = mean(curXPlot);
+                            yErr = mean(curYPlot);
+                            eErr = std(curYPlot);
+
                             xSampleValsVec = [xSampleValsVec,xEggChamberVals{i}{j}(k)];
                             xSampleIDsVec = [xSampleIDsVec,xEggChamberIDs{i}{j}{k}];
+
+                            p = scatter(curXPlot,curYPlot,'o','MarkerEdgeColor',cmData(i,:),'MarkerFaceColor',cmData(i,:));
+                            alpha(p,0.3);
+                            errorbar(xErr,yErr,eErr,'o','MarkerEdgeColor','k','MarkerFaceColor','k','Color','k','LineWidth',2);
                         end
                     end
                 end
+                if ~isempty(yPlot)
+                    yMax = max(yMax,max(yPlot(:)));
+                    yMin = min(yMin,min(yPlot(:)));
+                end
+                
             end
-            plot(xPlot,yPlot,'o');
+            
             xticks(xSampleValsVec);
             xticklabels(xSampleIDsVec);
             xtickangle(45);
+            ylim([min([0,1.2*yMin]),1.2*yMax]);
+            ylabel(baseName);
+            grid on
+        end
+
+        %% scatter plot a metric by egg chamber
+        % prefix: any of 'nuc', 
+        function scatterPlotClusterMetricByEggChamber(obj,prefix,channel,baseName,suffix,eggChamberStagesToInclude,minClustVolume)
+            % prefix: any allowable prefix which marks the compartment the metric is calculated on e.g. 'nuc', or 'clust'
+            % channel: intensity channel , e.g. 1. 
+                % (Value is ignored if the metric is a geometry feature 
+                % rather than an intensity feature.
+            % baseName: any allowable metric basename, e.g. 'Mean' or 'Volume'
+            % suffix: any allowable suffix which marks processing steps,
+            % e.g. 'raw' or 'eggChamberCorr'
+            % if shorthand 'all' was used for cell stages to include, replace it by
+            % list of stage numbers.
+            if isa(eggChamberStagesToInclude,'char') || isa(eggChamberStagesToInclude,'string')
+                if strcmp(eggChamberStagesToInclude,'all')
+                    eggChamberStagesToInclude = [0,1,2,3,4,5,6,7,8,9,10];
+                end
+            end
+            
+            % check that the metric is present in the data table.
+            varName = obj.buildVarName(prefix,channel,baseName,suffix,'geom');
+            if ~ismember( varName, obj.clustT.Properties.VariableNames)
+                disp(['Variable ',varName,' absent from table, cannot plot.']);
+                return
+            end
+
+            % build figure
+            figure('Name',strrep(varName,'_',' '));
+            hold;
+            
+            % collect the x values to plot each condition/sample at
+            [xEggChamberVals, xEggChamberIDs] = ...
+                obj.getSampleXValuesByEggChamber(eggChamberStagesToInclude);
+            
+            % generate color maps
+            nc = numel(obj.condIndices);
+            cmData =cbrewer('qual', 'Set1', max(nc,3));
+            
+            % collect the values of the metric for each condition/sample
+            
+            xSampleValsVec = [];
+            xSampleIDsVec = {};
+            yMin = Inf;
+            yMax = -Inf;
+            for i=1:numel(obj.condIndices)
+                xPlot = [];
+                yPlot = [];
+                s = obj.sampleIndices{i};
+                for j=1:obj.nSamples(i)
+                    for k=1:obj.eggChamberNumber{i}(j)
+                        if ismember(obj.eggChamberStages{i}{j}(k),eggChamberStagesToInclude)
+                            % collect values for the desired metric from all nuclei for the
+                            % current sample/condition
+                            x = obj.clustT.(varName)(...
+                                obj.clustT.cond_Idx ==obj.condIndices(i) ...
+                                & obj.clustT.sample_Idx == s(j) ...
+                                & obj.clustT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k) ...
+                                & obj.clustT.clust_Volume >= minClustVolume);
+                    
+                            % generate slightly offset x coordinates for each nucleus,
+                            % centered around the sample X
+                            nClusters = size(x,1);
+                            if nClusters >1
+                                % spacing between nuclei
+                                nucSpacing = obj.spacingUnit ...
+                                    * (1-2*obj.freeSpaceBetweenSamples) / (nClusters-1);
+                    
+                                % x coordinate for each nucleus of current condition/sample
+                                curXPlot = xEggChamberVals{i}{j}(k) ...
+                                    - floor(nClusters/2)*nucSpacing ...
+                                    + (0:(nClusters-1))*nucSpacing;
+                    
+                                % y coordinate for each nucleus of current condition/sample
+                                curYPlot = obj.clustT.(varName)(...
+                                    obj.clustT.cond_Idx ==obj.condIndices(i) ...
+                                    & obj.clustT.sample_Idx == s(j)...
+                                    & obj.clustT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k) ...
+                                    & obj.clustT.clust_Volume >= minClustVolume)';
+                    
+                            elseif nClusters == 1
+                                curXPlot = xEggChamberVals{i}{j}(k);
+                                curYPlot = obj.clustT.(varName)(...
+                                    obj.clustT.cond_Idx ==obj.condIndices(i) ...
+                                    & obj.clustT.sample_Idx == s(j)...
+                                    & obj.clustT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k) ...
+                                    & obj.clustT.clust_Volume >= minClustVolume)';
+                    
+                            elseif nClusters == 0
+                                curXPlot = [];
+                                curYPlot = [];
+                            end
+                    
+                            % append coordinates of current condition/sample to global list
+                            xPlot = [xPlot,curXPlot];
+                            yPlot = [yPlot,curYPlot];
+
+                            xErr = mean(curXPlot);
+                            yErr = mean(curYPlot);
+                            eErr = std(curYPlot);
+
+                            xSampleValsVec = [xSampleValsVec,xEggChamberVals{i}{j}(k)];
+                            xSampleIDsVec = [xSampleIDsVec,xEggChamberIDs{i}{j}{k}];
+
+                            p = scatter(curXPlot,curYPlot,'o','MarkerEdgeColor',cmData(i,:),'MarkerFaceColor',cmData(i,:));
+                            alpha(p,0.05);
+                            errorbar(xErr,yErr,eErr,'o','MarkerEdgeColor','k','MarkerFaceColor','k','Color','k','LineWidth',2);
+                        end
+                    end
+                end
+                if ~isempty(yPlot)
+                    yMax = max(yMax,max(yPlot(:)));
+                    yMin = min(yMin,min(yPlot(:)));
+                end
+                
+            end
+            
+            xticks(xSampleValsVec);
+            xticklabels(xSampleIDsVec);
+            xtickangle(45);
+            ylim([min([0,1.2*yMin]),1.2*yMax]);
             ylabel(baseName);
             grid on
         end
