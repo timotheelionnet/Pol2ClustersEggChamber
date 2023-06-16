@@ -70,6 +70,10 @@ classdef eggChamberDataSet < handle
         % eggChamberNumNucPerEC is a nested cell array where eggChamberNumNucPerEC{i}{j} is a eggChamberNumber{i}{j} x 1
             % numerical array holding the number of nuclei per segmented egg chambers in condition i sample j.
         eggChamberNumNucPerEC = {};
+        
+        % minimum volume of clusters in um^3 to be considered bona fide
+        % HLB.
+        clusterMinVol = 1;
     end
 
     properties (GetAccess = 'private', SetAccess = 'private')
@@ -164,6 +168,10 @@ classdef eggChamberDataSet < handle
         plasmPrefix = 'plasm';
         clusterPrefix = 'clust';
         eggChamberPrefix = 'eggChamber';
+        nucAvgClustPrefix = 'nucAvgClust';
+        nucStdClustPrefix = 'nucStdClust';
+        nucAvgClustMinVolPrefix = 'nucAvgClustMinVol';
+        nucStdClustMinVolPrefix = 'nucStdClustMinVol';
         prefixList;
     
         % list of the variable basenames that pertain to each nucleus and its geometry - note
@@ -177,7 +185,7 @@ classdef eggChamberDataSet < handle
         'InscrBallCenterX','InscrBallCenterY','InscrBallCenterZ','InscrBallRadius'...
         'ElliR1','ElliR2','ElliR3','ElliR1R2','ElliR2R3','ElliR1R3',...
         'ElliAzim','ElliElev','ElliRoll','VoxelCount',...
-        'NumClusters'}; 
+        'NumClusters','NumClustersMinVol'}; 
         % make sure that no entry in geomVarsBaseNameList is also part of the name of one of the entries in channelVarsBaseNameList
     
         % list of the variable basenames that pertain to an intensity metric
@@ -208,7 +216,10 @@ classdef eggChamberDataSet < handle
         plasmCorrSuffix = 'plasmCorr';
         sampleROISubtractedSuffix = 'sampleROISubtracted';
         wholeImgSubtractedSuffix = 'wholeImgSubtracted';
+        nucleoliSubtractedPrefix = 'nucleoliSubtracted';
+        plasmSubtractedPrefix = 'plasmSubtracted';
         suffixList;
+
     
         % variable names are built as follows:
             % sample ID variables: the full name is in the list sampleVarList
@@ -271,9 +282,14 @@ classdef eggChamberDataSet < handle
             obj.inFolder = inputFolder;
             obj.collectConditionsAndSamples;
 
-            obj.prefixList = {obj.nucPrefix,obj.wholeImgPrefix,obj.sampleROIPrefix,obj.clusterPrefix,obj.nucleoliPrefix,obj.plasmPrefix,obj.eggChamberPrefix};
-            obj.suffixList = {obj.rawSuffix,obj.plasmCorrSuffix,obj.sampleROISubtractedSuffix,obj.wholeImgSubtractedSuffix};
-            obj.nucBackgroundIntensityPrefixList = {obj.wholeImgPrefix,obj.sampleROIPrefix};
+            obj.prefixList = {obj.nucPrefix,obj.wholeImgPrefix,...
+                obj.sampleROIPrefix,obj.clusterPrefix,obj.nucleoliPrefix,...
+                obj.plasmPrefix,obj.eggChamberPrefix,...
+                obj.nucAvgClustMinVolPrefix,obj.nucStdClustMinVolPrefix;};
+            obj.suffixList = {obj.rawSuffix,obj.plasmCorrSuffix,...
+                obj.sampleROISubtractedSuffix,obj.wholeImgSubtractedSuffix,...
+                obj.nucleoliSubtractedPrefix,obj.plasmSubtractedPrefix};
+            obj.nucBackgroundIntensityPrefixList = {obj.wholeImgPrefix,obj.sampleROIPrefix,obj.nucleoliPrefix};
             obj.clustBackgroundIntensityPrefixList = {obj.plasmPrefix,obj.nucleoliPrefix};
 
         end
@@ -423,78 +439,34 @@ classdef eggChamberDataSet < handle
                 j = obj.nucFullT.sample_Idx(ctr);
                 k = obj.nucFullT.nuc_Label(ctr);
                 
-                % extract cluster values for current nucleus
-                cT = obj.clustT(...
+                % extract cluster values for current nucleus (ALL clusters)
+                cT1 = obj.clustT(...
                    obj.clustT.cond_Idx == i...
                    & obj.clustT.sample_Idx == j ...
                    & obj.clustT.nuc_Label == k,idx);
 
-                if ~isempty(cT)
-                    nC = size(cT,1); % number of clusters in current nucleus
+                cT1 = compileClusterStatsForCurrentNucleus(cT1,...
+                    obj.nucAvgClustPrefix,obj.nucStdClustPrefix,...
+                    [obj.nucPrefix,'_NumClusters']);
+                
+                % extract cluster values for current nucleus (ONLY clusters with volume above threshold) 
+                cT2 = obj.clustT(...
+                   obj.clustT.cond_Idx == i...
+                   & obj.clustT.sample_Idx == j ...
+                   & obj.clustT.nuc_Label == k...
+                   &obj.clustT.clust_Volume >= obj.clusterMinVol,idx);
 
-                    % average/std cluster metrics and keep only meaningful variables
-                    cT1 = varfun(@mean,cT,'InputVariables',@isnumeric);
-                    cT2 = varfun(@std,cT,'InputVariables',@isnumeric);
-                    
-                    % update variable names from mean_clust to avgClust
-                    newVars = cellfun(@strrep,cT1.Properties.VariableNames,...
-                        repmat({'mean_clust'},size(cT1.Properties.VariableNames)),...
-                        repmat({'nucAvgClust'},size(cT1.Properties.VariableNames)),...
-                        'UniformOutput',0);
-                    cT1 = renamevars(cT1,cT1.Properties.VariableNames,newVars);
-                    
-                    % update variable names from std_clust to stdClust
-                    newVars = cellfun(@strrep,cT2.Properties.VariableNames,...
-                        repmat({'std_clust'},size(cT2.Properties.VariableNames)),...
-                        repmat({'nucStdClust'},size(cT2.Properties.VariableNames)),...
-                        'UniformOutput',0);
-                    cT2 = renamevars(cT2,cT2.Properties.VariableNames,newVars);
-                    
-                    % add a nuc_Label variable to join tables (and
-                    % validation later)
-                    cT1 = addvars(cT1,k,'NewVariableNames',{'nuc_Label'});
-                    cT2 = addvars(cT2,k,'NewVariableNames',{'nuc_Label'});
-                    cT = join(cT1,cT2,'Keys','nuc_Label');
+                cT2 = compileClusterStatsForCurrentNucleus(cT2,...
+                    obj.nucAvgClustMinVolPrefix,obj.nucStdClustMinVolPrefix,...
+                    [obj.nucPrefix,'_NumClustersMinVol']);
 
-                    % compute the number of clusters per nucleus 
-                    cT = addvars(cT,nC,'NewVariableNames',{'nuc_NumClusters'});   
-                else
-                    % no clusters found in current nucleus, generating a
-                    % row of NaN values
-                    cT = obj.clustT(1,idx);
-                    for cc = 1:size(cT,2)
-                        cT{1,cc} = NaN;
-                    end
+                cT = join(cT1,cT2,'Keys','nuc_Label');
 
-                    % update variable names from clust to avgClust
-                    newVars = cellfun(@strrep,cT.Properties.VariableNames,...
-                        repmat({'clust'},size(cT.Properties.VariableNames)),...
-                        repmat({'avgClust'},size(cT.Properties.VariableNames)),...
-                        'UniformOutput',0);
-                    cT1 = renamevars(cT,cT.Properties.VariableNames,newVars);
-
-                    % same for stdClust
-                    newVars = cellfun(@strrep,cT.Properties.VariableNames,...
-                        repmat({'clust'},size(cT.Properties.VariableNames)),...
-                        repmat({'stdClust'},size(cT.Properties.VariableNames)),...
-                        'UniformOutput',0);
-                    cT2 = renamevars(cT,cT.Properties.VariableNames,newVars);
-
-                    % add a nuc_Label variable (used for joinig and validation later)
-                    cT1 = addvars(cT1,k,'NewVariableNames',{'nuc_Label'});
-                    cT2 = addvars(cT2,k,'NewVariableNames',{'nuc_Label'});
-                    cT = join(cT1,cT2,'Keys','nuc_Label');
-
-                    % compute the number of clusters per nucleus 
-                    cT = addvars(cT,0,'NewVariableNames',{'nuc_NumClusters'});
-
-                end
-
-                % append current nuclei cluters metrics to global table
+                % append current nuclei cluters metrics at the bottom of global table
                 t = obj.combineEcTables(t,cT);  
             end
             
-            % join t (average cluster metrics per nucleus) with the nucT table
+            % join horizontally t (average cluster metrics per nucleus) with the nucT table
             % holding all other nuclei metrics
             if size(t,1) ~= size(obj.nucFullT,1)
                 disp(['Cannot append average cluster values to nucleus table; ',...
@@ -524,6 +496,74 @@ classdef eggChamberDataSet < handle
                 end
             end
             obj.nucFullT = tJoin;
+
+
+
+            function tOut = compileClusterStatsForCurrentNucleus(tIn,...
+                    curNucAvgClustPrefix,curNucStdClustPrefix,curNumClusterPrefix)
+                
+                if ~isempty(tIn)
+                    nC = size(tIn,1); % number of clusters in current nucleus
+
+                    % average/std cluster metrics and keep only meaningful variables
+                    cT1 = varfun(@mean,tIn,'InputVariables',@isnumeric);
+                    cT2 = varfun(@std,tIn,'InputVariables',@isnumeric);
+                    
+                    % update variable names from mean_clust to avgClust
+                    newVars = cellfun(@strrep,cT1.Properties.VariableNames,...
+                        repmat({'mean_clust'},size(cT1.Properties.VariableNames)),...
+                        repmat({curNucAvgClustPrefix},size(cT1.Properties.VariableNames)),...
+                        'UniformOutput',0);
+                    cT1 = renamevars(cT1,cT1.Properties.VariableNames,newVars);
+                    
+                    % update variable names from std_clust to stdClust
+                    newVars = cellfun(@strrep,cT2.Properties.VariableNames,...
+                        repmat({'std_clust'},size(cT2.Properties.VariableNames)),...
+                        repmat({curNucStdClustPrefix},size(cT2.Properties.VariableNames)),...
+                        'UniformOutput',0);
+                    cT2 = renamevars(cT2,cT2.Properties.VariableNames,newVars);
+                    
+                    % add a nuc_Label variable to join tables (and
+                    % validation later)
+                    cT1 = addvars(cT1,k,'NewVariableNames',{'nuc_Label'});
+                    cT2 = addvars(cT2,k,'NewVariableNames',{'nuc_Label'});
+                    tOut = join(cT1,cT2,'Keys','nuc_Label');
+
+                    % compute the number of clusters per nucleus 
+                    tOut = addvars(tOut,nC,'NewVariableNames',{curNumClusterPrefix});   
+                else
+                    % no clusters found in current nucleus, generating a
+                    % row of NaN values
+                    tIn = obj.clustT(1,idx);
+                    for cc = 1:size(tIn,2)
+                        tIn{1,cc} = NaN;
+                    end
+
+                    % update variable names from clust to avgClust
+                    newVars = cellfun(@strrep,tIn.Properties.VariableNames,...
+                        repmat({'clust'},size(tIn.Properties.VariableNames)),...
+                        repmat({curNucAvgClustPrefix},size(tIn.Properties.VariableNames)),...
+                        'UniformOutput',0);
+                    cT1 = renamevars(tIn,tIn.Properties.VariableNames,newVars);
+
+                    % same for stdClust
+                    newVars = cellfun(@strrep,tIn.Properties.VariableNames,...
+                        repmat({'clust'},size(tIn.Properties.VariableNames)),...
+                        repmat({curNucStdClustPrefix},size(tIn.Properties.VariableNames)),...
+                        'UniformOutput',0);
+                    cT2 = renamevars(tIn,tIn.Properties.VariableNames,newVars);
+
+                    % add a nuc_Label variable (used for joinig and validation later)
+                    cT1 = addvars(cT1,k,'NewVariableNames',{'nuc_Label'});
+                    cT2 = addvars(cT2,k,'NewVariableNames',{'nuc_Label'});
+                    tOut = join(cT1,cT2,'Keys','nuc_Label');
+
+                    % compute the number of clusters per nucleus 
+                    tOut = addvars(tOut,0,'NewVariableNames',{curNumClusterPrefix});
+
+                end
+
+            end
         end
 
         %% remove unlikely to be used variables from Nuclei table
@@ -603,7 +643,7 @@ classdef eggChamberDataSet < handle
             
             obj.nucFullT = bgCorrTable(obj.nucFullT);
 
-            function tOut = bgCorrTable(tIn)
+             function tOut = bgCorrTable(tIn)
                 tOut = tIn;
 
                 [c,nChannels] = obj.getChannelList;
@@ -626,6 +666,7 @@ classdef eggChamberDataSet < handle
                         'UniformOutput',0) ));
                     idx = setdiff(idx,curIdx);
                 end
+
                 varList = tIn.Properties.VariableNames(idx);
 
                 % loop through variables to subtract (wholeImg and sampleROI)
@@ -635,8 +676,7 @@ classdef eggChamberDataSet < handle
                     for i=1:nChannels
 
                         % build variable to subtract
-                        switch obj.nucBackgroundIntensityPrefixList{v}
-                            case 'sampleROI'
+                        if strcmp(obj.nucBackgroundIntensityPrefixList{v},'sampleROI')
                                 % use the mode of the intensity within the
                                 % sample ROI as the background value
                                 subVarName = obj.buildVarName(...
@@ -644,7 +684,7 @@ classdef eggChamberDataSet < handle
                                     'Mode',obj.rawSuffix,'channel');
                                 subVar = tIn.(subVarName);
 
-                            case 'wholeImg'
+                        elseif strcmp(obj.nucBackgroundIntensityPrefixList{v}, 'wholeImg')
                                 % use the geometric mean between the min and the mode 
                                 % of the intensity within the
                                 % whole img as the background value (+1 added to avoid geometric means equal to zero)
@@ -655,27 +695,39 @@ classdef eggChamberDataSet < handle
                                     obj.nucBackgroundIntensityPrefixList{v},c(i),...
                                     'Mode',obj.rawSuffix,'channel');
                                 subVar = geomean([tIn.(min1)+1,tIn.(mode1)],2);
-                        end
-
-                        % find variables in tIn that are relative to the current color channel
-                        idxC = cell2mat( cellfun( @contains, varList,...
-                            repmat({['_C',num2str(c(i))]}, size(varList)),...
-                            'UniformOutput',0) );
-                        
-                        curVarList = varList(idxC);
-                        for k =1:numel(curVarList)
-                            newVarName = strrep(curVarList{k},...
-                                ['_',obj.rawSuffix],...
-                                ['_',obj.nucBackgroundIntensityPrefixList{v},'Subtracted']);
-    
-                            newVar = tIn.(curVarList{k}) - subVar;
-
-                            % overwrite background corrected variable if it already exists,
-                            % create a new var otherwise
-                            if ismember(newVarName,tIn.Properties.VariableNames)
-                                tOut.(newVarName) = newVar;
+                        else
+                            % other variables, use the median value
+                            subVarName = obj.buildVarName(obj.nucBackgroundIntensityPrefixList{v},c(i),...
+                                'Median',obj.rawSuffix,'channel');
+                            if ismember(subVarName,tIn.Properties.VariableNames)
+                                subVar = tIn.(subVarName);
                             else
-                                tOut = addvars(tOut,newVar,'NewVariableNames',newVarName);
+                               disp(['Warning: Could not find variable ',subVarName,' to background-subtract nuclei intensity. Skipping.']); 
+                               subVar = [];
+                            end
+                        end
+                        
+                        if ~isempty (subVar)
+                            % find variables in tIn that are relative to the current color channel
+                            idxC = cell2mat( cellfun( @contains, varList,...
+                                repmat({['_C',num2str(c(i))]}, size(varList)),...
+                                'UniformOutput',0) );
+                            
+                            curVarList = varList(idxC);
+                            for k =1:numel(curVarList)
+                                newVarName = strrep(curVarList{k},...
+                                    ['_',obj.rawSuffix],...
+                                    ['_',obj.nucBackgroundIntensityPrefixList{v},'Subtracted']);
+        
+                                newVar = tIn.(curVarList{k}) - subVar;
+    
+                                % overwrite background corrected variable if it already exists,
+                                % create a new var otherwise
+                                if ismember(newVarName,tIn.Properties.VariableNames)
+                                    tOut.(newVarName) = newVar;
+                                else
+                                    tOut = addvars(tOut,newVar,'NewVariableNames',newVarName);
+                                end
                             end
                         end
                     end
