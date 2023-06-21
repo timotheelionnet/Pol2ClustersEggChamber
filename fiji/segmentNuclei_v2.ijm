@@ -139,16 +139,25 @@ macro "segmentNuclei"{
 											finalNucMasksTitle,imgNameWOExt,eggChamberIDsTitle,
 											outFolder,outSubDirList[i],EggChamberSegFolderName);
 			if(eggChamberDataFound == 1){
+				// build egg chamber background stack
+				eggChamberBackgroundTitle = "ecBackground";
+				segmentEggChamberFromNuclei(eggChamberIDsTitle,eggChamberBackgroundTitle);
+				
+				// compute egg chamber background metrics and save
+				EggChamberCsvFolderName = "eggChamberCSV/";
+				runMaskNucleiMetricsAndSave(eggChamberBackgroundTitle,zcorrImgTitle,EggChamberCsvFolderName,
+					outFolder,outSubDirList[i],fileList[i],"EggChambers","Geom.csv","Int.csv");
+					
 				// append to detrended image so the eggchamber ID is measured with the metrics								
 				addChannelToImg(zcorrImgTitle,eggChamberIDsTitle,zcorrImgTitle,0);			
 			}	
 		}
 		
-		// compute and save metrics
-		print("computing geometry and intensity metrics on objects...");
+		// compute and save nuclei metrics
+		print("computing geometry and intensity metrics on nuclei...");
 		EggChamberCsvFolderName = "eggChamberCSV/";
-		runMetricsAndSave(finalNucMasksTitle,zcorrImgTitle,EggChamberCsvFolderName,
-			outFolder,outSubDirList[i],fileList[i],"Geom.csv","Int.csv");
+		runMaskNucleiMetricsAndSave(finalNucMasksTitle,zcorrImgTitle,EggChamberCsvFolderName,
+			outFolder,outSubDirList[i],fileList[i],"Nuc,"Geom.csv","Int.csv");
 		
 		// compute average intensities for each channel across entire image	for background subtraction 
 		// during later data analysis steps	
@@ -158,8 +167,8 @@ macro "segmentNuclei"{
 		
 		// compute average intensities for each channel across broader egg chambers region for background subtraction
 		// during later data analysis steps		
-		print("computing egg chamber intensity metrics...");	
-		eggChamberIntensityMeasurementAllChannels(outFolder+outSubDirList[i]+ 
+		print("computing sample ROI intensity metrics...");	
+		sampleROIMeasurementAllChannels(outFolder+outSubDirList[i]+ 
 			originalImgTitle+"/"+EggChamberCsvFolderName,zcorrImgTitle,hoechstChannel);
 		run("Collect Garbage");
 		
@@ -176,6 +185,95 @@ macro "segmentNuclei"{
 	setBatchMode("exit and display");
   	print("done.");
 }
+
+// function that generates a segmentation of the 3D space in an eggchamber that does not contain the nuclei for background calculation
+// requires as input a stack where each nucleus is segmented and has the pixel value assigned to the ID of the egg chamber it belongs too.
+function segmentEggChamberFromNuclei(testImgName,outImageName){
+	
+	// find out how many egg chambers there are
+	run("Z Project...", "projection=[Max Intensity]");
+	run("Select All");
+	getStatistics(area, mean, minImg, nEC, std, histogram);
+	print("Found ",nEC," egg chambers to segment.");
+	close();
+	
+	// loop through egg chambers
+	for (i = 1; i <= nEC; i++) {
+		print("segmenting egg chamber ",i,"...");
+		
+		// copy stack
+		selectWindow(testImgName);
+		run("Duplicate...", "duplicate");
+		rename("stackCopy"); 
+		
+		// threshold to keep only the nuclei that belong to the current egg chamber
+		setThreshold(i, i);
+		setOption("BlackBackground", true);
+		run("Convert to Mask", "method=Default background=Light black");
+		
+		// loop through the 2D slices 
+		selectWindow("stackCopy");
+		getDimensions(sizeX, sizeY, C, sizeZ, F);
+		newImage("conv_"+i, "16-bit", sizeX, sizeY, sizeZ);
+		for (j = 0; j < sizeZ; j++) {
+			// select current slice of the nuclei stack
+			selectWindow("stackCopy");
+			Stack.setPosition(1, j+1, 1);
+			
+			// convexify the nuclei of the current plane
+			run("Duplicate...", " ");
+			rename("curSlice");
+			run("Select All");
+			getStatistics(area, mean, minImg, max, std, histogram);
+			if(max>0){
+				run("Convexify");
+			
+				// normalize value of the nuclei to match the egg chamber ID
+				selectWindow("curSlice-convex");
+				run("16-bit");
+				run("Divide...", "value=255");
+				run("Multiply...", "value="+i);
+				
+				// add convexified slice to egg chamber stack
+				selectWindow("curSlice-convex");
+				run("Select All");
+				setPasteMode("Copy");
+				run("Copy");
+	
+				selectWindow("conv_"+i);
+				Stack.setPosition(1, j+1, 1);
+				setPasteMode("Copy");
+				run("Paste");	
+			}	
+			close("curSlice");
+			close("curSlice-convex");
+		}
+		
+		// subtract nuclei from convexified stack
+		selectWindow("stackCopy");
+		run("16-bit");
+		run("Divide...", "value=255");
+		run("Multiply...", "value="+i);
+		imageCalculator("Subtract stack", "conv_"+i,"stackCopy");
+
+		// combine egg chambers into single stack
+		if(i>1){
+			imageCalculator("Add stack", "conv_1","conv_"+i);
+			close("conv_"+i);
+		}
+		
+		// cleanup
+		close("stackCopy");
+
+	}
+	// set name of output image
+	selectWindow("conv_1");
+	rename(outImageName);
+	
+	print("Done segmenting egg chambers.");
+	
+}
+
 
 // Function which finds which egg chamber each nucleus belongs to and
 // stores that info into a z-stack of the nuclei masks, where the value in each
@@ -345,11 +443,11 @@ function assignNucleiToEggChamberMasks(inputNucMasks,imgNameWOExt,resultImgName,
 	return eggChamberDataFound;
 }
 
-// takes an image (inputWindowName) generates a global mask for the entire egg chamber
+// takes an image (inputWindowName) generates a global mask for the entire egg chambers (aka "sample ROI")
 // using the intensity in measurementChannel as a basis (and using some filtering/thresholding), 
 // then measures intensity/neighbors etc in all channels using the new mask as an ROI
 // and saves the resulting tables in the folder savePath with names C1_eggChamberInt.csv, C2_eggChamberInt.csv etc
-function eggChamberIntensityMeasurementAllChannels(savePath,inputWindowName,measurementChannel){
+function sampleROIMeasurementAllChannels(savePath,inputWindowName,measurementChannel){
 	// rescale by a factor of 4 for faster processing
 	selectWindow(inputWindowName);
 	run("Duplicate...", "duplicate");
@@ -384,7 +482,7 @@ function eggChamberIntensityMeasurementAllChannels(savePath,inputWindowName,meas
 		run("Intensity Measurements 2D/3D", "input=tmpDuplicate2 labels=tmpDuplicate1"+
 			" mean stddev max min median mode skewness kurtosis numberofvoxels volume");
 			
-		saveAs("tmpDuplicate2-intensity-measurements",savePath+"C"+i+"_eggChamberInt.csv");
+		saveAs("tmpDuplicate2-intensity-measurements",savePath+"C"+i+"_sampleROIInt.csv");
 		run("Close");
 		
 		selectWindow("tmpDuplicate2");
@@ -622,8 +720,8 @@ function selectCorrectlySegmentedNuclei2(inputImgTitle,maskImgTitle,
 //1) file name;
 //2) distance to image center 
 // and saves the table in the file specified by savePath
-function runMetricsAndSave(inputMaskTitle,inputDataTitle,EggChamberCsvFolderName,
-	outFolder,outSubDir,inputFileName,geomSuffix,intSuffix){
+function runMaskMetricsAndSave(inputMaskTitle,inputDataTitle,EggChamberCsvFolderName,
+	outFolder,outSubDir,inputFileName,maskPrefix,geomSuffix,intSuffix){
 	
 	// remove extension from filename if needed 
 	if(indexOf(inputFileName,'.')>0){
@@ -688,7 +786,7 @@ function runMetricsAndSave(inputMaskTitle,inputDataTitle,EggChamberCsvFolderName
 	Table.setColumn("InputFileName", fileNameArray);
 	
 	//save and close geometry results
-	saveAs("Results", saveDir + "allNuc" + geomSuffix);
+	saveAs("Results", saveDir + "all" + maskPrefix + geomSuffix);
 	close("Results");
 	
 	// run intensity measurements on all channels
@@ -704,7 +802,7 @@ function runMetricsAndSave(inputMaskTitle,inputDataTitle,EggChamberCsvFolderName
 		+" volume");
 		
 		Table.rename("curChannel-intensity-measurements", "Results");
-		saveAs("Results", saveDir + "C"+i+"_allNuc" + intSuffix);
+		saveAs("Results", saveDir + "C"+i+"_all" + maskPrefix + intSuffix);
 		close("Results");
 		close("curChannel");
 	}
@@ -822,7 +920,7 @@ function inputParameters(){
 
 // takes an input hyperstack inputWindowName, then 
 // 1) subtracts the global minimum intensity in all channels (~black level offset correction)
-// 2) generates a mask of the eggChamber using the intensity 
+// 2) generates a mask of the ~eggChamber using the intensity 
 // 	in measurementChannel as a threshold (suggest using DAPI/Hoechst)
 // 2) computes the trend of the mean intensity (computed within the mask) vs Z in each channel
 // 3) fits the trend as a function of Z to a line in each channel
