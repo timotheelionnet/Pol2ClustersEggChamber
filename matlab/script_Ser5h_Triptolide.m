@@ -90,7 +90,6 @@ ec.scatterPlotNucleiMetricByEggChamber('nuc',3,'Median','raw',[6,7,8]);
 ec.scatterPlotNucleiMetricByEggChamber('nuc',4,'Median','raw',[6,7,8]);
 
 % background subtracted (whole image)
-ec.scatterPlotNucleiMetricByEggChamber('nuc',1,'Median','wholeImgSubtracted','all'); 
 ec.scatterPlotNucleiMetricByEggChamber('nuc',1,'Median','wholeImgSubtracted',[6,7,8]); 
 ec.scatterPlotNucleiMetricByEggChamber('nuc',2,'Median','wholeImgSubtracted',[6,7,8]); 
 ec.scatterPlotNucleiMetricByEggChamber('nuc',3,'Median','wholeImgSubtracted',[6,7,8]); 
@@ -103,8 +102,7 @@ ec.scatterPlotNucleiMetricByEggChamber('plasm',2,'Median','sampleROISubtracted',
 ec.scatterPlotNucleiMetricByEggChamber('plasm',3,'Median','sampleROISubtracted',[6,7,8]); 
 ec.scatterPlotNucleiMetricByEggChamber('plasm',4,'Median','sampleROISubtracted',[6,7,8]); 
 
-% nucleoplasm corrected for background estimated across the nucleolus:
-ec.scatterPlotNucleiMetricByEggChamber('plasm',1,'Median','nucleoliSubtracted','all'); 
+%% nucleoplasm corrected for background estimated across the nucleolus: 
 ec.scatterPlotNucleiMetricByEggChamber('plasm',1,'Median','nucleoliSubtracted',[6,7,8]); 
 ec.scatterPlotNucleiMetricByEggChamber('plasm',2,'Median','nucleoliSubtracted',[6,7,8]); 
 ec.scatterPlotNucleiMetricByEggChamber('plasm',3,'Median','nucleoliSubtracted',[6,7,8]); 
