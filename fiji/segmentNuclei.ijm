@@ -139,8 +139,8 @@ macro "segmentNuclei"{
 		wholeImgIntensityMeasurementAllChannels(outFolder+outSubDirList[i]+ 
 			originalImgTitle+"/"+EggChamberCsvFolderName,zcorrImgTitle);
 		
-		print("computing egg chamber intensity metrics...");	
-		eggChamberIntensityMeasurementAllChannels(outFolder+outSubDirList[i]+ 
+		print("computing sampleROI intensity metrics...");	
+		sampleROIIntensityMeasurementAllChannels(outFolder+outSubDirList[i]+ 
 			originalImgTitle+"/"+EggChamberCsvFolderName,zcorrImgTitle,hoechstChannel);
 		run("Collect Garbage");
 		
@@ -158,11 +158,11 @@ macro "segmentNuclei"{
   	print("done.");
 }
 
-// takes an image (inputWindowName) generates a global mask for the entire egg chamber
+// takes an image (inputWindowName) generates a global mask for the entire egg chambers (the "sample ROI")
 // using the intensity in measurementChannel as a basis (and using some filtering/thresholding), 
 // then measures intensity/neighbors etc in all channels using the new mask as an ROI
-// and saves the resulting tables in the folder savePath with names C1_eggChamberInt.csv, C2_eggChamberInt.csv etc
-function eggChamberIntensityMeasurementAllChannels(savePath,inputWindowName,measurementChannel){
+// and saves the resulting tables in the folder savePath with names C1_sampleROIInt.csv, C2_sampleROIInt.csv etc
+function sampleROIIntensityMeasurementAllChannels(savePath,inputWindowName,measurementChannel){
 	// rescale by a factor of 4 for faster processing
 	selectWindow(inputWindowName);
 	run("Duplicate...", "duplicate");
@@ -197,7 +197,7 @@ function eggChamberIntensityMeasurementAllChannels(savePath,inputWindowName,meas
 		run("Intensity Measurements 2D/3D", "input=tmpDuplicate2 labels=tmpDuplicate1"+
 			" mean stddev max min median mode skewness kurtosis numberofvoxels volume");
 			
-		saveAs("tmpDuplicate2-intensity-measurements",savePath+"C"+i+"_eggChamberInt.csv");
+		saveAs("tmpDuplicate2-intensity-measurements",savePath+"C"+i+"_sampleROIInt.csv");
 		run("Close");
 		
 		selectWindow("tmpDuplicate2");
@@ -612,8 +612,6 @@ function inputParameters(){
 	print("Min. Hoechst distribution Coeff of Variation",minCV);
 	print("Max. Hoechst distribution Coeff of Variation",maxCV);
 }
-
-
 
 // takes an input hyperstack inputWindowName, then 
 // 1) subtracts the global minimum intensity in all channels (~black level offset correction)

@@ -85,12 +85,12 @@ classdef eggChamberDataSet < handle
         % The folder should contain following files:
         % - allNucGeom.csv: geometry metrics of each nucleus
         % - C1_allNucInt.csv: nuclear-wise intensity metrics in channel 1
-        % - C1_eggChamberInt.csv: sampleROI-wise intensity metrics in channel 1 (sample ROI is one giant ROI that covers broadly all egg chambers of the image)
+        % - C1_sampleROIInt.csv: sampleROI-wise intensity metrics in channel 1 (sample ROI is one giant ROI that covers broadly all egg chambers of the image)
         % - C1_wholeImgInt.csv: image-wise intensity metrics in channel 1
         sampleFOVWiseFileNames = {'allNucGeom.csv';...
             '_allNucInt.csv';...
             '_wholeImgInt.csv';...
-            '_eggChamberInt.csv'};
+            '_sampleROIInt.csv'};
 
         % whether each file name of the previous list is channel-dependent or not
         sampleFOVWiseChannelDependent = logical([0;...
