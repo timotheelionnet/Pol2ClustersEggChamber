@@ -157,7 +157,7 @@ macro "segmentNuclei"{
 		print("computing geometry and intensity metrics on nuclei...");
 		EggChamberCsvFolderName = "eggChamberCSV/";
 		runMaskMetricsAndSave(finalNucMasksTitle,zcorrImgTitle,EggChamberCsvFolderName,
-			outFolder,outSubDirList[i],fileList[i],"Nuc,"Geom.csv","Int.csv");
+			outFolder,outSubDirList[i],fileList[i],"Nuc","Geom.csv","Int.csv");
 		
 		// compute average intensities for each channel across entire image	for background subtraction 
 		// during later data analysis steps	
