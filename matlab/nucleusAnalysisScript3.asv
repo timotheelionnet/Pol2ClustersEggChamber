@@ -62,6 +62,17 @@ ec.scatterPlotNucleiMetricByEggChamber('nuc',1,'Volume','','all'); % nuclear Vol
 ec.scatterPlotNucleiMetricByEggChamber('nuc',1,'Volume','',[6,7,8]); % nuclear Volume
 ec.scatterPlotNucleiMetricByEggChamber('nuc',1,'Volume','',[6,7]); % nuclear Volume
 
+%%
+ec.scatterPlotNucleiMetricByEggChamber('plasm',1,'Mean','raw',[6,7,8]); 
+ec.scatterPlotNucleiMetricByEggChamber('plasm',2,'Mean','raw',[6,7,8]); 
+ec.scatterPlotNucleiMetricByEggChamber('plasm',3,'Mean','raw',[6,7,8]); 
+ec.scatterPlotNucleiMetricByEggChamber('plasm',4,'Mean','raw',[6,7,8]);
+
+ec.scatterPlotNucleiMetricByEggChamber('nucleoli',1,'Median','raw',[6,7,8]); 
+ec.scatterPlotNucleiMetricByEggChamber('nucleoli',2,'Median','raw',[6,7,8]); 
+ec.scatterPlotNucleiMetricByEggChamber('nucleoli',3,'Median','raw',[6,7,8]); 
+ec.scatterPlotNucleiMetricByEggChamber('nucleoli',4,'Median','raw',[6,7,8]);
+
 %% scatter plot by egg chamber: Nucleus Intensity
 % nuclear mean intensity in all channels
 
@@ -93,6 +104,9 @@ ec.scatterPlotNucleiMetricByEggChamber('plasm',2,'Median','nucleoliSubtracted',[
 ec.scatterPlotNucleiMetricByEggChamber('plasm',3,'Median','nucleoliSubtracted',[6,7,8]); 
 ec.scatterPlotNucleiMetricByEggChamber('plasm',4,'Median','nucleoliSubtracted',[6,7,8]); 
 
+%% 
+fh = scatterPlotArbitraryMetricByEggChamber(obj,figHandle,NucOrClustTable,yMetric,idx,eggChamberStagesToInclude)
+
 %%
 minVolume =1;
 ec.scatterPlotNucleiMetricByEggChamber('plasm',2,'Median','raw',[6,7,8]);
@@ -104,9 +118,10 @@ ec.scatterPlotClusterMetricByEggChamber('clust',3,'Median','raw',[6,7,8],minVolu
 ec.scatterPlotClusterMetricByEggChamber('clust',4,'Median','raw',[6,7,8],minVolume);
 
 %% scatter plot by egg chamber: Number of clusters per nucleus
-ec.scatterPlotNucleiMetricByEggChamber('nuc',1,'NumClusters','',[6,7,8],minVolum); 
 
-ec.scatterPlotClusterMetricByEggChamber('clust',1,'Volume','',[6,7,8]);
+ec.scatterPlotNucleiMetricByEggChamber('nuc',1,'NumClustersMinVol','',[6,7,8]); 
+
+ec.scatterPlotClusterMetricByEggChamber('clust',1,'Volume','',[6,7,8],minVolume);
 %%
 figure('Name','Volume vs DAPI intensity');
 s = scatter(ec.clustT.clust_Volume,ec.clustT.clust_C1Mean_plasmCorr,'o',...
@@ -153,6 +168,7 @@ ec.scatterPlotClusterMetricByEggChamber('clust',1,'Mean','plasmCorr',[6,7,8],0);
 
 % only bonafide HLBs (> 1um^3)
 ec.scatterPlotClusterMetricByEggChamber('clust',1,'Mean','plasmCorr',[6,7,8],minVolume);
+
 %% scatter plot clusters intensity
 ec.scatterPlotClusterMetricByEggChamber('clust',1,'Median','raw',[6,7,8],minVolume); 
 ec.scatterPlotClusterMetricByEggChamber('clust',2,'Median','raw',[6,7,8],minVolume); 
@@ -168,6 +184,36 @@ ec.scatterPlotClusterMetricByEggChamber('clust',1,'Median','nucleoliSubtracted',
 ec.scatterPlotClusterMetricByEggChamber('clust',2,'Median','nucleoliSubtracted',[6,7,8],minVolume); 
 ec.scatterPlotClusterMetricByEggChamber('clust',3,'Median','nucleoliSubtracted',[6,7,8],minVolume); 
 ec.scatterPlotClusterMetricByEggChamber('clust',4,'Median','nucleoliSubtracted',[6,7,8],minVolume); 
+
+%% plasmCorr vs plamsMean levels
+minVolume = 1;
+idx = ismember(ec.clustT.eggChamber_Stage , [6,7,8]) ...
+    & ec.clustT.clust_Volume >= minVolume;
+
+idx1 = idx & ec.clustT.cond_Idx == 1;
+idx2 = idx & ec.clustT.cond_Idx == 2;
+
+figure('Name','plasmCorr vs plasm_Mean, C4'); hold;
+scatter(ec.clustT.plasm_C4Mean_raw(idx1),ec.clustT.clust_C4Mean_raw(idx1) - ec.clustT.clust_C4Mean_plasmCorr(idx1),...
+    'o','MarkerFaceColor',[0.5,0,0],'MarkerEdgeColor',[0.5,0,0],'DisplayName','Ctrl');
+scatter(ec.clustT.plasm_C4Mean_raw(idx2),ec.clustT.clust_C4Mean_raw(idx2) - ec.clustT.clust_C4Mean_plasmCorr(idx2),...
+    'o','MarkerFaceColor',[0,0,0.5],'MarkerEdgeColor',[0,0,0.5],'DisplayName','TRI');
+alpha(0.1);
+xlabel('plasmCorr');
+ylabel('plasm Mean');
+grid on;
+legend show;
+
+figure('Name','plasmCorr vs plasm_Mean, C3'); hold;
+scatter(ec.clustT.plasm_C3Mean_raw(idx1),ec.clustT.clust_C3Mean_raw(idx1) - ec.clustT.clust_C3Mean_plasmCorr(idx1),...
+    'o','MarkerFaceColor',[0.5,0,0],'MarkerEdgeColor',[0.5,0,0],'DisplayName','Ctrl');
+scatter(ec.clustT.plasm_C3Mean_raw(idx2),ec.clustT.clust_C3Mean_raw(idx2) - ec.clustT.clust_C3Mean_plasmCorr(idx2),...
+    'o','MarkerFaceColor',[0,0,0.5],'MarkerEdgeColor',[0,0,0.5],'DisplayName','TRI');
+alpha(0.1);
+xlabel('plasmCorr');
+ylabel('plasm Mean');
+grid on;
+legend show;
 
 %% MPM2 vs Ser5ph
 minVolume = 1;
@@ -442,35 +488,8 @@ ylabel('S5ph/pol2');
 
 
 %% LEFTOVERS
-%% generate summary statistics per egg chamber
-%sumT = ec.generateEggChamberSummaryTable();
+figure;
 
-% %% QC block
-% figure; hold;
-% [~,idx] = sort(ec.nucFullT.nuc_Sphericity,'descend');
-% plot(zscore(ec.nucFullT.nuc_Sphericity(idx)),'DisplayName','sphericity');
-% plot(zscore(ec.nucFullT.nuc_MeanBreadth(idx)),'DisplayName','Breadth');
-% plot(zscore(ec.nucFullT.nuc_SurfaceArea(idx)),'DisplayName','surf Area');
-% plot(zscore(ec.nucFullT.nuc_NumClusters(idx)),'DisplayName','num Clusters');
-% plot(zscore(ec.nucFullT.nuc_Volume(idx)),'DisplayName','Volume');
-% 
-% %%
-% 
-% figure; hold;
-% idx = ismember(ec.nucFullT.eggChamber_Stage,6);
-% plot(ec.nucFullT.nuc_Sphericity(idx),ec.nucFullT.nuc_Volume(idx),'o','MarkerFaceColor','auto');
-% idx = ismember(ec.nucFullT.eggChamber_Stage,7);
-% plot(ec.nucFullT.nuc_Sphericity(idx),ec.nucFullT.nuc_Volume(idx),'o','MarkerFaceColor','auto');
-% idx = ismember(ec.nucFullT.eggChamber_Stage,8);
-% plot(ec.nucFullT.nuc_Sphericity(idx),ec.nucFullT.nuc_Volume(idx),'o','MarkerFaceColor','auto');
-% 
-% figure; hold;
-% idx = ismember(ec.nucFullT.eggChamber_Stage,6);
-% plot(modzscore(ec.nucFullT.nuc_Sphericity(idx)),modzscore(ec.nucFullT.nuc_Volume(idx)),'o','MarkerFaceColor','auto');
-% idx = ismember(ec.nucFullT.eggChamber_Stage,7);
-% plot(modzscore(ec.nucFullT.nuc_Sphericity(idx)),modzscore(ec.nucFullT.nuc_Volume(idx)),'o','MarkerFaceColor','auto');
-% idx = ismember(ec.nucFullT.eggChamber_Stage,8);
-% plot(modzscore(ec.nucFullT.nuc_Sphericity(idx)),modzscore(ec.nucFullT.nuc_Volume(idx)),'o','MarkerFaceColor','auto');
 
 %% scatter plot by sample
 % plot where all nuclei from each sample are grouped separately.

@@ -85,12 +85,12 @@ classdef eggChamberDataSet < handle
         % The folder should contain following files:
         % - allNucGeom.csv: geometry metrics of each nucleus
         % - C1_allNucInt.csv: nuclear-wise intensity metrics in channel 1
-        % - C1_eggChamberInt.csv: sampleROI-wise intensity metrics in channel 1 (sample ROI is one giant ROI that covers broadly all egg chambers of the image)
+        % - C1_sampleROIInt.csv: sampleROI-wise intensity metrics in channel 1 (sample ROI is one giant ROI that covers broadly all egg chambers of the image)
         % - C1_wholeImgInt.csv: image-wise intensity metrics in channel 1
         sampleFOVWiseFileNames = {'allNucGeom.csv';...
             '_allNucInt.csv';...
             '_wholeImgInt.csv';...
-            '_eggChamberInt.csv'};
+            '_sampleROIInt.csv'};
 
         % whether each file name of the previous list is channel-dependent or not
         sampleFOVWiseChannelDependent = logical([0;...
@@ -702,7 +702,7 @@ classdef eggChamberDataSet < handle
                             if ismember(subVarName,tIn.Properties.VariableNames)
                                 subVar = tIn.(subVarName);
                             else
-                               disp(['Could not find variable ',subVarName,' to background-subtract nuclei intensity. Skipping']); 
+                               disp(['Warning: Could not find variable ',subVarName,' to background-subtract nuclei intensity. Skipping.']); 
                                subVar = [];
                             end
                         end
@@ -904,6 +904,140 @@ classdef eggChamberDataSet < handle
 
         end
 
+        %% scatter plot arbitrary metric by egg chamber
+        % 
+        function fh = scatterPlotArbitraryMetricByEggChamber(obj,figHandle,NucOrClustTable,yMetric,idx,eggChamberStagesToInclude)
+            
+            % if shorthand 'all' was used for cell stages to include, replace it by
+            % list of stage numbers.
+            if isa(eggChamberStagesToInclude,'char') || isa(eggChamberStagesToInclude,'string')
+                if strcmp(eggChamberStagesToInclude,'all')
+                    eggChamberStagesToInclude = [0,1,2,3,4,5,6,7,8,9,10];
+                end
+            end
+            
+            % figure out which table to use
+            NucOrClustTable = lower(NucOrClustTable);
+            switch NucOrClustTable
+                case 'nuc'
+                    t = obj.nucFullT;
+                case 'clust'
+                    t = obj.clustT;
+            end
+
+            % check that the metric and index entries have the right size that matches that of the table.
+            fh = [];
+            if numel(yMetric) ~= size(t,1) 
+                disp(['Error: metric to plot does not have the size matching the ',NucOrClustTable,' table']);
+                return
+            end
+            if numel(idx) ~= size(t,1)
+                disp(['Error: index does not have the size matching the ',NucOrClustTable,' table']);
+                return
+            end
+
+            % build figure, or assign fh handle to desired figure
+            if strcmp(get(figHandle,'type'),'figure')
+                fh = figHandle;
+                set(0,'CurrentFigure',fh);
+                if ~ishold
+                    hold;
+                end
+            else
+                fh = figure('Name',strrep(varName,'_',' '));
+                hold;
+            end    
+            
+            % collect the x values to plot each condition/sample at
+            [xEggChamberVals, xEggChamberIDs] = ...
+                obj.getSampleXValuesByEggChamber(eggChamberStagesToInclude);
+            
+            % generate color maps
+            nc = numel(obj.condIndices);
+            cmData =cbrewer('qual', 'Set1', max(nc,3));
+            
+            % collect the values of the metric for each condition/sample
+            
+            xSampleValsVec = [];
+            xSampleIDsVec = {};
+            yMin = Inf;
+            yMax = -Inf;
+            for i=1:numel(obj.condIndices)
+                xPlot = [];
+                yPlot = [];
+                s = obj.sampleIndices{i};
+                for j=1:obj.nSamples(i)
+                    for k=1:obj.eggChamberNumber{i}(j)
+                        if ismember(obj.eggChamberStages{i}{j}(k),eggChamberStagesToInclude)
+                            % collect values for the desired metric from all nuclei for the
+                            % current sample/condition
+                            x = obj.nucFullT.(varName)(...
+                                obj.nucFullT.cond_Idx ==obj.condIndices(i) ...
+                                & obj.nucFullT.sample_Idx == s(j) ...
+                                & obj.nucFullT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k));
+                    
+                            % generate slightly offset x coordinates for each nucleus,
+                            % centered around the sample X
+                            nNuclei = size(x,1);
+                            if nNuclei >1
+                                % spacing between nuclei
+                                nucSpacing = obj.spacingUnit ...
+                                    * (1-2*obj.freeSpaceBetweenSamples) / (nNuclei-1);
+                    
+                                % x coordinate for each nucleus of current condition/sample
+                                curXPlot = xEggChamberVals{i}{j}(k) ...
+                                    - floor(nNuclei/2)*nucSpacing ...
+                                    + (0:(nNuclei-1))*nucSpacing;
+                    
+                                % y coordinate for each nucleus of current condition/sample
+                                curYPlot = obj.nucFullT.(varName)(...
+                                    obj.nucFullT.cond_Idx ==obj.condIndices(i) ...
+                                    & obj.nucFullT.sample_Idx == s(j)...
+                                    & obj.nucFullT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k))';
+                    
+                            elseif nNuclei == 1
+                                curXPlot = xEggChamberVals{i}{j}(k);
+                                curYPlot = obj.nucFullT.(varName)(...
+                                    obj.nucFullT.cond_Idx ==obj.condIndices(i) ...
+                                    & obj.nucFullT.sample_Idx == s(j)...
+                                    & obj.nucFullT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k))';
+                    
+                            elseif nNuclei == 0
+                                curXPlot = [];
+                                curYPlot = [];
+                            end
+                    
+                            % append coordinates of current condition/sample to global list
+                            xPlot = [xPlot,curXPlot];
+                            yPlot = [yPlot,curYPlot];
+
+                            xErr = mean(curXPlot);
+                            yErr = mean(curYPlot);
+                            eErr = std(curYPlot);
+
+                            xSampleValsVec = [xSampleValsVec,xEggChamberVals{i}{j}(k)];
+                            xSampleIDsVec = [xSampleIDsVec,xEggChamberIDs{i}{j}{k}];
+
+                            p = scatter(curXPlot,curYPlot,'o','MarkerEdgeColor',cmData(i,:),'MarkerFaceColor',cmData(i,:));
+                            alpha(p,0.3);
+                            errorbar(xErr,yErr,eErr,'o','MarkerEdgeColor','k','MarkerFaceColor','k','Color','k','LineWidth',2);
+                        end
+                    end
+                end
+                if ~isempty(yPlot)
+                    yMax = max(yMax,max(yPlot(:)));
+                    yMin = min(yMin,min(yPlot(:)));
+                end
+                
+            end
+            
+            xticks(xSampleValsVec);
+            xticklabels(xSampleIDsVec);
+            xtickangle(45);
+            ylim([min([0,1.2*yMin]),1.2*yMax]);
+            ylabel(baseName);
+            grid on
+        end    
         %% scatter plot a metric by egg chamber
         % prefix: any of 'nuc', 
         function scatterPlotNucleiMetricByEggChamber(obj,prefix,channel,baseName,suffix,eggChamberStagesToInclude)
@@ -1179,6 +1313,94 @@ classdef eggChamberDataSet < handle
             end
         end
     
+        %% generate x coordinates by sample/condition/egg chamber for scatter plots
+        function [xEggChamberVals, xEggChamberIDs, xEggChamberStages] = ...
+                getSampleXValuesByEggChamberGatedByIdx(obj,eggChamberStagesToInclude,t,idx)
+            % subfunction used to generate x coordinates for plotting,
+            % grouped by egg chamber, then sample, then condition.
+            % xEggChamberVals{i}{j}(k) is the x coordinate for condition i, sample j , egg chamber k
+            % with matching tick names xEggChamberIDs{i}{j}{k}
+            % and stages xEggChamberStages{i}{j}(k)
+            % eggChamberStagesToInclude is a numerical array of stage numbers
+            % that should be plotted (e.g. [6,7,8]). 
+            % Nuclei for other egg chambers will be ignored.
+            % You can also set eggChamberStagesToInclude to 'all' as a
+            % shortcut to plot all stages.
+            
+            % check that egg chamber data is present
+            if isempty(obj.eggChamberNumber) || isempty(obj.eggChamberIDs) || isempty(obj.eggChamberStages)     
+                disp(['Variable eggChamberNumber or eggChamberIDs uninitialized',...
+                    'or eggChamberStages uninitialized, ',...
+                    'cannot generate sample X values by egg chamber']);
+                xEggChamberVals = {};
+                xEggChamberIDs = {};
+                return
+            end
+            
+            % if shorthand 'all' was used for cell stages to include, replace it by
+            % list of stage numbers.
+            if isa(eggChamberStagesToInclude,'char') || isa(eggChamberStagesToInclude,'string')
+                if strcmp(eggChamberStagesToInclude,'all')
+                    eggChamberStagesToInclude = [0,1,2,3,4,5,6,7,8,9,10];
+                end
+            end
+            
+            % loop through conditions, samples and egg chambers and
+            % generate incremental x values with matching ticks.
+            xEggChamberVals = cell(obj.nConditions,1);
+            xEggChamberIDs = cell(obj.nConditions,1);
+            xEggChamberStages = cell(obj.nConditions,1);
+            curX = 0;
+            for i=1:obj.nConditions
+                xEggChamberVals{i} = cell(obj.nSamples(i),1);
+                xEggChamberIDs{i} = cell(obj.nSamples(i),1);
+                xEggChamberStages{i} = cell(obj.nSamples(i),1);
+                if i>1 && sum((t.condIdx(idx)== obj.condIndices(i)) ~= 0)
+                    curX = curX + obj.condSeparator * obj.spacingUnit;
+                end
+                       
+                for j=1:obj.nSamples(i)
+                    if j>1 && sum( ...
+                            ((t.condIdx(idx)== obj.condIndices(i)) ...
+                            & (t.sampleIdx(idx)== obj.sampleIndices(j)) ...
+                            )~= 0)
+                        curX = curX + obj.sampleSeparator* obj.spacingUnit;    
+                    end
+                    ctr = 0;
+
+                    xEggChamberVals{i}{j} = zeros(obj.eggChamberNumber{i}(j),1);
+                    xEggChamberIDs{i}{j} = cell(obj.eggChamberNumber{i}(j),1);
+                    xEggChamberStages{i}{j} = zeros(obj.eggChamberNumber{i}(j),1);
+                    
+                    for k=1:obj.eggChamberNumber{i}(j)
+                        xEggChamberStages{i}{j}(k) = obj.eggChamberStages{i}{j}(k);
+                        % only include egg chamber if it isn't part of the
+                        % eggChamberStagesToExclude list and there are data
+                        % points
+                        if ismember(obj.eggChamberStages{i}{j}(k),eggChamberStagesToInclude) ...
+                                && sum( ...
+                                    ((t.condIdx(idx)== obj.condIndices(i)) ...
+                                    & (t.sampleIdx(idx)== obj.sampleIndices(j)) ...
+                                    & (t.eggChamberIdx(idx)== obj.sampleIndices(j)) ...
+                                    )~= 0)
+                            if ctr ~=0
+                                curX = curX + obj.ecSeparator* obj.spacingUnit;    
+                            end
+                            xEggChamberVals{i}{j}(k) = curX;
+                            xEggChamberIDs{i}{j}{k} = ...
+                                [obj.conditionNames{i},' sample',num2str(j),...
+                                ' ec',num2str(obj.eggChamberIDs{i}{j}(k))];
+                            ctr = ctr+1;
+                        else
+                            xEggChamberVals{i}{j}(k) = NaN;
+                            xEggChamberIDs{i}{j}{k} = [obj.conditionNames{i},' sample',num2str(j),...
+                                ' ec',num2str(obj.eggChamberIDs{i}{j}(k))];
+                        end
+                    end           
+                end
+            end
+        end
+
         %% generate x coordinates by sample/condition/egg chamber for scatter plots
         function [xEggChamberVals, xEggChamberIDs, xEggChamberStages] = ...
                 getSampleXValuesByEggChamber(obj,eggChamberStagesToInclude)
