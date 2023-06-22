@@ -1,6 +1,6 @@
 fijiOutFolder = '/Users/lionnt01/Documents/data/feiyue/egg chamber image quant/testOut2';
 fijiOutFolder = '/Users/lionnt01/Documents/data/feiyue/clusterImgAnalysis/out';
-fijiOutFolder = '/Users/lionnt01/Dropbox/data/feiyue/nucSeg20_3img';
+fijiOutFolder = '/Users/lionnt01/Dropbox/data/feiyue/nucSeg20_3img/out_v1';
 
 %% set path for subfunctions
 
@@ -41,7 +41,8 @@ ec.backgroundCorrectNucIntensity;
 %% add nuc stats to cluster table
 % takes metrics from nucFullT and copies them as extra variables of the
 % cluster table.
-ec.clustT = ec.addNucStatsToClustTable();
+%ec.clustT 
+cJoin= ec.addNucStatsToClustTable();
 
 %% background correct clusters intensity
 % subtracts nucleoplasm intensity (plasmSubtracted) and nucleoli intensity
@@ -104,6 +105,13 @@ ec.scatterPlotNucleiMetricByEggChamber('plasm',2,'Median','nucleoliSubtracted',[
 ec.scatterPlotNucleiMetricByEggChamber('plasm',3,'Median','nucleoliSubtracted',[6,7,8]); 
 ec.scatterPlotNucleiMetricByEggChamber('plasm',4,'Median','nucleoliSubtracted',[6,7,8]); 
 
+%% 
+ec.scatterPlotNucleiMetricByEggChamber('nucAvgClustMinVol',2,'Mean','raw','all'); 
+
+%% 
+yMetric = 'nucAvgClustMinVol_C3Mean_nucleoliSubtracted_cT1';
+fh = ec.scatterPlotArbitraryMetricByEggChamber(0,'nuc',yMetric,idx,eggChamberStagesToInclude)
+
 %%
 minVolume =1;
 ec.scatterPlotNucleiMetricByEggChamber('plasm',2,'Median','raw',[6,7,8]);
@@ -165,6 +173,7 @@ ec.scatterPlotClusterMetricByEggChamber('clust',1,'Mean','plasmCorr',[6,7,8],0);
 
 % only bonafide HLBs (> 1um^3)
 ec.scatterPlotClusterMetricByEggChamber('clust',1,'Mean','plasmCorr',[6,7,8],minVolume);
+
 %% scatter plot clusters intensity
 ec.scatterPlotClusterMetricByEggChamber('clust',1,'Median','raw',[6,7,8],minVolume); 
 ec.scatterPlotClusterMetricByEggChamber('clust',2,'Median','raw',[6,7,8],minVolume); 

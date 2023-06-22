@@ -4,11 +4,11 @@ Immediate fixes:
 X change eggChamber -> "sampleROI" in suffixes. 
 X Change condIdx to cond_Idx. Same for sampleIdx, eggChamberID, eggChamberStage, nucLabel, clustLabel. stdClustVolume
 x make sure that variables follow the pattern: Channel string: C1 to C5 <prefix><channelString>_<metricName>_<suffix>
-- bg subtraction functions, check that suffixes are the following: 
-- wholeImgSubtracted; metric found
-- sampleROISubtracted; metric found
-- plasmSubtracted; use median plasm
-- nucleoliSubtracted; use median nucleoli
+x bg subtraction functions, check that suffixes are the following: 
+x wholeImgSubtracted; metric found
+x sampleROISubtracted; metric found
+x plasmSubtracted; use median plasm
+x nucleoliSubtracted; use median nucleoli
 - build wiki/benchling to document metric names and meanings.
 
 x what is the best background to use? Seems like geometric mean of min and mode might be the best (or just reg mean?)
