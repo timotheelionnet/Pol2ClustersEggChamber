@@ -140,12 +140,12 @@ macro "segmentNuclei"{
 											outFolder,outSubDirList[i],EggChamberSegFolderName);
 			if(eggChamberDataFound == 1){
 				// build egg chamber background stack
-				eggChamberBackgroundTitle = "ecBackground";
-				segmentEggChamberFromNuclei(eggChamberIDsTitle,eggChamberBackgroundTitle);
+				eggChamberBackgroundMaskTitle = "ecBackground";
+				segmentEggChamberFromNuclei(eggChamberIDsTitle,eggChamberBackgroundMaskTitle);
 				
 				// compute egg chamber background metrics and save
 				EggChamberCsvFolderName = "eggChamberCSV/";
-				runMaskNucleiMetricsAndSave(eggChamberBackgroundTitle,zcorrImgTitle,EggChamberCsvFolderName,
+				runMaskMetricsAndSave(eggChamberBackgroundMaskTitle,zcorrImgTitle,EggChamberCsvFolderName,
 					outFolder,outSubDirList[i],fileList[i],"EggChambers","Geom.csv","Int.csv");
 					
 				// append to detrended image so the eggchamber ID is measured with the metrics								
@@ -156,7 +156,7 @@ macro "segmentNuclei"{
 		// compute and save nuclei metrics
 		print("computing geometry and intensity metrics on nuclei...");
 		EggChamberCsvFolderName = "eggChamberCSV/";
-		runMaskNucleiMetricsAndSave(finalNucMasksTitle,zcorrImgTitle,EggChamberCsvFolderName,
+		runMaskMetricsAndSave(finalNucMasksTitle,zcorrImgTitle,EggChamberCsvFolderName,
 			outFolder,outSubDirList[i],fileList[i],"Nuc,"Geom.csv","Int.csv");
 		
 		// compute average intensities for each channel across entire image	for background subtraction 
