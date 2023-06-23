@@ -141,12 +141,13 @@ macro "segmentNuclei"{
 			if(eggChamberDataFound == 1){
 				// append stack where each nucleus is intensity-coded to its eggChamberID
 				// to detrended image so the eggchamber ID is measured with the metrics								
-				addChannelToImg(zcorrImgTitle,eggChamberIDsTitle,zcorrImgTitle,0);
+				addChannelToImg(zcorrImgTitle,eggChamberIDsTitle,zcorrImgTitle,1);
 				
 				// build egg chamber background stack
 				eggChamberBackgroundMaskTitle = "ecBackground";
 				segmentEggChamberFromNuclei(eggChamberIDsTitle,eggChamberBackgroundMaskTitle);
-
+				close(eggChamberIDsTitle);
+				
 				// compute egg chamber background metrics and save
 				EggChamberCsvFolderName = "eggChamberCSV/";
 				runMaskMetricsAndSave(eggChamberBackgroundMaskTitle,zcorrImgTitle,EggChamberCsvFolderName,
