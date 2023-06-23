@@ -94,27 +94,37 @@ classdef eggChamberDataSet < handle
         sampleFOVWiseFileNames = {'allNucGeom.csv';...
             '_allNucInt.csv';...
             '_wholeImgInt.csv';...
-            '_eggChamberInt.csv'};
+            '_sampleROIInt.csv';...
+            'allEggChambersGeom.csv';...
+            '_allEggChambersInt.csv';};
 
         % whether each file name of the previous list is channel-dependent or not
         sampleFOVWiseChannelDependent = logical([0;...
             1;...
             1;...
+            1;...
+            0;...
             1;]);
     
         % whether each file name of the previous list contains a single row (whole image data) or
         % one row per nucleus
-        sampleFOVWiseSingleRow = logical([0;...
+        % 0 = single row table; 1 = 1 row per nucleus; 2 = 1 row per egg
+        % chamber
+        sampleFOVWiseSingleRow = [0;...
             0;...
             1;...
-            1;]);
+            1;...
+            2;...
+            2; ];
         
         % prefix to add in front of each variable name when loading the
         % corresponding table
         sampleFOVWisePrefix ={'nuc';...
             'nuc';...
             'wholeImg';...
-            'sampleROI'};
+            'sampleROI';...
+            'eggChamber';
+            'eggChamber';};
 
         % name of the optional subfolder where the 2D segmentations of the egg chambers are stored
         eggChamberSegFolderName = 'eggChamberSEG';
@@ -126,7 +136,9 @@ classdef eggChamberDataSet < handle
         eggChamberWiseSuffix ={'';...
             'raw';...
             'raw';...
-            'raw'};
+            'raw';...
+            '';...
+            'raw';};
         
         % maximum number of channels (used when searching for data files) 
         maxChannels = 10;
@@ -218,6 +230,7 @@ classdef eggChamberDataSet < handle
         % the intensity
         rawSuffix = 'raw';
         plasmCorrSuffix = 'plasmCorr';
+        eggChamberSubtractedSuffix = 'eggChamberSubtracted';
         sampleROISubtractedSuffix = 'sampleROISubtracted';
         wholeImgSubtractedSuffix = 'wholeImgSubtracted';
         nucleoliSubtractedPrefix = 'nucleoliSubtracted';
@@ -1616,6 +1629,7 @@ classdef eggChamberDataSet < handle
             if ~exist(analysisDir, 'dir')
                 channelsFound = 0;
                 eggChamberSegFound = 0;
+                disp(['warning: sample dir ',analysisDir,' not found.']);
                 return;
             end
     
@@ -1624,11 +1638,13 @@ classdef eggChamberDataSet < handle
             
             if ~exist(eggSegDir, 'dir')
                 eggChamberSegFound = 0;
+                disp(['optional egg chamber dir ',eggSegDir,' not found.']);
             else
                 if exist(fullfile(eggSegDir,obj.eggChamberSegFileName), 'file')
                     eggChamberSegFound = 1;
                 else
                     eggChamberSegFound = 0;
+                    disp(['optional egg chamber analysis file ',obj.eggChamberSegFileName,' not found.']);
                 end
             end
             
@@ -1638,7 +1654,8 @@ classdef eggChamberDataSet < handle
             flag = 1;
             for i=1:numel(fNames)
                 if ~exist(fullfile(analysisDir,fNames{i}),'file')
-                   flag = 0;
+                       disp(['warning: file ',fullfile(analysisDir,fNames{i}),' not found.']);
+                       flag = 0;
                 end
             end
             if flag == 0
@@ -1654,7 +1671,8 @@ classdef eggChamberDataSet < handle
                 flag = 1;
                 for j=1:numel(fNames)
                     if ~exist(fullfile(analysisDir,fNames{j}),'file')
-                       flag = 0;
+                           %disp(['warning: file ',fullfile(analysisDir,fNames{j}),' not found.']);
+                           flag = 0;
                     end
                 end
                 if flag == 1
@@ -1686,6 +1704,8 @@ classdef eggChamberDataSet < handle
                 conditionIdx,sample_Idx);
             if c == 0
                 t = [];
+                disp(['Could not find analysis files for condition ',num2str(obj.condIndices(conditionIdx)),...
+                    ' sample ',num2str(obj.sampleIndices{conditionIdx}(sample_Idx))]);
                 return
             end
             
@@ -1719,7 +1739,9 @@ classdef eggChamberDataSet < handle
             analysisDir = obj.getEggChamberAnalysisDir(conditionIdx,sample_Idx);
             
             tS = []; % full table place holder for data that is single row 
-            % - e.g. whole image intensity, whole egg chamber intensity.
+            % - e.g. whole image intensity, sampleROI intensity.
+            tE = []; % full table place holder for data that is one row per egg chamber
+            % - e.g. whole egg chamber intensity.
             t = []; % full table place holder for data that is mutli row
             % i.e. nucleus-specific 
             % loop through files, load each as a table curT and append the 
@@ -1751,17 +1773,23 @@ classdef eggChamberDataSet < handle
                     end
                     
                     % append to full table
-                    if obj.sampleFOVWiseSingleRow(i)
+                    if obj.sampleFOVWiseSingleRow(i) == 1 % single row table
                         if isempty(tS)
                             tS = curT;
                         else
                             tS = join(tS,curT,'Keys','Label');
                         end
-                    else
+                    elseif obj.sampleFOVWiseSingleRow(i) == 0 % one row per nucleus
                         if isempty(t)
                             t = curT;
                         else
                             t = join(t,curT,'Keys','Label');
+                        end
+                    elseif obj.sampleFOVWiseSingleRow(i) == 2 % one row per egg chamber
+                        if isempty(tE)
+                            tE = curT;
+                        else
+                            tE = join(tE,curT,'Keys','Label');
                         end
                     end
                 else
@@ -1787,17 +1815,23 @@ classdef eggChamberDataSet < handle
                         end
     
                         % append to full table
-                        if obj.sampleFOVWiseSingleRow(i)
+                        if obj.sampleFOVWiseSingleRow(i) == 1
                             if isempty(tS)
                                 tS = curT;
                             else
                                 tS = join(tS,curT,'Keys','Label');
                             end
-                        else
+                        elseif obj.sampleFOVWiseSingleRow(i) == 0
                             if isempty(t)
                                 t = curT;
                             else
                                 t = join(t,curT,'Keys','Label');
+                            end
+                        elseif obj.sampleFOVWiseSingleRow(i) == 2
+                            if isempty(tE)
+                                tE = curT;
+                            else
+                                tE = join(tE,curT,'Keys','Label');
                             end
                         end
                     end
@@ -1843,6 +1877,35 @@ classdef eggChamberDataSet < handle
                 % add egg Chamber stage variable to table
                 t = addvars(t,ecStage,...
                 'NewVariableNames',{'eggChamber_Stage'});
+
+                % join eggChamber specific metrics to table
+                tEout = [];
+                isTEoutFilled = 0;
+                rowsMissingAtBeginning = 0;
+                for i=1:size(t,1)
+                    curEC = t.(eggChamberIDVariable)(i); % find egg chamber ID of current nucleus
+                    curRow = tE(find(tE.eggChamber_Label == curEC),:); % select matching row in loaded egg chamber data table
+                    if isempty(curRow)
+                        if isTEoutFilled == 0
+                            rowsMissingAtBeginning = rowsMissingAtBeginning + 1;
+                        else
+                            tEout = [tEout;Nan*ones(1,size(tEout,2))];
+                        end
+                    else
+                        if isTEoutFilled == 0
+                            isTEoutFilled = 1;
+                            if rowsMissingAtBeginning ==0
+                                tEout = curRow;
+                            else
+                                tEout = [NaN*ones(rowsMissingAtBeginning,size(curRow,2));curRow];
+                            end
+                        else
+                            tEout = [tEout;curRow];
+                        end
+                    end
+                end
+                tEout = addvars(tEout,t.nuc_Label,'NewVariableNames',{'nuc_Label'});
+                t = join(t,tEout,'Keys','nuc_Label');
             end
     
             % remove variables that contain the word neighbor

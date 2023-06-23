@@ -1,6 +1,6 @@
 fijiOutFolder = '/Users/lionnt01/Documents/data/feiyue/egg chamber image quant/testOut2';
 fijiOutFolder = '/Users/lionnt01/Documents/data/feiyue/clusterImgAnalysis/out';
-fijiOutFolder = '/Users/lionnt01/Dropbox/data/feiyue/nucSeg20_3img/out_v1';
+fijiOutFolder = '/Users/lionnt01/Dropbox/data/feiyue/nucSeg20_3img/out_v2';
 
 %% set path for subfunctions
 
@@ -42,7 +42,7 @@ ec.backgroundCorrectNucIntensity;
 % takes metrics from nucFullT and copies them as extra variables of the
 % cluster table.
 %ec.clustT 
-cJoin= ec.addNucStatsToClustTable();
+ec.clustT = ec.addNucStatsToClustTable();
 
 %% background correct clusters intensity
 % subtracts nucleoplasm intensity (plasmSubtracted) and nucleoli intensity
