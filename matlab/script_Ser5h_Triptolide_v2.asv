@@ -64,47 +64,102 @@ ec.scatterPlotNucleiMetricByEggChamber('nuc',1,'Volume','','all'); % nuclear Vol
 ec.scatterPlotNucleiMetricByEggChamber('nuc',1,'Volume','',[6,7,8]); % nuclear Volume
 ec.scatterPlotNucleiMetricByEggChamber('nuc',1,'Volume','',[6,7]); % nuclear Volume
 
-%%
+
+%% scatter plot nuclei intensity by egg chamber: 
+% raw:
+ec.scatterPlotNucleiMetricByEggChamber('nuc',1,'Mean','raw',[6,7,8]); 
+ec.scatterPlotNucleiMetricByEggChamber('nuc',2,'Mean','raw',[6,7,8]); 
+ec.scatterPlotNucleiMetricByEggChamber('nuc',3,'Mean','raw',[6,7,8]); 
+ec.scatterPlotNucleiMetricByEggChamber('nuc',4,'Mean','raw',[6,7,8]);
+
+% displaying table in command window with the raw values estimated for four
+% nuclei in ctrl_1002 image to match w visual estimates.
+% variables in order are nucleoli (raw),nucleoplasm (raw) for all four
+% channels.
+cond = 1;
+sample = 2;
+nucIdx = [20,3,9,7];
+b = zeros(numel(nucIdx),8);
+for i=1:numel(nucIdx)
+    imgIdx = find(  ec.nucFullT.cond_Idx == cond ...
+                & ec.nucFullT.sample_Idx == sample ...
+                & ec.nucFullT.nuc_Label == nucIdx(i));
+ 
+    cIdx = 1; 
+    a = [ec.nucFullT.(['nuc_C',num2str(cIdx),'Mean_raw'])(imgIdx)];
+    cIdx = 2; 
+    a = [a,ec.nucFullT.(['nuc_C',num2str(cIdx),'Mean_raw'])(imgIdx)];
+    cIdx = 3; 
+    a = [a,ec.nucFullT.(['nuc_C',num2str(cIdx),'Mean_raw'])(imgIdx)];
+    cIdx = 4; 
+    a = [a,ec.nucFullT.(['nuc_C',num2str(cIdx),'Mean_raw'])(imgIdx),ec.nucFullT.(['plasm_C',num2str(cIdx),'Mean_raw'])(imgIdx)];
+    
+    b(i,:) = a;
+
+end
+b
+
+% background subtracted (eggchamber)
+ec.scatterPlotNucleiMetricByEggChamber('nuc',1,'Mean','eggChamberSubtracted',[6,7,8]); 
+ec.scatterPlotNucleiMetricByEggChamber('nuc',2,'Mean','eggChamberSubtracted',[6,7,8]); 
+ec.scatterPlotNucleiMetricByEggChamber('nuc',3,'Mean','eggChamberSubtracted',[6,7,8]); 
+ec.scatterPlotNucleiMetricByEggChamber('nuc',4,'Mean','eggChamberSubtracted',[6,7,8]); 
+
+
+%% scatter plot nucleoplasm intensity by egg chamber (raw): 
+
+% nucleoplasm (raw) :
 ec.scatterPlotNucleiMetricByEggChamber('plasm',1,'Mean','raw',[6,7,8]); 
 ec.scatterPlotNucleiMetricByEggChamber('plasm',2,'Mean','raw',[6,7,8]); 
 ec.scatterPlotNucleiMetricByEggChamber('plasm',3,'Mean','raw',[6,7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('plasm',4,'Mean','raw',[6,7,8]);
+ec.scatterPlotNucleiMetricByEggChamber('plasm',4,'Mean','raw',[6,7,8]); 
 
-ec.scatterPlotNucleiMetricByEggChamber('nucleoli',1,'Median','raw',[6,7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('nucleoli',2,'Median','raw',[6,7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('nucleoli',3,'Median','raw',[6,7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('nucleoli',4,'Median','raw',[6,7,8]);
+% nucleoli (raw) :
+ec.scatterPlotNucleiMetricByEggChamber('nucleoli',1,'Mean','raw',[6,7,8]); 
+ec.scatterPlotNucleiMetricByEggChamber('nucleoli',2,'Mean','raw',[6,7,8]); 
+ec.scatterPlotNucleiMetricByEggChamber('nucleoli',3,'Mean','raw',[6,7,8]); 
+ec.scatterPlotNucleiMetricByEggChamber('nucleoli',4,'Mean','raw',[6,7,8]); 
 
-%% scatter plot by egg chamber: Nucleus Intensity
-% nuclear mean intensity in all channels
+% displaying table in command window with the raw values estimated for four
+% nuclei in ctrl_1002 image to match w visual estimates.
+% variables in order are nucleoli (raw),nucleoplasm (raw) for all four
+% channels.
+cond = 1;
+sample = 2;
+nucIdx = [20,3,9,7];
+b = zeros(numel(nucIdx),8);
+for i=1:numel(nucIdx)
+    imgIdx = find(  ec.nucFullT.cond_Idx == cond ...
+                & ec.nucFullT.sample_Idx == sample ...
+                & ec.nucFullT.nuc_Label == nucIdx(i));
+ 
+    cIdx = 1; 
+    a = [ec.nucFullT.(['nucleoli_C',num2str(cIdx),'Mean_raw'])(imgIdx),ec.nucFullT.(['plasm_C',num2str(cIdx),'Mean_raw'])(imgIdx)];
+    cIdx = 2; 
+    a = [a,ec.nucFullT.(['nucleoli_C',num2str(cIdx),'Mean_raw'])(imgIdx),ec.nucFullT.(['plasm_C',num2str(cIdx),'Mean_raw'])(imgIdx)];
+    cIdx = 3; 
+    a = [a,ec.nucFullT.(['nucleoli_C',num2str(cIdx),'Mean_raw'])(imgIdx),ec.nucFullT.(['plasm_C',num2str(cIdx),'Mean_raw'])(imgIdx)];
+    cIdx = 4; 
+    a = [a,ec.nucFullT.(['nucleoli_C',num2str(cIdx),'Mean_raw'])(imgIdx),ec.nucFullT.(['plasm_C',num2str(cIdx),'Mean_raw'])(imgIdx)];
+    
+    b(i,:) = a;
 
-% raw:
-ec.scatterPlotNucleiMetricByEggChamber('nuc',1,'Median','raw','all'); 
-ec.scatterPlotNucleiMetricByEggChamber('nuc',1,'Median','raw',[6,7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('nuc',2,'Median','raw',[6,7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('nuc',3,'Median','raw',[6,7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('nuc',4,'Median','raw',[6,7,8]);
+end
+b
 
-% background subtracted (whole image)
-ec.scatterPlotNucleiMetricByEggChamber('nuc',1,'Median','wholeImgSubtracted','all'); 
-ec.scatterPlotNucleiMetricByEggChamber('nuc',1,'Median','wholeImgSubtracted',[6,7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('nuc',2,'Median','wholeImgSubtracted',[6,7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('nuc',3,'Median','wholeImgSubtracted',[6,7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('nuc',4,'Median','wholeImgSubtracted',[6,7,8]); 
-
-% background subtracted (sampleROI)
-ec.scatterPlotNucleiMetricByEggChamber('plasm',1,'Median','sampleROISubtracted','all'); 
-ec.scatterPlotNucleiMetricByEggChamber('plasm',1,'Median','sampleROISubtracted',[6,7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('plasm',2,'Median','sampleROISubtracted',[6,7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('plasm',3,'Median','sampleROISubtracted',[6,7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('plasm',4,'Median','sampleROISubtracted',[6,7,8]); 
-
+%%
 % nucleoplasm corrected for background estimated across the nucleolus:
-ec.scatterPlotNucleiMetricByEggChamber('plasm',1,'Median','nucleoliSubtracted','all'); 
-ec.scatterPlotNucleiMetricByEggChamber('plasm',1,'Median','nucleoliSubtracted',[6,7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('plasm',2,'Median','nucleoliSubtracted',[6,7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('plasm',3,'Median','nucleoliSubtracted',[6,7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('plasm',4,'Median','nucleoliSubtracted',[6,7,8]); 
+ec.scatterPlotNucleiMetricByEggChamber('plasm',1,'Mean','nucleoliSubtracted',[6,7,8]); 
+ec.scatterPlotNucleiMetricByEggChamber('plasm',2,'Mean','nucleoliSubtracted',[6,7,8]); 
+ec.scatterPlotNucleiMetricByEggChamber('plasm',3,'Mean','nucleoliSubtracted',[6,7,8]); 
+ec.scatterPlotNucleiMetricByEggChamber('plasm',4,'Mean','nucleoliSubtracted',[6,7,8]); 
+
+% nucleoplasm corrected for background estimated across each egg chamber
+% outside of nuclei
+ec.scatterPlotNucleiMetricByEggChamber('plasm',1,'Mean','eggChamberSubtracted',[6,7,8]); 
+ec.scatterPlotNucleiMetricByEggChamber('plasm',2,'Mean','eggChamberSubtracted',[6,7,8]); 
+ec.scatterPlotNucleiMetricByEggChamber('plasm',3,'Mean','eggChamberSubtracted',[6,7,8]); 
+ec.scatterPlotNucleiMetricByEggChamber('plasm',4,'Mean','eggChamberSubtracted',[6,7,8]); 
 
 %% 
 ec.scatterPlotNucleiMetricByEggChamber('nucAvgClustMinVol',2,'Mean','raw','all'); 

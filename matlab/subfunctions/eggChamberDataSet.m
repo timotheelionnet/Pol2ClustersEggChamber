@@ -303,10 +303,10 @@ classdef eggChamberDataSet < handle
                 obj.sampleROIPrefix,obj.clusterPrefix,obj.nucleoliPrefix,...
                 obj.plasmPrefix,obj.eggChamberPrefix,...
                 obj.nucAvgClustMinVolPrefix,obj.nucStdClustMinVolPrefix;};
-            obj.suffixList = {obj.rawSuffix,obj.plasmCorrSuffix,...
+            obj.suffixList = {obj.rawSuffix,obj.plasmCorrSuffix,obj.eggChamberSubtractedSuffix,...
                 obj.sampleROISubtractedSuffix,obj.wholeImgSubtractedSuffix,...
                 obj.nucleoliSubtractedPrefix,obj.plasmSubtractedPrefix};
-            obj.nucBackgroundIntensityPrefixList = {obj.wholeImgPrefix,obj.sampleROIPrefix,obj.nucleoliPrefix};
+            obj.nucBackgroundIntensityPrefixList = {obj.wholeImgPrefix,obj.sampleROIPrefix,obj.eggChamberPrefix,obj.nucleoliPrefix};
             obj.clustBackgroundIntensityPrefixList = {obj.plasmPrefix,obj.nucleoliPrefix};
 
         end
@@ -688,7 +688,7 @@ classdef eggChamberDataSet < handle
 
                 % loop through variables to subtract (wholeImg and sampleROI)
                 for v = 1:numel(obj.nucBackgroundIntensityPrefixList)
-
+                    
                     % loop through color channels
                     for i=1:nChannels
 
@@ -1856,6 +1856,7 @@ classdef eggChamberDataSet < handle
             % if egg chamber stage file is present, add a variable for the egg
             % chamber stage.
             if eggSegFound && (obj.eggChamberSegChannel ~= 0)
+                
                 % get the name of the variable holding the median nucleus
                 % intensity in the channel that holds the egg chamber
                 % segmenentation ID (the median int will be used as the ID).
@@ -1884,12 +1885,26 @@ classdef eggChamberDataSet < handle
                 rowsMissingAtBeginning = 0;
                 for i=1:size(t,1)
                     curEC = t.(eggChamberIDVariable)(i); % find egg chamber ID of current nucleus
-                    curRow = tE(find(tE.eggChamber_Label == curEC),:); % select matching row in loaded egg chamber data table
+                    curRow = tE(tE.Label == curEC,:); % select matching row in loaded egg chamber data table
+                    
                     if isempty(curRow)
+                        curEC = t.(eggChamberIDVariable)(i); % find egg chamber ID of current nucleus
+                        
                         if isTEoutFilled == 0
                             rowsMissingAtBeginning = rowsMissingAtBeginning + 1;
                         else
-                            tEout = [tEout;Nan*ones(1,size(tEout,2))];
+                            for col=1:size(tEout,2)
+                                if isa(tEout{1,col},'numeric')
+                                    if strcmp(tEout.Properties.VariableNames{col},'Label')
+                                        blankRow{1,col} = curEC;
+                                    else
+                                        blankRow{1,col} = NaN;
+                                    end
+                                else
+                                    blankRow{1,col} = '';
+                                end
+                            end
+                            tEout = [tEout;blankRow];
                         end
                     else
                         if isTEoutFilled == 0
@@ -1897,7 +1912,15 @@ classdef eggChamberDataSet < handle
                             if rowsMissingAtBeginning ==0
                                 tEout = curRow;
                             else
-                                tEout = [NaN*ones(rowsMissingAtBeginning,size(curRow,2));curRow];
+                                blankRow = curRow;
+                                for col=1:size(curRow,2)
+                                    if isa(curRow{1,col},'numeric')
+                                        blankRow{1,col} = NaN;
+                                    else
+                                        blankRow{1,col} = '';
+                                    end
+                                end
+                                tEout = [repmat(blankRow,rowsMissingAtBeginning,1);curRow];
                             end
                         else
                             tEout = [tEout;curRow];
@@ -1905,7 +1928,14 @@ classdef eggChamberDataSet < handle
                     end
                 end
                 tEout = addvars(tEout,t.nuc_Label,'NewVariableNames',{'nuc_Label'});
+                tEout =renamevars(tEout,{'Label'},{'eggChamber_Label'});
+                if ismember('sample_InputFileName',tEout.Properties.VariableNames)
+                    tEout = removevars(tEout,{'sample_InputFileName'});
+                end
                 t = join(t,tEout,'Keys','nuc_Label');
+                if ~sum(t.eggChamber_Idx == t.eggChamber_Label) == size(t,1)
+                    disp('Error: eggChamber labels loaded are in conflict.');
+                end
             end
     
             % remove variables that contain the word neighbor

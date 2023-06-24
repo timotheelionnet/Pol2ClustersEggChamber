@@ -191,6 +191,7 @@ macro "segmentNuclei"{
 // function that generates a segmentation of the 3D space in an eggchamber that does not contain the nuclei for background calculation
 // requires as input a stack where each nucleus is segmented and has the pixel value assigned to the ID of the egg chamber it belongs too.
 function segmentEggChamberFromNuclei(testImgName,outImageName){
+	selectWindow(testImgName);
 	
 	// find out how many egg chambers there are
 	run("Z Project...", "projection=[Max Intensity]");
