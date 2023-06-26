@@ -18,15 +18,6 @@ ec = eggChamberDataSet(fijiOutFolder);
 % nuclei from all samples (one row per nucleus) and compiles dozens of
 % metrics of size and intensity in every channel. (creates nucT as a backup copy)
 ec.loadAllEggChamberNucleiData;
-%%
-% cleans up the ec.nucT table by:
-    % removing useless metrics
-    % removing data from the dummy channel used as a marker of eggChamberID
-    % sorting the columns so that the sample/eggchamber/nucleus info is in
-    % the first columns
-    % ordering the rows by eggChamberID.
-% ec.nucFullT retains all metrics.
-%ec.streamLineTable('nuc');
 
 %% load cluster data
 % populates the table ec.clustT
@@ -54,8 +45,6 @@ ec.backgroundCorrectClustIntensity();
 % takes metrics from clustT, averages them over each nucleus
 % and copies them as extra variables of the nuc table.
 ec.addAverageClusterStatsToNucTable();
-
-aaaaa
 
 %% scatter plot by egg chamber: Nucleus Volume
 % plot where all nuclei from an egg chamber are grouped separately.
@@ -443,8 +432,8 @@ ylabel('C4Median nucleoliSubtracted relative to nucleus');
 grid on;
 legend show;
 
-%% MPM2/PolII, by sample, in MPM2+ clusters / Normalized to nuclear levels (wholeImgSubtracted)
-minMPM2 = 5000;
+%% MPM2/PolII, by sample, in MPM2+/- clusters - Normalized to nuclear levels (nucleoli Subtracted)
+minMPM2 = 2500;
 stages = [6,7,8];
 
 idx = ec.clustT.clust_C2Median_plasmCorr > minMPM2...
@@ -453,6 +442,8 @@ figure('Name','cluster S5ph/Pol2 (relative to nucleoplasm levels nucleoliSub) in
 hold;
 c = unique(ec.clustT.cond_Idx);
 curX = 0;
+xtl = {};
+xt = [];
 for i=1:numel(c)
     s = unique(ec.clustT.sample_Idx);
     for j=1:numel(s)
@@ -471,14 +462,19 @@ for i=1:numel(c)
                     scatter(curX*ones(size(s5))-0.15+0.3*rand(numel(s5),1),s5./p2,'o','MarkerFaceColor',[0,0,0.5],'MarkerEdgeColor',[0,0,0.5],...
                         'DisplayName',['Cond ',num2str(c(i)),' Sample ',num2str(s(j)),' egg chamber ',num2str(e(k))]);
                  end
+                 
+                 xt(end+1) = curX;
+                 xtl{end+1} = ['cond ',num2str(c(i)),' smpl ',num2str(s(j)),' eggChbr ',num2str(e(k))];
                  curX = curX+1;
             end
         end
     end
 end
 alpha(0.1);
-xlabel('Egg Chamber');
 ylabel('S5ph/pol2');
+xticks(xt);
+xticklabels(xtl);
+xtickangle(45);
 
 idx = ec.clustT.clust_C2Median_plasmCorr <= minMPM2 ...
     & ec.clustT.clust_Volume >= minVolume;
@@ -486,6 +482,8 @@ figure('Name','cluster S5ph/Pol2 (relative to nucleoplasm levels nucleoliSub) in
 hold;
 c = unique(ec.clustT.cond_Idx);
 curX = 0;
+xtl = {};
+xt = [];
 for i=1:numel(c)
     s = unique(ec.clustT.sample_Idx);
     for j=1:numel(s)
@@ -504,87 +502,576 @@ for i=1:numel(c)
                     scatter(curX*ones(size(s5))-0.15+0.3*rand(numel(s5),1),s5./p2,'o','MarkerFaceColor',[0,0,0.5],'MarkerEdgeColor',[0,0,0.5],...
                         'DisplayName',['Cond ',num2str(c(i)),' Sample ',num2str(s(j)),' egg chamber ',num2str(e(k))]);
                  end
+
+                 xt(end+1) = curX;
+                 xtl{end+1} = ['cond ',num2str(c(i)),' smpl ',num2str(s(j)),' eggChbr ',num2str(e(k))];
                  curX = curX+1;
             end
         end
     end
 end
 alpha(0.1);
-xlabel('Egg Chamber');
 ylabel('S5ph/pol2');
+xticks(xt);
+xticklabels(xtl);
+xtickangle(45);
 
-%% MPM2/PolII, by sample, in MPM2+ clusters / Normalized to nuclear levels (sampleROISubtracted)
-minMPM2 = 2500; 
+%% PolII, by sample, in MPM2+/- clusters - Normalized to nuclear levels (nucleoli Subtracted)
+minMPM2 = 2500;
 stages = [6,7,8];
 
-idx = ec.clustT.clust_C2Median_plasmCorr > minMPM2...
+idxPos = ec.clustT.clust_C2Median_plasmCorr > minMPM2...
     & ec.clustT.clust_Volume >= minVolume;
-figure('Name','S5ph/Pol2 (relative to nuclear levels sampleROI) in MPM2+ clusters'); 
+idxNeg = ec.clustT.clust_C2Median_plasmCorr <= minMPM2...
+    & ec.clustT.clust_Volume >= minVolume;
+figure('Name','cluster Pol2 (relative to nucleoplasm levels nucleoliSub) in MPM2+/- clusters'); 
 hold;
 c = unique(ec.clustT.cond_Idx);
 curX = 0;
+xtl = {};
+xt = [];
 for i=1:numel(c)
     s = unique(ec.clustT.sample_Idx);
     for j=1:numel(s)
         e = unique(ec.clustT.eggChamber_Idx);
         for k=1:numel(e)
-            curIdx = idx & ec.clustT.cond_Idx == c(i) & ec.clustT.sample_Idx == s(j) ...
+            curIdxPos = idxPos & ec.clustT.cond_Idx == c(i) & ec.clustT.sample_Idx == s(j) ...
                 & ec.clustT.eggChamber_Idx == e(k) ...
                 & ismember(ec.clustT.eggChamber_Stage,stages);
-            if sum(curIdx)>0
-                 s5 = ec.clustT.clust_C3Median_nucleoliSubtracted(curIdx)./ec.clustT.plasm_C3Median_sampleROISubtracted(curIdx);        
-                 p2 = ec.clustT.clust_C4Median_nucleoliSubtracted(curIdx)./ec.clustT.plasm_C4Median_sampleROISubtracted(curIdx);  
+            curIdxNeg = idxNeg & ec.clustT.cond_Idx == c(i) & ec.clustT.sample_Idx == s(j) ...
+                & ec.clustT.eggChamber_Idx == e(k) ...
+                & ismember(ec.clustT.eggChamber_Stage,stages);
+            if sum(curIdxPos | curIdxNeg)>0
+                 p2Pos = ec.clustT.clust_C4Median_nucleoliSubtracted(curIdxPos)./ec.clustT.plasm_C4Median_nucleoliSubtracted(curIdxPos);  
                  if i==1
-                    scatter(curX*ones(size(s5))+0.2*rand(numel(s5),1),s5./p2,'o','MarkerFaceColor',[0.5,0,0],'MarkerEdgeColor',[0.5,0,0],...
-                        'DisplayName',['Cond ',num2str(c(i)),' Sample ',num2str(s(j)),' egg chamber ',num2str(e(k))]);
+                    scatter(curX*ones(size(p2Pos))-0.15+0.3*rand(numel(p2Pos),1),p2Pos,'o','MarkerFaceColor',[0.8,0,0],'MarkerEdgeColor',[0.8,0,0],...
+                        'DisplayName',['Ctrl Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2+']);
                  else
-                    scatter(curX*ones(size(s5))+0.2*rand(numel(s5),1),s5./p2,'o','MarkerFaceColor',[0,0,0.5],'MarkerEdgeColor',[0,0,0.5],...
-                        'DisplayName',['Cond ',num2str(c(i)),' Sample ',num2str(s(j)),' egg chamber ',num2str(e(k))]);
+                    scatter(curX*ones(size(p2Pos))-0.15+0.3*rand(numel(p2Pos),1),p2Pos,'o','MarkerFaceColor',[0,0,0.8],'MarkerEdgeColor',[0,0,0.8],...
+                        'DisplayName',['Ctrl Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2+']);
                  end
-                 curX = curX+1;
+
+                 p2Neg = ec.clustT.clust_C4Median_nucleoliSubtracted(curIdxNeg)./ec.clustT.plasm_C4Median_nucleoliSubtracted(curIdxNeg);  
+                 if i==1
+                    scatter((curX+2)*ones(size(p2Neg))-0.15+0.3*rand(numel(p2Neg),1),p2Neg,'o','MarkerFaceColor',[0.2,0,0],'MarkerEdgeColor',[0.2,0,0],...
+                        'DisplayName',['TRI Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2-']);
+                 else
+                    scatter((curX+2)*ones(size(p2Neg))-0.15+0.3*rand(numel(p2Neg),1),p2Neg,'o','MarkerFaceColor',[0,0,0.2],'MarkerEdgeColor',[0,0,0.2],...
+                        'DisplayName',['TRI Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2-']);
+                 end
+                 
+                 xt(end+1) = curX+1;
+                 if i==1
+                    xtl{end+1} = ['Ctrl smpl ',num2str(s(j)),' eggChbr ',num2str(e(k))];
+                 else
+                     xtl{end+1} = ['TRI smpl ',num2str(s(j)),' eggChbr ',num2str(e(k))];
+                 end
+                 curX = curX+6;
             end
         end
     end
 end
 alpha(0.1);
-xlabel('Egg Chamber');
-ylabel('S5ph/pol2');
+ylabel('pol2');
+xticks(xt);
+xticklabels(xtl);
+xtickangle(45);
 
-idx = ec.clustT.clust_C2Median_plasmCorr <= minMPM2 ...
+% Ser5ph  by sample, in MPM2+/- clusters - Normalized to nuclear levels (nucleoli Subtracted)
+minMPM2 = 2500;
+stages = [6,7,8];
+
+idxPos = ec.clustT.clust_C2Median_plasmCorr > minMPM2...
     & ec.clustT.clust_Volume >= minVolume;
-figure('Name','S5ph/Pol2 (relative to nuclear levels sampleROI) in MPM2- clusters'); 
+idxNeg = ec.clustT.clust_C2Median_plasmCorr <= minMPM2...
+    & ec.clustT.clust_Volume >= minVolume;
+figure('Name','cluster S5ph (relative to nucleoplasm levels nucleoliSub) in MPM2+/- clusters'); 
 hold;
 c = unique(ec.clustT.cond_Idx);
 curX = 0;
+xtl = {};
+xt = [];
 for i=1:numel(c)
     s = unique(ec.clustT.sample_Idx);
     for j=1:numel(s)
         e = unique(ec.clustT.eggChamber_Idx);
         for k=1:numel(e)
-            curIdx = idx & ec.clustT.cond_Idx == c(i) & ec.clustT.sample_Idx == s(j) ...
+            curIdxPos = idxPos & ec.clustT.cond_Idx == c(i) & ec.clustT.sample_Idx == s(j) ...
                 & ec.clustT.eggChamber_Idx == e(k) ...
                 & ismember(ec.clustT.eggChamber_Stage,stages);
-            if sum(curIdx)>0
-                 s5 = ec.clustT.clust_C3Median_nucleoliSubtracted(curIdx)./ec.clustT.plasm_C3Median_wholeImgSubtracted(curIdx);        
-                 p2 = ec.clustT.clust_C4Median_nucleoliSubtracted(curIdx)./ec.clustT.plasm_C4Median_wholeImgSubtracted(curIdx);  
+            curIdxNeg = idxNeg & ec.clustT.cond_Idx == c(i) & ec.clustT.sample_Idx == s(j) ...
+                & ec.clustT.eggChamber_Idx == e(k) ...
+                & ismember(ec.clustT.eggChamber_Stage,stages);
+            if sum(curIdxPos | curIdxNeg)>0
+                 s5Pos = ec.clustT.clust_C3Median_nucleoliSubtracted(curIdxPos)./ec.clustT.plasm_C3Median_nucleoliSubtracted(curIdxPos);        
                  if i==1
-                    scatter(curX*ones(size(s5))+0.2*rand(numel(s5),1),s5./p2,'o','MarkerFaceColor',[0.5,0,0],'MarkerEdgeColor',[0.5,0,0],...
-                        'DisplayName',['Cond ',num2str(c(i)),' Sample ',num2str(s(j)),' egg chamber ',num2str(e(k))]);
+                    scatter(curX*ones(size(s5Pos))-0.15+0.3*rand(numel(s5Pos),1),s5Pos,'o','MarkerFaceColor',[0.8,0,0],'MarkerEdgeColor',[0.8,0,0],...
+                        'DisplayName',['Ctrl Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2+']);
                  else
-                    scatter(curX*ones(size(s5))+0.2*rand(numel(s5),1),s5./p2,'o','MarkerFaceColor',[0,0,0.5],'MarkerEdgeColor',[0,0,0.5],...
-                        'DisplayName',['Cond ',num2str(c(i)),' Sample ',num2str(s(j)),' egg chamber ',num2str(e(k))]);
+                    scatter(curX*ones(size(s5Pos))-0.15+0.3*rand(numel(s5Pos),1),s5Pos,'o','MarkerFaceColor',[0,0,0.8],'MarkerEdgeColor',[0,0,0.8],...
+                        'DisplayName',['Ctrl Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2+']);
                  end
-                 curX = curX+1;
+
+                 s5Neg = ec.clustT.clust_C3Median_nucleoliSubtracted(curIdxNeg)./ec.clustT.plasm_C3Median_nucleoliSubtracted(curIdxNeg);        
+                 if i==1
+                    scatter((curX+2)*ones(size(s5Neg))-0.15+0.3*rand(numel(s5Neg),1),s5Neg,'o','MarkerFaceColor',[0.2,0,0],'MarkerEdgeColor',[0.2,0,0],...
+                        'DisplayName',['TRI Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2-']);
+                 else
+                    scatter((curX+2)*ones(size(s5Neg))-0.15+0.3*rand(numel(s5Neg),1),s5Neg,'o','MarkerFaceColor',[0,0,0.2],'MarkerEdgeColor',[0,0,0.2],...
+                        'DisplayName',['TRI Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2-']);
+                 end
+                 
+                 xt(end+1) = curX+1;
+                 if i==1
+                    xtl{end+1} = ['Ctrl smpl ',num2str(s(j)),' eggChbr ',num2str(e(k))];
+                 else
+                     xtl{end+1} = ['TRI smpl ',num2str(s(j)),' eggChbr ',num2str(e(k))];
+                 end
+                 curX = curX+6;
             end
         end
     end
 end
 alpha(0.1);
-xlabel('Egg Chamber');
+ylabel('S5ph');
+xticks(xt);
+xticklabels(xtl);
+xtickangle(45);
+
+%% PolII, by sample, in !!!!!!SMALL!!!!!  MPM2+/- clusters - Normalized to nuclear levels (nucleoli Subtracted)
+minMPM2 = 2500;
+stages = [6,7,8];
+
+idxPos = ec.clustT.clust_C2Median_plasmCorr > minMPM2...
+    & ec.clustT.clust_Volume < minVolume;
+idxNeg = ec.clustT.clust_C2Median_plasmCorr <= minMPM2...
+    & ec.clustT.clust_Volume < minVolume;
+figure('Name','SMALL cluster Pol2 (relative to nucleoplasm levels nucleoliSub) in MPM2+/- small clusters'); 
+hold;
+c = unique(ec.clustT.cond_Idx);
+curX = 0;
+xtl = {};
+xt = [];
+for i=1:numel(c)
+    s = unique(ec.clustT.sample_Idx);
+    for j=1:numel(s)
+        e = unique(ec.clustT.eggChamber_Idx);
+        for k=1:numel(e)
+            curIdxPos = idxPos & ec.clustT.cond_Idx == c(i) & ec.clustT.sample_Idx == s(j) ...
+                & ec.clustT.eggChamber_Idx == e(k) ...
+                & ismember(ec.clustT.eggChamber_Stage,stages);
+            curIdxNeg = idxNeg & ec.clustT.cond_Idx == c(i) & ec.clustT.sample_Idx == s(j) ...
+                & ec.clustT.eggChamber_Idx == e(k) ...
+                & ismember(ec.clustT.eggChamber_Stage,stages);
+            if sum(curIdxPos | curIdxNeg)>0
+                 p2Pos = ec.clustT.clust_C4Median_nucleoliSubtracted(curIdxPos)./ec.clustT.plasm_C4Median_nucleoliSubtracted(curIdxPos);  
+                 if i==1
+                    scatter(curX*ones(size(p2Pos))-0.15+0.3*rand(numel(p2Pos),1),p2Pos,'o','MarkerFaceColor',[0.8,0,0],'MarkerEdgeColor',[0.8,0,0],...
+                        'DisplayName',['Ctrl Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2+']);
+                 else
+                    scatter(curX*ones(size(p2Pos))-0.15+0.3*rand(numel(p2Pos),1),p2Pos,'o','MarkerFaceColor',[0,0,0.8],'MarkerEdgeColor',[0,0,0.8],...
+                        'DisplayName',['Ctrl Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2+']);
+                 end
+
+                 p2Neg = ec.clustT.clust_C4Median_nucleoliSubtracted(curIdxNeg)./ec.clustT.plasm_C4Median_nucleoliSubtracted(curIdxNeg);  
+                 if i==1
+                    scatter((curX+2)*ones(size(p2Neg))-0.15+0.3*rand(numel(p2Neg),1),p2Neg,'o','MarkerFaceColor',[0.2,0,0],'MarkerEdgeColor',[0.2,0,0],...
+                        'DisplayName',['TRI Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2-']);
+                 else
+                    scatter((curX+2)*ones(size(p2Neg))-0.15+0.3*rand(numel(p2Neg),1),p2Neg,'o','MarkerFaceColor',[0,0,0.2],'MarkerEdgeColor',[0,0,0.2],...
+                        'DisplayName',['TRI Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2-']);
+                 end
+                 
+                 xt(end+1) = curX+1;
+                 if i==1
+                    xtl{end+1} = ['Ctrl smpl ',num2str(s(j)),' eggChbr ',num2str(e(k))];
+                 else
+                     xtl{end+1} = ['TRI smpl ',num2str(s(j)),' eggChbr ',num2str(e(k))];
+                 end
+                 curX = curX+6;
+            end
+        end
+    end
+end
+alpha(0.1);
+ylabel('pol2');
+xticks(xt);
+xticklabels(xtl);
+xtickangle(45);
+
+% Ser5ph  by sample, in MPM2+/- clusters - Normalized to nuclear levels (nucleoli Subtracted)
+minMPM2 = 2500;
+stages = [6,7,8];
+
+idxPos = ec.clustT.clust_C2Median_plasmCorr > minMPM2...
+    & ec.clustT.clust_Volume < minVolume;
+idxNeg = ec.clustT.clust_C2Median_plasmCorr <= minMPM2...
+    & ec.clustT.clust_Volume < minVolume;
+figure('Name','SMALL cluster S5ph (relative to nucleoplasm levels nucleoliSub) in SMALL MPM2+/- clusters'); 
+hold;
+c = unique(ec.clustT.cond_Idx);
+curX = 0;
+xtl = {};
+xt = [];
+for i=1:numel(c)
+    s = unique(ec.clustT.sample_Idx);
+    for j=1:numel(s)
+        e = unique(ec.clustT.eggChamber_Idx);
+        for k=1:numel(e)
+            curIdxPos = idxPos & ec.clustT.cond_Idx == c(i) & ec.clustT.sample_Idx == s(j) ...
+                & ec.clustT.eggChamber_Idx == e(k) ...
+                & ismember(ec.clustT.eggChamber_Stage,stages);
+            curIdxNeg = idxNeg & ec.clustT.cond_Idx == c(i) & ec.clustT.sample_Idx == s(j) ...
+                & ec.clustT.eggChamber_Idx == e(k) ...
+                & ismember(ec.clustT.eggChamber_Stage,stages);
+            if sum(curIdxPos | curIdxNeg)>0
+                 s5Pos = ec.clustT.clust_C3Median_nucleoliSubtracted(curIdxPos)./ec.clustT.plasm_C3Median_nucleoliSubtracted(curIdxPos);        
+                 if i==1
+                    scatter(curX*ones(size(s5Pos))-0.15+0.3*rand(numel(s5Pos),1),s5Pos,'o','MarkerFaceColor',[0.8,0,0],'MarkerEdgeColor',[0.8,0,0],...
+                        'DisplayName',['Ctrl Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2+']);
+                 else
+                    scatter(curX*ones(size(s5Pos))-0.15+0.3*rand(numel(s5Pos),1),s5Pos,'o','MarkerFaceColor',[0,0,0.8],'MarkerEdgeColor',[0,0,0.8],...
+                        'DisplayName',['Ctrl Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2+']);
+                 end
+
+                 s5Neg = ec.clustT.clust_C3Median_nucleoliSubtracted(curIdxNeg)./ec.clustT.plasm_C3Median_nucleoliSubtracted(curIdxNeg);        
+                 if i==1
+                    scatter((curX+2)*ones(size(s5Neg))-0.15+0.3*rand(numel(s5Neg),1),s5Neg,'o','MarkerFaceColor',[0.2,0,0],'MarkerEdgeColor',[0.2,0,0],...
+                        'DisplayName',['TRI Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2-']);
+                 else
+                    scatter((curX+2)*ones(size(s5Neg))-0.15+0.3*rand(numel(s5Neg),1),s5Neg,'o','MarkerFaceColor',[0,0,0.2],'MarkerEdgeColor',[0,0,0.2],...
+                        'DisplayName',['TRI Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2-']);
+                 end
+                 
+                 xt(end+1) = curX+1;
+                 if i==1
+                    xtl{end+1} = ['Ctrl smpl ',num2str(s(j)),' eggChbr ',num2str(e(k))];
+                 else
+                     xtl{end+1} = ['TRI smpl ',num2str(s(j)),' eggChbr ',num2str(e(k))];
+                 end
+                 curX = curX+6;
+            end
+        end
+    end
+end
+alpha(0.1);
+ylabel('S5ph');
+xticks(xt);
+xticklabels(xtl);
+xtickangle(45);
+
+%% PolII, by sample, in MPM2+/- clusters - Normalized to nuclear levels (nucleoli Subtracted)
+minMPM2 = 2500;
+stages = [6,7,8];
+
+idxPos = ec.clustT.clust_C2Median_plasmCorr > minMPM2...
+    & ec.clustT.clust_Volume >= minVolume;
+idxNeg = ec.clustT.clust_C2Median_plasmCorr <= minMPM2...
+    & ec.clustT.clust_Volume >= minVolume;
+figure('Name','plasm Pol2 in MPM2+/- clusters'); 
+hold;
+c = unique(ec.clustT.cond_Idx);
+curX = 0;
+xtl = {};
+xt = [];
+for i=1:numel(c)
+    s = unique(ec.clustT.sample_Idx);
+    for j=1:numel(s)
+        e = unique(ec.clustT.eggChamber_Idx);
+        for k=1:numel(e)
+            curIdxPos = idxPos & ec.clustT.cond_Idx == c(i) & ec.clustT.sample_Idx == s(j) ...
+                & ec.clustT.eggChamber_Idx == e(k) ...
+                & ismember(ec.clustT.eggChamber_Stage,stages);
+            curIdxNeg = idxNeg & ec.clustT.cond_Idx == c(i) & ec.clustT.sample_Idx == s(j) ...
+                & ec.clustT.eggChamber_Idx == e(k) ...
+                & ismember(ec.clustT.eggChamber_Stage,stages);
+            if sum(curIdxPos | curIdxNeg)>0
+                 p2Pos = ec.clustT.plasm_C4Median_nucleoliSubtracted(curIdxPos);  
+                 if i==1
+                    scatter(curX*ones(size(p2Pos))-0.15+0.3*rand(numel(p2Pos),1),p2Pos,'o','MarkerFaceColor',[0.8,0,0],'MarkerEdgeColor',[0.8,0,0],...
+                        'DisplayName',['Ctrl Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2+']);
+                 else
+                    scatter(curX*ones(size(p2Pos))-0.15+0.3*rand(numel(p2Pos),1),p2Pos,'o','MarkerFaceColor',[0,0,0.8],'MarkerEdgeColor',[0,0,0.8],...
+                        'DisplayName',['Ctrl Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2+']);
+                 end
+
+                 p2Neg = ec.clustT.plasm_C4Median_nucleoliSubtracted(curIdxNeg);  
+                 if i==1
+                    scatter((curX+2)*ones(size(p2Neg))-0.15+0.3*rand(numel(p2Neg),1),p2Neg,'o','MarkerFaceColor',[0.2,0,0],'MarkerEdgeColor',[0.2,0,0],...
+                        'DisplayName',['TRI Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2-']);
+                 else
+                    scatter((curX+2)*ones(size(p2Neg))-0.15+0.3*rand(numel(p2Neg),1),p2Neg,'o','MarkerFaceColor',[0,0,0.2],'MarkerEdgeColor',[0,0,0.2],...
+                        'DisplayName',['TRI Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2-']);
+                 end
+                 
+                 xt(end+1) = curX+1;
+                 if i==1
+                    xtl{end+1} = ['Ctrl smpl ',num2str(s(j)),' eggChbr ',num2str(e(k))];
+                 else
+                     xtl{end+1} = ['TRI smpl ',num2str(s(j)),' eggChbr ',num2str(e(k))];
+                 end
+                 curX = curX+6;
+            end
+        end
+    end
+end
+alpha(0.1);
+ylabel('pol2');
+xticks(xt);
+xticklabels(xtl);
+xtickangle(45);
+
+% Ser5ph  by sample, in MPM2+/- clusters - Normalized to nuclear levels (nucleoli Subtracted)
+minMPM2 = 2500;
+stages = [6,7,8];
+
+idxPos = ec.clustT.clust_C2Median_plasmCorr > minMPM2...
+    & ec.clustT.clust_Volume >= minVolume;
+idxNeg = ec.clustT.clust_C2Median_plasmCorr <= minMPM2...
+    & ec.clustT.clust_Volume >= minVolume;
+figure('Name','plasm S5ph (nucleoliSub) in MPM2+/- clusters'); 
+hold;
+c = unique(ec.clustT.cond_Idx);
+curX = 0;
+xtl = {};
+xt = [];
+for i=1:numel(c)
+    s = unique(ec.clustT.sample_Idx);
+    for j=1:numel(s)
+        e = unique(ec.clustT.eggChamber_Idx);
+        for k=1:numel(e)
+            curIdxPos = idxPos & ec.clustT.cond_Idx == c(i) & ec.clustT.sample_Idx == s(j) ...
+                & ec.clustT.eggChamber_Idx == e(k) ...
+                & ismember(ec.clustT.eggChamber_Stage,stages);
+            curIdxNeg = idxNeg & ec.clustT.cond_Idx == c(i) & ec.clustT.sample_Idx == s(j) ...
+                & ec.clustT.eggChamber_Idx == e(k) ...
+                & ismember(ec.clustT.eggChamber_Stage,stages);
+            if sum(curIdxPos | curIdxNeg)>0
+                 s5Pos = ec.clustT.plasm_C3Median_nucleoliSubtracted(curIdxPos);        
+                 if i==1
+                    scatter(curX*ones(size(s5Pos))-0.15+0.3*rand(numel(s5Pos),1),s5Pos,'o','MarkerFaceColor',[0.8,0,0],'MarkerEdgeColor',[0.8,0,0],...
+                        'DisplayName',['Ctrl Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2+']);
+                 else
+                    scatter(curX*ones(size(s5Pos))-0.15+0.3*rand(numel(s5Pos),1),s5Pos,'o','MarkerFaceColor',[0,0,0.8],'MarkerEdgeColor',[0,0,0.8],...
+                        'DisplayName',['Ctrl Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2+']);
+                 end
+
+                 s5Neg = ec.clustT.plasm_C3Median_nucleoliSubtracted(curIdxNeg);        
+                 if i==1
+                    scatter((curX+2)*ones(size(s5Neg))-0.15+0.3*rand(numel(s5Neg),1),s5Neg,'o','MarkerFaceColor',[0.2,0,0],'MarkerEdgeColor',[0.2,0,0],...
+                        'DisplayName',['TRI Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2-']);
+                 else
+                    scatter((curX+2)*ones(size(s5Neg))-0.15+0.3*rand(numel(s5Neg),1),s5Neg,'o','MarkerFaceColor',[0,0,0.2],'MarkerEdgeColor',[0,0,0.2],...
+                        'DisplayName',['TRI Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2-']);
+                 end
+                 
+                 xt(end+1) = curX+1;
+                 if i==1
+                    xtl{end+1} = ['Ctrl smpl ',num2str(s(j)),' eggChbr ',num2str(e(k))];
+                 else
+                     xtl{end+1} = ['TRI smpl ',num2str(s(j)),' eggChbr ',num2str(e(k))];
+                 end
+                 curX = curX+6;
+            end
+        end
+    end
+end
+alpha(0.1);
+ylabel('S5ph');
+xticks(xt);
+xticklabels(xtl);
+xtickangle(45);
+
+%% PolII, by sample, in MPM2+/- clusters - Normalized to nuclear levels (nucleoli Subtracted)
+% SMALL CLUSTERS!!!!
+minMPM2 = 2500;
+stages = [6,7,8];
+
+idxPos = ec.clustT.clust_C2Median_plasmCorr > minMPM2...
+    & ec.clustT.clust_Volume < minVolume;
+idxNeg = ec.clustT.clust_C2Median_plasmCorr <= minMPM2...
+    & ec.clustT.clust_Volume < minVolume;
+figure('Name','plasm Pol2 in SMALL MPM2+/- clusters'); 
+hold;
+c = unique(ec.clustT.cond_Idx);
+curX = 0;
+xtl = {};
+xt = [];
+for i=1:numel(c)
+    s = unique(ec.clustT.sample_Idx);
+    for j=1:numel(s)
+        e = unique(ec.clustT.eggChamber_Idx);
+        for k=1:numel(e)
+            curIdxPos = idxPos & ec.clustT.cond_Idx == c(i) & ec.clustT.sample_Idx == s(j) ...
+                & ec.clustT.eggChamber_Idx == e(k) ...
+                & ismember(ec.clustT.eggChamber_Stage,stages);
+            curIdxNeg = idxNeg & ec.clustT.cond_Idx == c(i) & ec.clustT.sample_Idx == s(j) ...
+                & ec.clustT.eggChamber_Idx == e(k) ...
+                & ismember(ec.clustT.eggChamber_Stage,stages);
+            if sum(curIdxPos | curIdxNeg)>0
+                 p2Pos = ec.clustT.clust_C4Median_nucleoliSubtracted(curIdxPos);  
+                 if i==1
+                    scatter(curX*ones(size(p2Pos))-0.15+0.3*rand(numel(p2Pos),1),p2Pos,'o','MarkerFaceColor',[0.8,0,0],'MarkerEdgeColor',[0.8,0,0],...
+                        'DisplayName',['Ctrl Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2+']);
+                 else
+                    scatter(curX*ones(size(p2Pos))-0.15+0.3*rand(numel(p2Pos),1),p2Pos,'o','MarkerFaceColor',[0,0,0.8],'MarkerEdgeColor',[0,0,0.8],...
+                        'DisplayName',['Ctrl Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2+']);
+                 end
+
+                 p2Neg = ec.clustT.clust_C4Median_nucleoliSubtracted(curIdxNeg);  
+                 if i==1
+                    scatter((curX+2)*ones(size(p2Neg))-0.15+0.3*rand(numel(p2Neg),1),p2Neg,'o','MarkerFaceColor',[0.2,0,0],'MarkerEdgeColor',[0.2,0,0],...
+                        'DisplayName',['TRI Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2-']);
+                 else
+                    scatter((curX+2)*ones(size(p2Neg))-0.15+0.3*rand(numel(p2Neg),1),p2Neg,'o','MarkerFaceColor',[0,0,0.2],'MarkerEdgeColor',[0,0,0.2],...
+                        'DisplayName',['TRI Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2-']);
+                 end
+                 
+                 xt(end+1) = curX+1;
+                 if i==1
+                    xtl{end+1} = ['Ctrl smpl ',num2str(s(j)),' eggChbr ',num2str(e(k))];
+                 else
+                     xtl{end+1} = ['TRI smpl ',num2str(s(j)),' eggChbr ',num2str(e(k))];
+                 end
+                 curX = curX+6;
+            end
+        end
+    end
+end
+alpha(0.1);
+ylabel('pol2');
+xticks(xt);
+xticklabels(xtl);
+xtickangle(45);
+
+% Ser5ph  by sample, in MPM2+/- clusters - Normalized to nuclear levels (nucleoli Subtracted)
+minMPM2 = 2500;
+stages = [6,7,8];
+
+idxPos = ec.clustT.clust_C2Median_plasmCorr > minMPM2...
+    & ec.clustT.clust_Volume >= minVolume;
+idxNeg = ec.clustT.clust_C2Median_plasmCorr <= minMPM2...
+    & ec.clustT.clust_Volume >= minVolume;
+figure('Name','SMALL cluster S5ph (relative to nucleoplasm levels nucleoliSub) in MPM2+/- SMALL clusters'); 
+hold;
+c = unique(ec.clustT.cond_Idx);
+curX = 0;
+xtl = {};
+xt = [];
+for i=1:numel(c)
+    s = unique(ec.clustT.sample_Idx);
+    for j=1:numel(s)
+        e = unique(ec.clustT.eggChamber_Idx);
+        for k=1:numel(e)
+            curIdxPos = idxPos & ec.clustT.cond_Idx == c(i) & ec.clustT.sample_Idx == s(j) ...
+                & ec.clustT.eggChamber_Idx == e(k) ...
+                & ismember(ec.clustT.eggChamber_Stage,stages);
+            curIdxNeg = idxNeg & ec.clustT.cond_Idx == c(i) & ec.clustT.sample_Idx == s(j) ...
+                & ec.clustT.eggChamber_Idx == e(k) ...
+                & ismember(ec.clustT.eggChamber_Stage,stages);
+            if sum(curIdxPos | curIdxNeg)>0
+                 s5Pos = ec.clustT.clust_C3Median_nucleoliSubtracted(curIdxPos);        
+                 if i==1
+                    scatter(curX*ones(size(s5Pos))-0.15+0.3*rand(numel(s5Pos),1),s5Pos,'o','MarkerFaceColor',[0.8,0,0],'MarkerEdgeColor',[0.8,0,0],...
+                        'DisplayName',['Ctrl Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2+']);
+                 else
+                    scatter(curX*ones(size(s5Pos))-0.15+0.3*rand(numel(s5Pos),1),s5Pos,'o','MarkerFaceColor',[0,0,0.8],'MarkerEdgeColor',[0,0,0.8],...
+                        'DisplayName',['Ctrl Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2+']);
+                 end
+
+                 s5Neg = ec.clustT.clust_C3Median_nucleoliSubtracted(curIdxNeg);        
+                 if i==1
+                    scatter((curX+2)*ones(size(s5Neg))-0.15+0.3*rand(numel(s5Neg),1),s5Neg,'o','MarkerFaceColor',[0.2,0,0],'MarkerEdgeColor',[0.2,0,0],...
+                        'DisplayName',['TRI Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2-']);
+                 else
+                    scatter((curX+2)*ones(size(s5Neg))-0.15+0.3*rand(numel(s5Neg),1),s5Neg,'o','MarkerFaceColor',[0,0,0.2],'MarkerEdgeColor',[0,0,0.2],...
+                        'DisplayName',['TRI Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2-']);
+                 end
+                 
+                 xt(end+1) = curX+1;
+                 if i==1
+                    xtl{end+1} = ['Ctrl smpl ',num2str(s(j)),' eggChbr ',num2str(e(k))];
+                 else
+                     xtl{end+1} = ['TRI smpl ',num2str(s(j)),' eggChbr ',num2str(e(k))];
+                 end
+                 curX = curX+6;
+            end
+        end
+    end
+end
+alpha(0.1);
+ylabel('S5ph');
+xticks(xt);
+xticklabels(xtl);
+xtickangle(45);
+
+
+%% combined MPM2/PolII, by sample, in MPM2+/- clusters - Normalized to nuclear levels (nucleoli Subtracted)
+minMPM2 = 2500;
+stages = [6,7,8];
+
+idxPos = ec.clustT.clust_C2Median_plasmCorr > minMPM2...
+    & ec.clustT.clust_Volume >= minVolume;
+idxNeg = ec.clustT.clust_C2Median_plasmCorr <= minMPM2...
+    & ec.clustT.clust_Volume >= minVolume;
+figure('Name','cluster S5ph/Pol2 (relative to nucleoplasm levels nucleoliSub) in MPM2+/- clusters'); 
+hold;
+c = unique(ec.clustT.cond_Idx);
+curX = 0;
+xtl = {};
+xt = [];
+for i=1:numel(c)
+    s = unique(ec.clustT.sample_Idx);
+    for j=1:numel(s)
+        e = unique(ec.clustT.eggChamber_Idx);
+        for k=1:numel(e)
+            curIdxPos = idxPos & ec.clustT.cond_Idx == c(i) & ec.clustT.sample_Idx == s(j) ...
+                & ec.clustT.eggChamber_Idx == e(k) ...
+                & ismember(ec.clustT.eggChamber_Stage,stages);
+            curIdxNeg = idxNeg & ec.clustT.cond_Idx == c(i) & ec.clustT.sample_Idx == s(j) ...
+                & ec.clustT.eggChamber_Idx == e(k) ...
+                & ismember(ec.clustT.eggChamber_Stage,stages);
+            if sum(curIdxPos | curIdxNeg)>0
+                 s5Pos = ec.clustT.clust_C3Median_nucleoliSubtracted(curIdxPos)./ec.clustT.plasm_C3Median_nucleoliSubtracted(curIdxPos);        
+                 p2Pos = ec.clustT.clust_C4Median_nucleoliSubtracted(curIdxPos)./ec.clustT.plasm_C4Median_nucleoliSubtracted(curIdxPos);  
+                 if i==1
+                    scatter(curX*ones(size(s5Pos))-0.15+0.3*rand(numel(s5Pos),1),s5Pos./p2Pos,'o','MarkerFaceColor',[0.8,0,0],'MarkerEdgeColor',[0.8,0,0],...
+                        'DisplayName',['Ctrl Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2+']);
+                 else
+                    scatter(curX*ones(size(s5Pos))-0.15+0.3*rand(numel(s5Pos),1),s5Pos./p2Pos,'o','MarkerFaceColor',[0,0,0.8],'MarkerEdgeColor',[0,0,0.8],...
+                        'DisplayName',['Ctrl Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2+']);
+                 end
+
+                 s5Neg = ec.clustT.clust_C3Median_nucleoliSubtracted(curIdxNeg)./ec.clustT.plasm_C3Median_nucleoliSubtracted(curIdxNeg);        
+                 p2Neg = ec.clustT.clust_C4Median_nucleoliSubtracted(curIdxNeg)./ec.clustT.plasm_C4Median_nucleoliSubtracted(curIdxNeg);  
+                 if i==1
+                    scatter((curX+2)*ones(size(s5Neg))-0.15+0.3*rand(numel(s5Neg),1),s5Neg./p2Neg,'o','MarkerFaceColor',[0.2,0,0],'MarkerEdgeColor',[0.2,0,0],...
+                        'DisplayName',['TRI Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2-']);
+                 else
+                    scatter((curX+2)*ones(size(s5Neg))-0.15+0.3*rand(numel(s5Neg),1),s5Neg./p2Neg,'o','MarkerFaceColor',[0,0,0.2],'MarkerEdgeColor',[0,0,0.2],...
+                        'DisplayName',['TRI Sample ',num2str(s(j)),' egg chamber ',num2str(e(k)),' MPM2-']);
+                 end
+                 
+                 xt(end+1) = curX+1;
+                 if i==1
+                    xtl{end+1} = ['Ctrl smpl ',num2str(s(j)),' eggChbr ',num2str(e(k))];
+                 else
+                     xtl{end+1} = ['TRI smpl ',num2str(s(j)),' eggChbr ',num2str(e(k))];
+                 end
+                 curX = curX+6;
+            end
+        end
+    end
+end
+alpha(0.1);
 ylabel('S5ph/pol2');
+xticks(xt);
+xticklabels(xtl);
+xtickangle(45);
 
 
-%% MPM2/PolII, by sample, in MPM2+ clusters / NOT Normalized to nuclear levels
+
+%% #OLD MPM2/PolII, by sample, in MPM2+ clusters / NOT Normalized to nuclear levels
 minMPM2 = 2500; 
 stages = [6,7,8];
 
