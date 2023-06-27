@@ -1,0 +1,20 @@
+
+inputFolder = '/Users/lionnt01/Dropbox/data/feiyue/20230508_PROTAC';
+
+disp('Warning: This script will not fix director names in direc'];
+txt = input(prompt,"s");
+if isempty(txt)
+    txt = 'Y';
+end
+
+fList = dir(fullfile(inputFolder, ['**',filesep,'*.*']));
+
+for i=1:numel(fList)
+    curName = fullfile(fList(i).folder,fList(i).name);
+
+    if ~fList(i).isdir
+        oldName = fList(i).name;
+        newName = mkdir
+    end
+    
+end
