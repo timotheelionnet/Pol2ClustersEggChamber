@@ -43,7 +43,7 @@ macro "segmentNuclei"{
 	ctr = 0;
 	print(" ");
 	for (i = 0; i < lengthOf(dirList); i++) {
-	    if (endsWith(dirList[i], ".tif")) { 
+	    if (endsWith(dirList[i], ".tif") || endsWith(dirList[i], ".nd2")) { 
 	        fileList[ctr] = dirList[i];
 	        outSubDirList[ctr] = "";
 	        print("fname: "+fileList[ctr]+"; dir: "+outSubDirList[ctr]+"; ctr: "+ctr);
@@ -52,7 +52,7 @@ macro "segmentNuclei"{
 	    	subDirList = getFileList(inFolder+dirList[i]);
 	    	if (subDirList.length>0){
 	    		for (j = 0; j < lengthOf(subDirList); j++) {
-	    			if (endsWith(subDirList[j], ".tif")) { 
+	    			if (endsWith(subDirList[j], ".tif") || endsWith(subDirList[j], ".nd2")) { 
 				        fileList[ctr] = subDirList[j];
 				        outSubDirList[ctr] = dirList[i];
 				        print("fname: "+fileList[ctr]+"; dir: "+outSubDirList[ctr]+"; ctr: "+ctr);
