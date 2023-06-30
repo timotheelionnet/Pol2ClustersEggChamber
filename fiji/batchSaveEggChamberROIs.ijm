@@ -148,8 +148,10 @@ macro "batchSaveEggChamberROIs"{
 		curFileName = inFolder+outSubDirList[i]+fileList[i];
 		print(" ");
 		print("opening file "+curFileName);
-		open(curFileName);
-		
+		//open(curFileName);
+		run("Bio-Formats Importer", "open=["+curFileName+"] "
+		+"color_mode=Default rois_import=[ROI manager] view=Hyperstack stack_order=XYCZT use_virtual_stack");
+
 		// let user circle the egg chambers manually
 		roiManager("reset");
 		waitForUser("Annotate stack manually", 

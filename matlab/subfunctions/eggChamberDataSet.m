@@ -1901,7 +1901,7 @@ classdef eggChamberDataSet < handle
                                         blankRow{1,col} = NaN;
                                     end
                                 else
-                                    blankRow{1,col} = '';
+                                    blankRow(1,col) = {''};
                                 end
                             end
                             tEout = [tEout;blankRow];
@@ -1917,7 +1917,7 @@ classdef eggChamberDataSet < handle
                                     if isa(curRow{1,col},'numeric')
                                         blankRow{1,col} = NaN;
                                     else
-                                        blankRow{1,col} = '';
+                                        blankRow(1,col) = {''};
                                     end
                                 end
                                 tEout = [repmat(blankRow,rowsMissingAtBeginning,1);curRow];
