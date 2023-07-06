@@ -56,6 +56,19 @@ macro "batch detrend"{
 	 }
 	 list = Array.trim(list,ctr);
 	 
+	 // fixing bug seen on a PC that some subfolders have their last file separator a slash instead of a backslash
+	 // so force changing all slashes or backslashes to the right file separator
+	 switchFileSep = 1;
+	 if(switchFileSep == 1){
+	 	for (k=0; k<list.length; k++) {
+	 		if (File.separator == "\\"){
+	 			list[k] = replace(list[k], "/", File.separator);
+	 		}else {
+	 			list[k] = replace(list[k], "\\", File.separator);
+	 		}
+	 	}
+	 }
+	 
 	 print("list of files to treat:");
 	 for (k=0; k<list.length; k++) {
 	 	print(list[k]);

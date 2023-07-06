@@ -146,6 +146,8 @@ x = cell(numel(condVarsCorr),1);
 n = cell(numel(condVarsCorr),1);
 xfit = cell(numel(condVarsCorr),1);
 yfit = cell(numel(condVarsCorr),1);
+yfit1 = cell(numel(condVarsCorr),1);
+yfit2 = cell(numel(condVarsCorr),1);
 for i=1:numel(condVarsCorr)
     % compute the histogram of the data in linear space
     [n{i},x{i}] = hist(condVarsCorr{i},0:histBin:globMax+histBin);
@@ -156,6 +158,12 @@ for i=1:numel(condVarsCorr)
     yfit{i} = (mVals{i}(1)*normpdf(log(xfit{i}+1),mVals{i}(2),mVals{i}(3)) ...
         + (1-mVals{i}(1))*normpdf(log(xfit{i}+1),mVals{i}(4),mVals{i}(5)))./(xfit{i}+1);
 
+    yfit1{i} = mVals{i}(1)*normpdf(log(xfit{i}+1),mVals{i}(2),mVals{i}(3))./(xfit{i}+1);
+    yfit2{i} = (1-mVals{i}(1))*normpdf(log(xfit{i}+1),mVals{i}(4),mVals{i}(5))./(xfit{i}+1);
+    
+    % normalize to match the histogram integral
+    yfit1{i} = overSamplingFactor*yfit1{i}/sum(yfit{i})*sum(n{i});
+    yfit2{i} = overSamplingFactor*yfit2{i}/sum(yfit{i})*sum(n{i});
     yfit{i} = overSamplingFactor*yfit{i}/sum(yfit{i})*sum(n{i});
 end
 
@@ -179,6 +187,10 @@ for i=1:numel(condVarsCorr)
         'EdgeAlpha',0,...
         'LineWidth',1,'BarWidth',1);
     set(h,'DisplayName',[condNames{i},' data']);
+    
+    % plot fit components
+    plot(ah{i},xfit{i},yfit1{i},'Color','k');
+    plot(ah{i},xfit{i},yfit2{i},'Color','k');
     
     % plot fit;
     % note that the formula of the variance of the log-normal distribution if the
