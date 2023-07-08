@@ -1,14 +1,14 @@
 var defaultHoechstChannel = 1;
-var defaultAvgNucleiDiameterInUm = 20;
+var defaultAvgNucleiDiameterInUm = 40;
 var defaultSaveInitialSegResults = true;
 var defaultUseMorphologyFilters = true;
-var defaultMinVolume =  400;
-var defaultMaxVolume =  40000;
-var defaultMaxSurfToVolRatio = 1;
-var defaultMinSphericity =  0.4;
-var defaultMaxKurtosis = 3;
-var defaultMinCV =  0.15;
-var defaultMaxCV =  0.45;
+var defaultMinVolume =  4000;
+var defaultMaxVolume =  4000000;
+var defaultMaxSurfToVolRatio = 10;
+var defaultMinSphericity =  0.1;
+var defaultMaxKurtosis = 10;
+var defaultMinCV =  0;
+var defaultMaxCV =  100;
 
 var hoechstChannel;
 var avgNucleiDiameterInUm;
@@ -283,7 +283,6 @@ function segmentEggChamberFromNuclei(testImgName,outImageName){
 	print("Done segmenting egg chambers.");
 	
 }
-
 
 // Function which finds which egg chamber each nucleus belongs to and
 // stores that info into a z-stack of the nuclei masks, where the value in each
@@ -954,22 +953,27 @@ function eggChamberIntensityMeasurementAllChannels2(maskType,
 	}
 	rename("mask");
 	
+	print("computeMin...");
 	// compute minimum intensity in each channel across the entire z-stack 
 	//- this offset will then be subtracted from the raw data.
 	computeMinInt(inputWindowName,"minWholeImg");
-
+	
+	print("subtract background...");
 	// subtract channel minimum (computed across entire stack) from each channel 
 	subtractBackgroundGlobally(inputWindowName,"minWholeImg","dataMinusOffset");
 	
+	print("computeMeanZTrend...");
 	// compute mean intensity within the mask in each slice z,c 
 	// output is "meanEggChamber", a 16-bit 2D image (nz nc) holdig the mean
 	computeMeanZTrend("dataMinusOffset","mask","meanEggChamber");
 	
+	print("computeLinearTrendAlongX...");
 	// fit the the eggchamber mean intensity as a function of Z to a line
 	// in each channel using "meanEggChamber" as an input.
 	// output the linear trend "linTrend", a 16-bit 2D image (nz nc) holdig the fit
 	computeLinearTrendAlongX("meanEggChamber","linTrend");
-
+	
+	print("correctIntensityForZTrend...");
 	// from input hyperstack dataMinusOffset and the 2D image "linTrend" holding the linear trend vs z by channel 
 	// generates a corrected hyperstack deTrendedIntTitle (nx ny nz nc) where the intensity in each slice is corrected
 	// Icorr(x,y,z,c) = Iinput(x,y,z,c) * linTrend(0,c) / linTrend(z,c)
@@ -1114,12 +1118,20 @@ function computeMeanZTrend(hsTitle,maskTitle,meanTrendTitle){
 	getDimensions(sizeX, sizeY, C, sizeZ, F);
 	newImage(meanTrendTitle, "16-bit", sizeZ, C, 1);
 	
+	selectWindow(maskTitle);
+    setThreshold(100, 255);
+    run("Convert to Mask", "method=Default background=Dark black");
 	for(izs = 0; izs<sizeZ; izs++) {
 		roiManager("reset");
 	    selectWindow(maskTitle);
 	    Stack.setPosition(1, izs+1, 1);
-	    setThreshold(100, 255);
+	    selectWindow("mask");
 	    run("Create Selection");
+	    if(selectionType() == -1){
+	    	selectWindow(maskTitle);
+	    	Stack.setPosition(1, izs+1, 1);
+	    	run("Create Selection"); // this is needed otherwise stochastically the script fails
+	    }
 	    roiManager("Add");
 		for (i = 0; i < C; i++) {
 		    selectWindow(hsTitle);
@@ -1333,13 +1345,9 @@ function selectCorrectlySegmentedNuclei(inputImageTitle,outputImageTitle,
 // 0) downsample the stack by a factor of 2 in all dimensions to speed things up
 // 1) perfoms a bandpass filter to smooth nuclei
 // 2) thresholds nuclei from the background 
-// 3) runs an opening transformation to remove smaller objects
-// 4) performs a watershed to split conjoined nuclei
-// 5) performs a second opening to remove small muclei
-// 6) performs a dilation to enlarge the results
-// 7) restores results to original size
+// 3) performs a dilation to enlarge the results
+// 4) restores results to original size
 function segmentNuclei3D(originalImgTitle,outputImgTitle,nucleiChannel,avgNucleiDiameterInUm){
-	
 	// ad hoc factor for the band pass filter (threshold lengths will be :
 	// (low pass) any length above <diam of a nucleus>/fftSmallFactor1
 	// (hi pass) any length under <diam of a nucleus>*fftLargeFactor1
@@ -1412,13 +1420,24 @@ function segmentNuclei3D(originalImgTitle,outputImgTitle,nucleiChannel,avgNuclei
 	// smooth then threshold DAPI/Hoechst channel, run an opening on the result to remove small objects
 	// and aberrant links between neighnbors
 	run("Bandpass Filter...", "filter_large="+fftLarge1+" filter_small="+fftSmall1+" suppress=None tolerance=5 process");
-	run("Convert to Mask", "method=Default background=Dark calculate black");
+	//tS = getTimeString();
+	//waitForUser("1. bandpassed filtered "+tS);
+	Stack.getStatistics(voxelCount, mean, min, max, stdDev);
+	setMinAndMax(min, max); 
+	run("8-bit");
+	run("Auto Threshold", "method=Otsu white stack");
+	//tS = getTimeString();
+	//waitForUser("2. converted to mask "+tS); 
 	run("Fill Holes", "stack");
-	run("Morphological Filters (3D)", "operation=Opening element=Ball"
-		+" x-radius="+openingXY1+" y-radius="+ openingXY1+ " z-radius=" +openingZ1);
+	//tS = getTimeString();
+	//waitForUser("3. holes filled "+tS); 
+	//run("Morphological Filters (3D)", "operation=Opening element=Ball"
+	//	+" x-radius="+openingXY1+" y-radius="+ openingXY1+ " z-radius=" +openingZ1);
 	binaryImgTitle = "filteredMasks";
 	rename(binaryImgTitle);
-		
+	//tS = getTimeString();
+	//waitForUser("4. morph filters "+ tS); 	
+	/*
 	// split conjoined objects - this is done by 
 	// 1) a 3D champfer distance map, followd by smoothing by FFT low-pass filter 
 	// 2) an inversion of the distance map followed by rescaling to 0-255 range 
@@ -1426,48 +1445,67 @@ function segmentNuclei3D(originalImgTitle,outputImgTitle,nucleiChannel,avgNuclei
 	// 3) a watershed segmentation of the inverted map (limited to segmented nuclei)
 	run("Chamfer Distance Map 3D", 
 		"distances=[Quasi-Euclidean (1,1.41,1.73)] output=[16 bits] normalize");
+	tS = getTimeString();	
+	waitForUser("5. champfer "+tS); 
 	run("Bandpass Filter...", "filter_large="+fftLarge2+" filter_small="+fftSmall2+
 		" suppress=None tolerance=5 process");
+	tS = getTimeString();
+	waitForUser("6. bandpass "+tS); 
+	
 	run("Invert", "stack");
+	tS = getTimeString();
+	waitForUser("7. invert "+tS); 
 	Stack.getStatistics(voxelCount, mean, min, max, stdDev);
 	setMinAndMax(min, max);
 	run("8-bit");
+	tS = getTimeString();
+	waitForUser("7. 8bit "+tS);
 	invertedImgTitle = getTitle();
 	run("Classic Watershed", "input="+invertedImgTitle+" mask="+binaryImgTitle+" use min=0 max=255");
+	tS = getTimeString();
+	waitForUser("8. watershed "+tS); 
 	
-	// filter out objects too small to be nuclei
 	selectWindow("watershed");
+	*/
+	// filter out objects too small to be nuclei
+	selectWindow(binaryImgTitle);
+	run("Connected Components Labeling", "connectivity=6 type=[16 bits]");
 	run("Label Size Filtering", "operation=Greater_Than size="+minVolInVoxels);
 	run("glasbey on dark");
 	
+	
+	selectWindow(binaryImgTitle+"-lbl-sizeFilt");
 	// run an opening filter in order to smooth the shape of the nuclei
-	selectWindow("watershed-sizeFilt");
-	run("Morphological Filters (3D)", "operation=Opening element=Ball"
-	+" x-radius="+openingXY2+" y-radius="+openingXY2+" z-radius="+openingZ2);
+	//run("Morphological Filters (3D)", "operation=Opening element=Ball"
+	//+" x-radius="+openingXY2+" y-radius="+openingXY2+" z-radius="+openingZ2);
+	//tS = getTimeString();
+	//waitForUser("9. opening "+tS);
 	
 	// dilate the nuclei to their full size
 	run("Morphological Filters (3D)", "operation=Dilation element=Ball"
 	+" x-radius="+3+" y-radius="+3+" z-radius="+0);
+	//tS = getTimeString();
+	//waitForUser("10. dilate "+tS);
 	
 	// rescale the segmentation back to its original size
 	run("Size...", "width="+sizeX+" height="+sizeY+" depth="+sizeZ+" interpolation=None");
 	setMinAndMax(0, 65535);
 	run("16-bit");
+	//tS = getTimeString();
+	//waitForUser("11. rescale "+tS);
 	res = getTitle();
 	
 	// close intermediates
-	selectWindow("hoechst");
+	selectWindow(binaryImgTitle);
 	close();
-	selectWindow("filteredMasks");
+	selectWindow(binaryImgTitle+"-lbl");
 	close();
-	selectWindow("filteredMasks-dist");
-	close();
-	selectWindow("watershed");
-	close();
-	selectWindow("watershed-sizeFilt");
-	close();
-	selectWindow("watershed-sizeFilt-Opening");
-	close();
+	//selectWindow("filteredMasks-dist");
+	//close();
+	//selectWindow("watershed");
+	//close();
+	//selectWindow(binaryImgTitle+"-lbl-sizeFilt");
+	//close();
 	
 	// output segmentation result
 	Stack.setPosition(2, 1, 1);
