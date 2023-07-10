@@ -108,10 +108,10 @@ macro "segmentNuclei"{
 		run("Collect Garbage");
 		
 		// save initial segmentation if option was selected.
+		EggChamberTifFolderName = "eggChamberTIF/";
 		if(saveInitialSegResults == true){
 			print("saving initial nuclei segmentation...");
 			addChannelToImg(zcorrImgTitle,initNucMasksTitle,"initNucOut",1);
-			EggChamberTifFolderName = "eggChamberTIF/";
 			fileSuffix = "zCorrInitNucMask.tif";
 			saveInitSegResult("initNucOut",outFolder,outSubDirList[i],
 				EggChamberTifFolderName,fileList[i],fileSuffix);
