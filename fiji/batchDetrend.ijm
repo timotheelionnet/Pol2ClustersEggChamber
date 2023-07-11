@@ -5,10 +5,20 @@ macro "batch detrend"{
 	
 	//where the analysis images will go 
 	output = getDirectory("choose the output directory");
-	
+
+	if (endsWith(output,File.separator) == false ){
+		output = output + File.separator;
+	}
+
+	if (endsWith(input,File.separator) == false ){
+		input = input + File.separator;
+	}
+			
 	//batch mode so nothing is displayed to accelerate execution
 	setBatchMode(true); 
-	print("de-trending intensity along Z...");
+	print("input dir: "+input);
+	print("output dir: "+output);
+	print("de-trending intensity along Z ...");
 
 	//create analysis directories if they do not exist
 	
@@ -85,11 +95,49 @@ macro "batch detrend"{
         	print("processing file "+ originalImgTitle);
 			n = indexOf(originalImgTitle,".");
 			strname = substring(originalImgTitle,0,n);
-			zcorrImgTitle = strname+"zCorr";
+			zcorrImgTitle = strname+"zCorr.tif";
 			eggChamberIntensityMeasurementAllChannels2("eggChamber",
 				originalImgTitle,1,zcorrImgTitle);
+			
+			// remove the input folder from the original image file
+			n1 = indexOf(list[i], input);
+			if (n1 != -1){
 				
-			saveAs("Tiff", output+zcorrImgTitle);
+			}else{
+				print("File ",list[i]," does not seem to belong to input folder");
+			}
+			n1 = indexOf(list[i], input);
+			if (n1 != -1){
+				outSubfolder = substring(list[i],n1+ lengthOf(input));
+				print("outSubfolder: "+outSubfolder);
+			}else{
+				print("File ",list[i]," does not seem to belong to input folder");
+			}
+			// add any subfolder in front of image name if needed.
+			n2 = lastIndexOf(outSubfolder,File.separator);
+			if (n2!=-1){
+				outSubfolder = substring(outSubfolder, 0,n2+1);
+				print("outSubfolder: "+outSubfolder);
+			}	
+			print("saving to "+ output + outSubfolder+ zcorrImgTitle +" ...");
+
+			// making sure directory exists or create it
+			subDirList = split(outSubfolder, File.separator);
+			curDirToCheck = output;
+			for (j = 0; j < subDirList.length; j++) {
+				if(endsWith(curDirToCheck, File.separator)== false){
+					curDirToCheck = curDirToCheck + File.separator;
+				}
+				curDirToCheck = curDirToCheck+subDirList[j];
+				if(File.exists(curDirToCheck)){
+					print("subDir "+curDirToCheck+" exists");
+				}else {
+					print("subDir "+curDirToCheck+" doesn't exist, creating it...");
+					File.makeDirectory(curDirToCheck);
+				}
+			}
+			
+			saveAs("Tiff", output + outSubfolder + zcorrImgTitle);
 			close(originalImgTitle);
 			close(zcorrImgTitle);
 			close(zcorrImgTitle+".tif"); // I think saving the image appends .tif to its name. 
