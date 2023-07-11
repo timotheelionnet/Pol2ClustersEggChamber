@@ -108,10 +108,10 @@ macro "clusterAnalysisFromSegmentedNuclei" {
 	run("Close All");
 	inputParameters();
 	
-	segmentationSubFolderName = "eggChamberTIF/";
+	segmentationSubFolderName = "eggChamberTIF"+File.separator;
 	segmentationFileSuffix = "ZcorrFinalNucMask.tif";
-	csvSaveDirName = "nucCSV/"; 
-	tifSaveDirName = "nucTIF/";
+	csvSaveDirName = "nucCSV"+File.separator; 
+	tifSaveDirName = "nucTIF"+File.separator;
 	
 	// define input folder (should be the output folder of the nucleus segmentation step
 	// performed by segmentNuclei). Results will be saved in the same root folder
@@ -141,7 +141,7 @@ macro "clusterAnalysisFromSegmentedNuclei" {
 			
 			if( File.exists(curImgFilePath+curImgFileName)){
 				// load eggchamber nucleus segmentation file
-				print("cond "+i+"/sample "+j+"; loading "+curImgFilePath+curImgFileName +" ...");
+				print("cond "+i+File.separator+"sample "+j+"; loading "+curImgFilePath+curImgFileName +" ...");
 				open(curImgFilePath+curImgFileName);
 				rename("mergedSegmentation");
 				
