@@ -53,6 +53,10 @@ macro "segmentNuclei"{
 	    		for (j = 0; j < lengthOf(subDirList); j++) {
 	    			if (endsWith(subDirList[j], ".tif") || endsWith(subDirList[j], ".nd2")) { 
 				        fileList[ctr] = subDirList[j];
+				        if(endsWith(dirList[i],"/") || endsWith(dirList[i],"\\")){
+				        	dirList[i] = substring(dirList[i],0,lengthOf(dirList[i]) -1);
+				        }
+				        dirList[i] = dirList[i] + File.separator;
 				        outSubDirList[ctr] = dirList[i];
 				        print("fname: "+fileList[ctr]+"; dir: "+outSubDirList[ctr]+"; ctr: "+ctr);
 				        ctr = ctr+1;
