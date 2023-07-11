@@ -108,7 +108,7 @@ macro "segmentNuclei"{
 		run("Collect Garbage");
 		
 		// save initial segmentation if option was selected.
-		EggChamberTifFolderName = "eggChamberTIF/";
+		EggChamberTifFolderName = "eggChamberTIF"+File.separator;
 		if(saveInitialSegResults == true){
 			print("saving initial nuclei segmentation...");
 			addChannelToImg(zcorrImgTitle,initNucMasksTitle,"initNucOut",1);
@@ -133,12 +133,13 @@ macro "segmentNuclei"{
 		// generate mask z-stack encoding the egg chamber assignment of each nucleus
 		if(useEggChamberMasks == true){
 			print("assigning nuclei to respective egg chambers...");
-			EggChamberSegFolderName = "eggChamberSEG/";
+			EggChamberSegFolderName = "eggChamberSEG"+File.separator;
 			eggChamberIDsTitle = "eggChamberIDs";
 			
 			eggChamberDataFound = assignNucleiToEggChamberMasks(
-											finalNucMasksTitle,imgNameWOExt,eggChamberIDsTitle,
-											outFolder,outSubDirList[i],EggChamberSegFolderName);
+		                                finalNucMasksTitle,imgNameWOExt,eggChamberIDsTitle,
+		                                outFolder,outSubDirList[i],EggChamberSegFolderName);
+			
 			if(eggChamberDataFound == 1){
 				// append stack where each nucleus is intensity-coded to its eggChamberID
 				// to detrended image so the eggchamber ID is measured with the metrics								
@@ -150,7 +151,7 @@ macro "segmentNuclei"{
 				close(eggChamberIDsTitle);
 				
 				// compute egg chamber background metrics and save
-				EggChamberCsvFolderName = "eggChamberCSV/";
+				EggChamberCsvFolderName = "eggChamberCSV"+File.separator;
 				runMaskMetricsAndSave(eggChamberBackgroundMaskTitle,zcorrImgTitle,EggChamberCsvFolderName,
 					outFolder,outSubDirList[i],fileList[i],"EggChambers","Geom.csv","Int.csv");
 			}	
@@ -158,7 +159,7 @@ macro "segmentNuclei"{
 		
 		// compute and save nuclei metrics
 		print("computing geometry and intensity metrics on nuclei...");
-		EggChamberCsvFolderName = "eggChamberCSV/";
+		EggChamberCsvFolderName = "eggChamberCSV"+File.separator;
 		runMaskMetricsAndSave(finalNucMasksTitle,zcorrImgTitle,EggChamberCsvFolderName,
 			outFolder,outSubDirList[i],fileList[i],"Nuc","Geom.csv","Int.csv");
 		
@@ -166,13 +167,13 @@ macro "segmentNuclei"{
 		// during later data analysis steps	
 		print("computing whole image intensity metrics...");	
 		wholeImgIntensityMeasurementAllChannels(outFolder+outSubDirList[i]+ 
-			originalImgTitle+"/"+EggChamberCsvFolderName,zcorrImgTitle);
+			originalImgTitle+File.separator+EggChamberCsvFolderName,zcorrImgTitle);
 		
 		// compute average intensities for each channel across broader egg chambers region for background subtraction
 		// during later data analysis steps		
 		print("computing sample ROI intensity metrics...");	
 		sampleROIMeasurementAllChannels(outFolder+outSubDirList[i]+ 
-			originalImgTitle+"/"+EggChamberCsvFolderName,zcorrImgTitle,hoechstChannel);
+			originalImgTitle+File.separator+EggChamberCsvFolderName,zcorrImgTitle,hoechstChannel);
 		run("Collect Garbage");
 		
 		// merge seg result w de-trended z-stack and save
@@ -180,7 +181,7 @@ macro "segmentNuclei"{
 		addChannelToImg(zcorrImgTitle,finalNucMasksTitle,"finalNucOut",1);
 		saveFileName = imgNameWOExt+"ZcorrFinalNucMask.tif";
 		selectWindow("finalNucOut");
-		save(outFolder+outSubDirList[i]+imgNameWOExt+"/"+EggChamberTifFolderName 
+		save(outFolder+outSubDirList[i]+imgNameWOExt+File.separator+EggChamberTifFolderName 
 			+ saveFileName);
 		run("Close All");
 		run("Collect Garbage");
@@ -312,7 +313,7 @@ function assignNucleiToEggChamberMasks(inputNucMasks,imgNameWOExt,resultImgName,
 	minOverlapThreshold = 0.8;
 	
 	// check whether the egg chamber segmentation folder exists.
-	eggChamberDir = outFolder+outSubDir+imgNameWOExt+"/"+EggChamberSegFolderName;
+	eggChamberDir = outFolder+outSubDir + imgNameWOExt + File.separator +EggChamberSegFolderName;
 	if (File.exists(eggChamberDir) == false){
 		print("Missing egg Chamber segmentation folder: "+ eggChamberDir);
 		print("Skipping...");
@@ -420,7 +421,7 @@ function assignNucleiToEggChamberMasks(inputNucMasks,imgNameWOExt,resultImgName,
     				curOverlap = getResult("IntDen", nResults-1);
     				print("curOverlap = "+curOverlap);
     				m = curOverlap/(curECval*nucArea);
-    				print("idx = "+idx+"i = "+i+"; curECval = "+curECval+"; curOverlap = "+curOverlap
+    				print("nucleus idx = "+idx+"; EggChamber ID i = "+i+"; curECval = "+curECval+"; curOverlap = "+curOverlap
     					+"; m = "+m+"; maxEggChamberOverlap = "+maxEggChamberOverlap);
     				if(m > maxEggChamberOverlap){
     					maxEggChamberOverlap = m;
@@ -741,7 +742,7 @@ function runMaskMetricsAndSave(inputMaskTitle,inputDataTitle,EggChamberCsvFolder
 	}
 						
 	// build output subdirectory with the same name as the image (if needed)
-	eggChamberDir = outFolder+outSubDir+inputFileNameWOExt+"/";
+	eggChamberDir = outFolder+outSubDir+inputFileNameWOExt+File.separator;
 	if (File.exists(eggChamberDir) == false){
 			File.makeDirectory(eggChamberDir);
 	}
@@ -830,7 +831,7 @@ function saveInitSegResult(imgName,outFolder,outSubDir,
 	}
 						
 	// build output subdirectory with the same name as the image (if needed)
-	eggChamberDir = outFolder+outSubDir+imgNameWOExt+"/";
+	eggChamberDir = outFolder+outSubDir+imgNameWOExt+File.separator;
 	if (File.exists(eggChamberDir) == false){
 			File.makeDirectory(eggChamberDir);
 	}
