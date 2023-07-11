@@ -105,7 +105,7 @@ macro "batchSaveEggChamberROIs"{
 		}else{
 		    imgNameWOExt = fileList[i];
 		}
-		eggChamberDir = outFolder+outSubDirList[i]+imgNameWOExt+"/";
+		eggChamberDir = outFolder+outSubDirList[i]+imgNameWOExt+File.separator;
 		if (File.exists(eggChamberDir) == false){
 		        File.makeDirectory(eggChamberDir);
 		}
@@ -113,7 +113,7 @@ macro "batchSaveEggChamberROIs"{
 	
 	// create eggChamberSEG sub-subfolders in each analysis subfolder if needed
 	// give warning if it already exists.
-	eggChamberSegFolderName = "eggChamberSEG/";
+	eggChamberSegFolderName = "eggChamberSEG"+File.separator;
 	warningCleared = 0;
 	for (i = 0; i < outSubDirList.length; i++) {
 		k = lastIndexOf(fileList[i], ".");
@@ -122,7 +122,7 @@ macro "batchSaveEggChamberROIs"{
 		}else{
 		    imgNameWOExt = fileList[i];
 		}
-		eggChamberDir = outFolder+outSubDirList[i]+imgNameWOExt+"/";
+		eggChamberDir = outFolder+outSubDirList[i]+imgNameWOExt+File.separator;
 		saveDir = eggChamberDir+eggChamberSegFolderName;
 		if (File.exists(saveDir) == false){
 		        File.makeDirectory(saveDir);
@@ -197,7 +197,7 @@ function generateZStackOutputSubfolderName(outFolder,outSubDir,originalImgTitle)
 	}
 		
 	// build output subdirectory with the same name as the image (if needed)
-	eggChamberDir = outFolder+outSubDir+imgNameWOExt+"/";
+	eggChamberDir = outFolder+outSubDir+imgNameWOExt+File.separator;
 	
 	return eggChamberDir;
 }
@@ -213,7 +213,7 @@ function generateEggChamberSegOutputSubfolderName(outFolder,outSubDir,originalIm
 	}
 		
 	// build output subdirectory with the same name as the image (if needed)
-	eggChamberDir = outFolder+outSubDir+imgNameWOExt+"/";
+	eggChamberDir = outFolder+outSubDir+imgNameWOExt+File.separator;
 	
 	// build eggChamberTif subdirectory inside the output subdirectory just created (if needed)
 	saveDir = eggChamberDir+EggChamberSegFolderName;
