@@ -1300,19 +1300,354 @@ classdef eggChamberDataSet < handle
             grid on
         end
 
-        %% scatter plot a metric by egg chamber
-        % prefix: any of 'nuc', 
-        function scatterPlotAndSaveClusterMetricByEggChamber(obj,prefix,channel,baseName,suffix,metricName,...
-                ecToExclude,conditionOrder,eggChamberStagesToInclude,minClustVolume)
+        %% scatter plot a nucleus metric by egg chamber
+        function [nucTable,avgNucTable,fh] = scatterPlotAndSaveNucleusMetricByEggChamber(obj,prefix,channel,baseName,suffix,metricName,...
+                ecToExclude,conditionOrder,eggChamberStagesToInclude,alphaVal)
             % prefix: any allowable prefix which marks the compartment the metric is calculated on e.g. 'nuc', or 'clust'
             % channel: intensity channel , e.g. 1. 
                 % (Value is ignored if the metric is a geometry feature 
                 % rather than an intensity feature.
             % baseName: any allowable metric basename, e.g. 'Mean' or 'Volume'
             % suffix: any allowable suffix which marks processing steps,
-            % e.g. 'raw' or 'eggChamberCorr'
+                % e.g. 'raw' or 'eggChamberCorr'
+            % metricName: name used for the metric plotted in the display and table header
+            % ecToExclude: egg chambers to exclude, formatted as {[i1,j1,k1],[i2,j2,k2],...}
+                % where i is the index of the condition
+                % j the index of the sample (FOV)
+                % k the ID of the eggChamber
+            % conditionOrder: array that sets the order of the clouds of points 
+                % for the corresponding conditions from left to right, 
+                % e.g. [1,3,2,4] plots condition index 1 first, then 3, then 2, then 4. 
+            % eggChamberStagesToInclude: enter either 'all', or an array of
+                % stages, e.g. [7,8] if you want to include only stages 7 and
+                % 8.
+            % minClustVolume: minimum Volume of Clusters (in um^3) to include in the plots
+                % smaller clusters will be ignored
+            % maxClustVolume: minimumVolume of Clusters (in um^3) to include in the plots
+                % larger clusters will be ignored
+            % alphaVal: value of the alpha (transparency) of individual
+                % data points. 0 is fully transparent, 1 is fully solid.
+
+
             % if shorthand 'all' was used for cell stages to include, replace it by
-            % list of stage numbers.
+                % list of stage numbers.
+            if isa(eggChamberStagesToInclude,'char') || isa(eggChamberStagesToInclude,'string')
+                if strcmp(eggChamberStagesToInclude,'all')
+                    eggChamberStagesToInclude = [0,1,2,3,4,5,6,7,8,9,10];
+                end
+            end
+            
+            % check that the metric is present in the data table.
+            varName = obj.buildVarName(prefix,channel,baseName,suffix,'geom');
+            if ~ismember( varName, obj.nucFullT.Properties.VariableNames)
+                disp(['Variable ',varName,' absent from table, cannot plot.']);
+                return
+            end
+
+            % reformat the indices to exclude from cell {[i1,j1,k1], [i2,j2,k2],...}
+            % to matrix    [i1,j1,k1; 
+            %               i2,j2,k2; ...]
+            
+            if isempty(ecToExclude)
+                idxToExclude = [NaN,NaN,NaN];
+            else
+                idxToExclude = zeros(numel(ecToExclude),3);
+                for i=1:numel(ecToExclude)
+                    if numel(ecToExclude{i})~=3
+                        disp(["ecToExclude entry #",num2str(i)," contains the wrong number of elements (",...
+                            nu2mstr(numel(ecToExclude{i})),"); it should have three elements: ",...
+                            "first the condition to exclude, second the FOV to exclude,",...
+                            " third the egg chamber to exclude"]);
+                        return
+                    else
+                        idxToExclude(i,:) = ecToExclude{i};
+                    end 
+                end
+            end
+
+            % build figure
+            if ~isempty(metricName)
+                figName = metricName;
+            else
+                figName = strrep(varName,'_',' ');
+            end
+            fh = figure('Name',figName);
+            hold;
+             
+            % generate color maps
+            nc = numel(obj.condIndices);
+            cmData =cbrewer('qual', 'Set1', max(nc,3));
+            
+            % collect the values of the metric for each condition/sample
+            
+            xSampleValsVec = [];
+            xSampleIDsVec = {};
+            yMin = Inf;
+            yMax = -Inf;
+            xCtr = 0;
+            curCond = 0;
+
+            % initialize variables that will be output as tables
+            nTableCondition_Name = {};
+            nTableSample = [];
+            nTableFileName = {};
+            nTableEggChamberID = [];
+            nTableEggChamberStage = [];
+            nTableNucleusLabel = [];
+            nTableXData = [];
+            nTableYData = [];
+
+            avgTableCondition = {};
+            avgTableXData = [];
+            avgTableYData = [];
+            avgTableSTDData = [];
+            avgTableSEMData = [];
+            avgTableNData = [];
+            for idxCondOrder=1:numel(conditionOrder)
+                i = find(ismember(obj.condIndices,conditionOrder(idxCondOrder)));
+                if ~isempty(i)
+                    xPlot = [];
+                    yPlot = [];
+                    s = obj.sampleIndices{i};
+                    for j=1:obj.nSamples(i)
+                        for k=1:obj.eggChamberNumber{i}(j)
+                            if ismember(obj.eggChamberStages{i}{j}(k),eggChamberStagesToInclude) ...
+                                    && ~ismember([obj.condIndices(i),obj.sampleIndices{i}(j),obj.eggChamberIDs{i}{j}(k)],...
+                                    idxToExclude,'rows')
+    
+                                % collect values for the desired metric from all nuclei for the
+                                % current sample/condition
+                                x = obj.nucFullT.(varName)(...
+                                    obj.nucFullT.cond_Idx ==obj.condIndices(i) ...
+                                    & obj.nucFullT.sample_Idx == s(j) ...
+                                    & obj.nucFullT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k));
+                        
+                                % generate slightly offset x coordinates for each nucleus,
+                                % centered around the sample X
+                                if (curCond ~= 0) && (curCond ~= obj.condIndices(i)) % add extra offset for each condition change
+                                    % plot average/std of previous
+                                    % condition
+                                    if sum(~isnan(yCondAvg)) > 0
+                                        if sum(~isnan(yCondAvg)) > 1
+                                            nDenom = sqrt(sum(~isnan(yCondAvg))-1);
+                                        else
+                                            nDenom = 1;
+                                        end
+                                        errorbar(mean(xCondAvg,'omitnan'),mean(yCondAvg,'omitnan'),std(yCondAvg,'omitnan')/nDenom,...
+                                             'o','MarkerEdgeColor','k','MarkerFaceColor','k','Color','k','LineWidth',2);
+                                        avgTableCondition = [avgTableCondition;...
+                                            obj.conditionNames(find(obj.condIndices == curCond,1))];
+                                        avgTableXData = [avgTableXData;...
+                                            mean(xCondAvg,'omitnan')];
+                                        avgTableYData = [avgTableYData;...
+                                            mean(yCondAvg,'omitnan')];
+                                        avgTableSTDData = [avgTableSTDData;...
+                                            std(yCondAvg,'omitnan')];
+                                        avgTableSEMData = [avgTableSEMData;...
+                                            std(yCondAvg,'omitnan')/nDenom];
+                                        avgTableNData = [avgTableNData;...
+                                            sum(~isnan(yCondAvg))];
+                                        
+                                    else
+                                        avgTableCondition = [avgTableCondition;...
+                                            obj.conditionNames(find(obj.condIndices == curCond,1 ))];
+                                        avgTableXData = [avgTableXData;NaN];
+                                        avgTableYData = [avgTableYData;NaN];
+                                        avgTableSTDData = [avgTableSTDData;NaN];
+                                        avgTableSEMData = [avgTableSEMData;NaN];
+                                        avgTableNData = [avgTableNData;0];
+                                        
+                                    end
+
+                                    curCond = obj.condIndices(i);
+                                    xCtr = xCtr+3;
+                                    xCondAvg = xCtr;
+                                    yCondAvg = [];
+                                elseif curCond == 0
+                                    curCond = obj.condIndices(i);
+                                    xCondAvg = xCtr;
+                                    yCondAvg = [];
+                                else
+                                    xCtr = xCtr+1;
+                                    xCondAvg = [xCondAvg;xCtr];
+                                end
+                                
+                                nNuc = size(x,1);
+                                if nNuc >1
+                                    nucSpacing = obj.spacingUnit ...
+                                        * (1-2*obj.freeSpaceBetweenSamples) / (nNuc-1);
+                        
+                                    % x coordinate for each nucleus of current condition/sample
+                                    curXPlot = xCtr ...
+                                        - floor(nNuc/2)*nucSpacing ...
+                                        + (0:(nNuc-1))*nucSpacing;
+                        
+                                    % y coordinate for each nucleus of current condition/sample
+                                    curYPlot = obj.nucFullT.(varName)(...
+                                        obj.nucFullT.cond_Idx ==obj.condIndices(i) ...
+                                        & obj.nucFullT.sample_Idx == s(j)...
+                                        & obj.nucFullT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k))';
+                        
+                                elseif nNuc == 1
+                                    curXPlot = xCtr;
+                                    curYPlot = obj.nucFullT.(varName)(...
+                                        obj.nucFullT.cond_Idx ==obj.condIndices(i) ...
+                                        & obj.nucFullT.sample_Idx == s(j)...
+                                        & obj.nucFullT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k))';
+                        
+                                elseif nNuc == 0
+                                    curXPlot = [];
+                                    curYPlot = [];
+                                end
+                                
+                                % fill in cluster Table values
+                                nTableCondition_Name = [nTableCondition_Name; ...
+                                    repmat(obj.conditionNames(i),size(curXPlot'))];
+
+                                nTableSample = [nTableSample; ...
+                                    repmat(s(j),size(curXPlot'))];
+
+                                nTableFileName = [nTableFileName; obj.nucFullT.sample_InputFileName(...
+                                        obj.nucFullT.cond_Idx ==obj.condIndices(i) ...
+                                        & obj.nucFullT.sample_Idx == s(j)...
+                                        & obj.nucFullT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k))];
+
+                                nTableEggChamberID = [nTableEggChamberID; ...
+                                    repmat(obj.eggChamberIDs{i}{j}(k),size(curXPlot'))];
+
+                                curStage = obj.nucFullT.eggChamber_Stage(...
+                                        obj.nucFullT.cond_Idx ==obj.condIndices(i) ...
+                                        & obj.nucFullT.sample_Idx == s(j)...
+                                        & obj.nucFullT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k));
+                                nTableEggChamberStage = [nTableEggChamberStage;curStage];
+                                
+                                curNuc = obj.nucFullT.nuc_Label(...
+                                        obj.nucFullT.cond_Idx ==obj.condIndices(i) ...
+                                        & obj.nucFullT.sample_Idx == s(j)...
+                                        & obj.nucFullT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k));
+                                nTableNucleusLabel = [nTableNucleusLabel; curNuc];
+                                
+                                nTableXData = [nTableXData;curXPlot'];
+                                nTableYData = [nTableYData;curYPlot'];
+                        
+                                % append coordinates of current condition/sample to global list
+                                xPlot = [xPlot,curXPlot];
+                                yPlot = [yPlot,curYPlot];
+                                
+                                xMeanEC = mean(curXPlot);
+                                yMeanEC = mean(curYPlot);
+                                
+                                yCondAvg = [yCondAvg;yMeanEC];
+                                curID = [obj.conditionNames{i},...
+                                    ' sample\_',num2str(obj.sampleIndices{i}(j)),...
+                                    ' eggChamber\_',num2str(obj.eggChamberIDs{i}{j}(k))];
+                                xSampleValsVec = [xSampleValsVec,xCtr];
+                                xSampleIDsVec = [xSampleIDsVec,curID];
+    
+                                p = scatter(curXPlot,curYPlot,'o','MarkerEdgeColor',cmData(i,:),'MarkerFaceColor',cmData(i,:));
+                                alpha(p,alphaVal);
+                                p2 = scatter(xMeanEC,yMeanEC,'d','MarkerEdgeColor',cmData(i,:),'MarkerFaceColor',cmData(i,:));
+                                alpha(p2,0.9);
+                                %errorbar(xErr,yErr,eErr,'o','MarkerEdgeColor','k','MarkerFaceColor','k','Color','k','LineWidth',2);
+                            end
+                        end
+                    end
+                    if ~isempty(yPlot)
+                        yMax = max(yMax,max(yPlot(:)));
+                        yMin = min(yMin,min(yPlot(:)));
+                    end
+                end
+            end
+            % plot average of last condition
+            if sum(~isnan(yCondAvg)) > 0
+                if sum(~isnan(yCondAvg)) > 1
+                    nDenom = sqrt(sum(~isnan(yCondAvg))-1);
+                else
+                    nDenom = 1;
+                end
+                errorbar(mean(xCondAvg,'omitnan'),mean(yCondAvg,'omitnan'),std(yCondAvg,'omitnan')/nDenom,...
+                     'o','MarkerEdgeColor','k','MarkerFaceColor','k','Color','k','LineWidth',2);
+                avgTableCondition = [avgTableCondition;...
+                    obj.conditionNames(find(obj.condIndices == curCond,1))];
+                avgTableXData = [avgTableXData;...
+                    mean(xCondAvg,'omitnan')];
+                avgTableYData = [avgTableYData;...
+                    mean(yCondAvg,'omitnan')];
+                avgTableSTDData = [avgTableSTDData;...
+                    std(yCondAvg,'omitnan')];
+                avgTableSEMData = [avgTableSEMData;...
+                    std(yCondAvg,'omitnan')/nDenom];
+                avgTableNData = [avgTableNData;...
+                    sum(~isnan(yCondAvg))];
+            else
+                avgTableCondition = [avgTableCondition;...
+                    obj.conditionNames(find(obj.condIndices == curCond,1))];
+                avgTableXData = [avgTableXData;NaN];
+                avgTableYData = [avgTableYData;NaN];
+                avgTableSTDData = [avgTableSTDData;NaN];
+                avgTableSEMData = [avgTableSEMData;NaN];
+                avgTableNData = [avgTableNData;0];
+            end
+                                    
+            xticks(xSampleValsVec);
+            xticklabels(xSampleIDsVec);
+            xtickangle(45);
+            ylim([min([0,1.2*yMin]),1.2*yMax]);
+            ylabel(baseName);
+            grid on
+
+            % build full table
+            nucTable = table(nTableCondition_Name,nTableSample,nTableFileName,nTableEggChamberID,...
+                nTableEggChamberStage,nTableNucleusLabel, ...
+                nTableXData,nTableYData,'VariableNames',{...
+                'Condition','sample','sample_InputFileName','eggChamber','eggChamber_Stage',...
+                'nuc_Label','x',metricName});  
+
+            % build average table
+            size(avgTableCondition)
+               size( avgTableXData)
+               size( avgTableYData)
+               size( avgTableSTDData)
+               size( avgTableSEMData)
+               size( avgTableNData)
+            avgNucTable = table(avgTableCondition, avgTableXData, avgTableYData, ...
+                avgTableSTDData, avgTableSEMData,avgTableNData,'VariableNames',...
+                {'Condition','x',[metricName,'_Mean'],[metricName,'_STD'],[metricName,'_SEM'],...
+                [metricName,'_N_eggChambers']});
+        end
+
+    
+        %% scatter plot a cluster metric by egg chamber
+        function [clustTable,avgClustTable,fh] = scatterPlotAndSaveClusterMetricByEggChamber(obj,prefix,channel,baseName,suffix,metricName,...
+                ecToExclude,conditionOrder,eggChamberStagesToInclude,minClustVolume,maxClustVolume,alphaVal)
+            % prefix: any allowable prefix which marks the compartment the metric is calculated on e.g. 'nuc', or 'clust'
+            % channel: intensity channel , e.g. 1. 
+                % (Value is ignored if the metric is a geometry feature 
+                % rather than an intensity feature.
+            % baseName: any allowable metric basename, e.g. 'Mean' or 'Volume'
+            % suffix: any allowable suffix which marks processing steps,
+                % e.g. 'raw' or 'eggChamberCorr'
+            % metricName: name used for the metric plotted in the display and table header
+            % ecToExclude: egg chambers to exclude, formatted as {[i1,j1,k1],[i2,j2,k2],...}
+                % where i is the index of the condition
+                % j the index of the sample (FOV)
+                % k the ID of the eggChamber
+            % conditionOrder: array that sets the order of the clouds of points 
+                % for the corresponding conditions from left to right, 
+                % e.g. [1,3,2,4] plots condition index 1 first, then 3, then 2, then 4. 
+            % eggChamberStagesToInclude: enter either 'all', or an array of
+                % stages, e.g. [7,8] if you want to include only stages 7 and
+                % 8.
+            % minClustVolume: minimum Volume of Clusters (in um^3) to include in the plots
+                % smaller clusters will be ignored
+            % maxClustVolume: minimumVolume of Clusters (in um^3) to include in the plots
+                % larger clusters will be ignored
+            % alphaVal: value of the alpha (transparency) of individual
+                % data points. 0 is fully transparent, 1 is fully solid.
+
+
+            % if shorthand 'all' was used for cell stages to include, replace it by
+                % list of stage numbers.
             if isa(eggChamberStagesToInclude,'char') || isa(eggChamberStagesToInclude,'string')
                 if strcmp(eggChamberStagesToInclude,'all')
                     eggChamberStagesToInclude = [0,1,2,3,4,5,6,7,8,9,10];
@@ -1326,14 +1661,36 @@ classdef eggChamberDataSet < handle
                 return
             end
 
+            % reformat the indices to exclude from cell {[i1,j1,k1], [i2,j2,k2],...}
+            % to matrix    [i1,j1,k1; 
+            %               i2,j2,k2; ...]
+            
+            if isempty(ecToExclude)
+                idxToExclude = [NaN,NaN,NaN];
+            else
+                idxToExclude = zeros(numel(ecToExclude),3);
+                for i=1:numel(ecToExclude)
+                    if numel(ecToExclude{i})~=3
+                        disp(["ecToExclude entry #",num2str(i)," contains the wrong number of elements (",...
+                            nu2mstr(numel(ecToExclude{i})),"); it should have three elements: ",...
+                            "first the condition to exclude, second the FOV to exclude,",...
+                            " third the egg chamber to exclude"]);
+                        return
+                    else
+                        idxToExclude(i,:) = ecToExclude{i};
+                    end 
+                end
+            end
+
             % build figure
-            figure('Name',strrep(varName,'_',' '));
+            if ~isempty(metricName)
+                figName = metricName;
+            else
+                figName = strrep(varName,'_',' ');
+            end
+            fh = figure('Name',figName);
             hold;
-            
-            % collect the x values to plot each condition/sample at
-            [xEggChamberVals, xEggChamberIDs] = ...
-                obj.getSampleXValuesByEggChamber(eggChamberStagesToInclude);
-            
+             
             % generate color maps
             nc = numel(obj.condIndices);
             cmData =cbrewer('qual', 'Set1', max(nc,3));
@@ -1344,84 +1701,259 @@ classdef eggChamberDataSet < handle
             xSampleIDsVec = {};
             yMin = Inf;
             yMax = -Inf;
-            for i=1:numel(obj.condIndices)
-                xPlot = [];
-                yPlot = [];
-                s = obj.sampleIndices{i};
-                for j=1:obj.nSamples(i)
-                    for k=1:obj.eggChamberNumber{i}(j)
-                        if ismember(obj.eggChamberStages{i}{j}(k),eggChamberStagesToInclude)
-                            % collect values for the desired metric from all nuclei for the
-                            % current sample/condition
-                            x = obj.clustT.(varName)(...
-                                obj.clustT.cond_Idx ==obj.condIndices(i) ...
-                                & obj.clustT.sample_Idx == s(j) ...
-                                & obj.clustT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k) ...
-                                & obj.clustT.clust_Volume >= minClustVolume);
-                    
-                            % generate slightly offset x coordinates for each nucleus,
-                            % centered around the sample X
-                            nClusters = size(x,1);
-                            if nClusters >1
-                                % spacing between nuclei
-                                nucSpacing = obj.spacingUnit ...
-                                    * (1-2*obj.freeSpaceBetweenSamples) / (nClusters-1);
-                    
-                                % x coordinate for each nucleus of current condition/sample
-                                curXPlot = xEggChamberVals{i}{j}(k) ...
-                                    - floor(nClusters/2)*nucSpacing ...
-                                    + (0:(nClusters-1))*nucSpacing;
-                    
-                                % y coordinate for each nucleus of current condition/sample
-                                curYPlot = obj.clustT.(varName)(...
+            xCtr = 0;
+            curCond = 0;
+
+            % initialize variables that will be output as tables
+            cTableCondition_Name = {};
+            cTableSample = [];
+            cTableFileName = {};
+            cTableEggChamberID = [];
+            cTableEggChamberStage = [];
+            cTableNucleusLabel = [];
+            cTableCLustLabel = [];
+            cTableXData = [];
+            cTableYData = [];
+
+            avgTableCondition = {};
+            avgTableXData = [];
+            avgTableYData = [];
+            avgTableSTDData = [];
+            avgTableSEMData = [];
+            avgTableNData = [];
+            for idxCondOrder=1:numel(conditionOrder)
+                i = find(ismember(obj.condIndices,conditionOrder(idxCondOrder)));
+                if ~isempty(i)
+                    xPlot = [];
+                    yPlot = [];
+                    s = obj.sampleIndices{i};
+                    for j=1:obj.nSamples(i)
+                        for k=1:obj.eggChamberNumber{i}(j)
+                            if ismember(obj.eggChamberStages{i}{j}(k),eggChamberStagesToInclude) ...
+                                    && ~ismember([obj.condIndices(i),obj.sampleIndices{i}(j),obj.eggChamberIDs{i}{j}(k)],...
+                                    idxToExclude,'rows')
+    
+                                % collect values for the desired metric from all nuclei for the
+                                % current sample/condition
+                                x = obj.clustT.(varName)(...
                                     obj.clustT.cond_Idx ==obj.condIndices(i) ...
-                                    & obj.clustT.sample_Idx == s(j)...
+                                    & obj.clustT.sample_Idx == s(j) ...
                                     & obj.clustT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k) ...
-                                    & obj.clustT.clust_Volume >= minClustVolume)';
-                    
-                            elseif nClusters == 1
-                                curXPlot = xEggChamberVals{i}{j}(k);
-                                curYPlot = obj.clustT.(varName)(...
-                                    obj.clustT.cond_Idx ==obj.condIndices(i) ...
-                                    & obj.clustT.sample_Idx == s(j)...
-                                    & obj.clustT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k) ...
-                                    & obj.clustT.clust_Volume >= minClustVolume)';
-                    
-                            elseif nClusters == 0
-                                curXPlot = [];
-                                curYPlot = [];
+                                    & obj.clustT.clust_Volume >= minClustVolume...
+                                    & obj.clustT.clust_Volume <= maxClustVolume);
+                        
+                                % generate slightly offset x coordinates for each nucleus,
+                                % centered around the sample X
+                                if (curCond ~= 0) && (curCond ~= obj.condIndices(i)) % add extra offset for each condition change
+                                    % plot average/std of previous
+                                    % condition
+                                    if sum(~isnan(yCondAvg)) > 0
+                                        if sum(~isnan(yCondAvg)) > 1
+                                            nDenom = sqrt(sum(~isnan(yCondAvg))-1);
+                                        else
+                                            nDenom = 1;
+                                        end
+                                        errorbar(mean(xCondAvg,'omitnan'),mean(yCondAvg,'omitnan'),std(yCondAvg,'omitnan')/nDenom,...
+                                             'o','MarkerEdgeColor','k','MarkerFaceColor','k','Color','k','LineWidth',2);
+                                        avgTableCondition = [avgTableCondition;...
+                                            obj.conditionNames(find(obj.condIndices == curCond,1))];
+                                        avgTableXData = [avgTableXData;...
+                                            mean(xCondAvg,'omitnan')];
+                                        avgTableYData = [avgTableYData;...
+                                            mean(yCondAvg,'omitnan')];
+                                        avgTableSTDData = [avgTableSTDData;...
+                                            std(yCondAvg,'omitnan')];
+                                        avgTableSEMData = [avgTableSEMData;...
+                                            std(yCondAvg,'omitnan')/nDenom];
+                                        avgTableNData = [avgTableNData;...
+                                            sum(~isnan(yCondAvg))];
+                                        
+                                    else
+                                        avgTableCondition = [avgTableCondition;...
+                                            obj.conditionNames(find(obj.condIndices == curCond,1 ))];
+                                        avgTableXData = [avgTableXData;NaN];
+                                        avgTableYData = [avgTableYData;NaN];
+                                        avgTableSTDData = [avgTableSTDData;NaN];
+                                        avgTableSEMData = [avgTableSEMData;NaN];
+                                        avgTableNData = [avgTableNData;0];
+                                        
+                                    end
+
+                                    curCond = obj.condIndices(i);
+                                    xCtr = xCtr+3;
+                                    xCondAvg = xCtr;
+                                    yCondAvg = [];
+                                elseif curCond == 0
+                                    curCond = obj.condIndices(i);
+                                    xCondAvg = xCtr;
+                                    yCondAvg = [];
+                                else
+                                    xCtr = xCtr+1;
+                                    xCondAvg = [xCondAvg;xCtr];
+                                end
+                                
+                                nClusters = size(x,1);
+                                if nClusters >1
+                                    % spacing between nuclei
+                                    nucSpacing = obj.spacingUnit ...
+                                        * (1-2*obj.freeSpaceBetweenSamples) / (nClusters-1);
+                        
+                                    % x coordinate for each nucleus of current condition/sample
+                                    curXPlot = xCtr ...
+                                        - floor(nClusters/2)*nucSpacing ...
+                                        + (0:(nClusters-1))*nucSpacing;
+                        
+                                    % y coordinate for each nucleus of current condition/sample
+                                    curYPlot = obj.clustT.(varName)(...
+                                        obj.clustT.cond_Idx ==obj.condIndices(i) ...
+                                        & obj.clustT.sample_Idx == s(j)...
+                                        & obj.clustT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k) ...
+                                        & obj.clustT.clust_Volume >= minClustVolume...
+                                        & obj.clustT.clust_Volume <= maxClustVolume)';
+                        
+                                elseif nClusters == 1
+                                    curXPlot = xCtr;
+                                    curYPlot = obj.clustT.(varName)(...
+                                        obj.clustT.cond_Idx ==obj.condIndices(i) ...
+                                        & obj.clustT.sample_Idx == s(j)...
+                                        & obj.clustT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k) ...
+                                        & obj.clustT.clust_Volume >= minClustVolume...
+                                        & obj.clustT.clust_Volume <= maxClustVolume)';
+                        
+                                elseif nClusters == 0
+                                    curXPlot = [];
+                                    curYPlot = [];
+                                end
+                                
+                                % fill in cluster Table values
+                                cTableCondition_Name = [cTableCondition_Name; ...
+                                    repmat(obj.conditionNames(i),size(curXPlot'))];
+
+                                cTableSample = [cTableSample; ...
+                                    repmat(s(j),size(curXPlot'))];
+
+                                cTableFileName = [cTableFileName; obj.clustT.sample_InputFileName(...
+                                        obj.clustT.cond_Idx ==obj.condIndices(i) ...
+                                        & obj.clustT.sample_Idx == s(j)...
+                                        & obj.clustT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k) ...
+                                        & obj.clustT.clust_Volume >= minClustVolume...
+                                        & obj.clustT.clust_Volume <= maxClustVolume)];
+
+                                cTableEggChamberID = [cTableEggChamberID; ...
+                                    repmat(obj.eggChamberIDs{i}{j}(k),size(curXPlot'))];
+
+                                curStage = obj.clustT.eggChamber_Stage(...
+                                        obj.clustT.cond_Idx ==obj.condIndices(i) ...
+                                        & obj.clustT.sample_Idx == s(j)...
+                                        & obj.clustT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k) ...
+                                        & obj.clustT.clust_Volume >= minClustVolume...
+                                        & obj.clustT.clust_Volume <= maxClustVolume);
+                                cTableEggChamberStage = [cTableEggChamberStage;curStage];
+                                
+                                curNuc = obj.clustT.nuc_Label(...
+                                        obj.clustT.cond_Idx ==obj.condIndices(i) ...
+                                        & obj.clustT.sample_Idx == s(j)...
+                                        & obj.clustT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k) ...
+                                        & obj.clustT.clust_Volume >= minClustVolume...
+                                        & obj.clustT.clust_Volume <= maxClustVolume);
+                                cTableNucleusLabel = [cTableNucleusLabel; curNuc];
+                                
+                                curClust = obj.clustT.clust_Label(...
+                                        obj.clustT.cond_Idx ==obj.condIndices(i) ...
+                                        & obj.clustT.sample_Idx == s(j)...
+                                        & obj.clustT.eggChamber_Idx == obj.eggChamberIDs{i}{j}(k) ...
+                                        & obj.clustT.clust_Volume >= minClustVolume...
+                                        & obj.clustT.clust_Volume <= maxClustVolume);
+                                cTableCLustLabel = [cTableCLustLabel; curClust];
+
+                                cTableXData = [cTableXData;curXPlot'];
+                                cTableYData = [cTableYData;curYPlot'];
+                        
+                                % append coordinates of current condition/sample to global list
+                                xPlot = [xPlot,curXPlot];
+                                yPlot = [yPlot,curYPlot];
+                                
+                                xMeanEC = mean(curXPlot);
+                                yMeanEC = mean(curYPlot);
+                                
+                                yCondAvg = [yCondAvg;yMeanEC];
+                                curID = [obj.conditionNames{i},...
+                                    ' sample\_',num2str(obj.sampleIndices{i}(j)),...
+                                    ' eggChamber\_',num2str(obj.eggChamberIDs{i}{j}(k))];
+                                xSampleValsVec = [xSampleValsVec,xCtr];
+                                xSampleIDsVec = [xSampleIDsVec,curID];
+    
+                                p = scatter(curXPlot,curYPlot,'o','MarkerEdgeColor',cmData(i,:),'MarkerFaceColor',cmData(i,:));
+                                alpha(p,alphaVal);
+                                p2 = scatter(xMeanEC,yMeanEC,'d','MarkerEdgeColor',cmData(i,:),'MarkerFaceColor',cmData(i,:));
+                                alpha(p2,0.9);
+                                %errorbar(xErr,yErr,eErr,'o','MarkerEdgeColor','k','MarkerFaceColor','k','Color','k','LineWidth',2);
                             end
-                    
-                            % append coordinates of current condition/sample to global list
-                            xPlot = [xPlot,curXPlot];
-                            yPlot = [yPlot,curYPlot];
-
-                            xErr = mean(curXPlot);
-                            yErr = mean(curYPlot);
-                            eErr = std(curYPlot);
-
-                            xSampleValsVec = [xSampleValsVec,xEggChamberVals{i}{j}(k)];
-                            xSampleIDsVec = [xSampleIDsVec,xEggChamberIDs{i}{j}{k}];
-
-                            p = scatter(curXPlot,curYPlot,'o','MarkerEdgeColor',cmData(i,:),'MarkerFaceColor',cmData(i,:));
-                            alpha(p,0.05);
-                            errorbar(xErr,yErr,eErr,'o','MarkerEdgeColor','k','MarkerFaceColor','k','Color','k','LineWidth',2);
                         end
                     end
+                    if ~isempty(yPlot)
+                        yMax = max(yMax,max(yPlot(:)));
+                        yMin = min(yMin,min(yPlot(:)));
+                    end
                 end
-                if ~isempty(yPlot)
-                    yMax = max(yMax,max(yPlot(:)));
-                    yMin = min(yMin,min(yPlot(:)));
-                end
-                
             end
-            
+            % plot average of last condition
+            if sum(~isnan(yCondAvg)) > 0
+                if sum(~isnan(yCondAvg)) > 1
+                    nDenom = sqrt(sum(~isnan(yCondAvg))-1);
+                else
+                    nDenom = 1;
+                end
+                errorbar(mean(xCondAvg,'omitnan'),mean(yCondAvg,'omitnan'),std(yCondAvg,'omitnan')/nDenom,...
+                     'o','MarkerEdgeColor','k','MarkerFaceColor','k','Color','k','LineWidth',2);
+                avgTableCondition = [avgTableCondition;...
+                    obj.conditionNames(find(obj.condIndices == curCond,1))];
+                avgTableXData = [avgTableXData;...
+                    mean(xCondAvg,'omitnan')];
+                avgTableYData = [avgTableYData;...
+                    mean(yCondAvg,'omitnan')];
+                avgTableSTDData = [avgTableSTDData;...
+                    std(yCondAvg,'omitnan')];
+                avgTableSEMData = [avgTableSEMData;...
+                    std(yCondAvg,'omitnan')/nDenom];
+                avgTableNData = [avgTableNData;...
+                    sum(~isnan(yCondAvg))];
+            else
+                avgTableCondition = [avgTableCondition;...
+                    obj.conditionNames(find(obj.condIndices == curCond,1))];
+                avgTableXData = [avgTableXData;NaN];
+                avgTableYData = [avgTableYData;NaN];
+                avgTableSTDData = [avgTableSTDData;NaN];
+                avgTableSEMData = [avgTableSEMData;NaN];
+                avgTableNData = [avgTableNData;0];
+            end
+                                    
             xticks(xSampleValsVec);
             xticklabels(xSampleIDsVec);
             xtickangle(45);
             ylim([min([0,1.2*yMin]),1.2*yMax]);
             ylabel(baseName);
             grid on
+
+            % build full table
+            clustTable = table(cTableCondition_Name,cTableSample,cTableFileName,cTableEggChamberID,...
+                cTableEggChamberStage,cTableNucleusLabel,cTableCLustLabel, ...
+                cTableXData,cTableYData,'VariableNames',{...
+                'Condition','sample','sample_InputFileName','eggChamber','eggChamber_Stage',...
+                'nuc_Label','clust_Label','x',metricName});  
+
+            % build average table
+            size(avgTableCondition)
+               size( avgTableXData)
+               size( avgTableYData)
+               size( avgTableSTDData)
+               size( avgTableSEMData)
+               size( avgTableNData)
+            avgClustTable = table(avgTableCondition, avgTableXData, avgTableYData, ...
+                avgTableSTDData, avgTableSEMData,avgTableNData,'VariableNames',...
+                {'Condition','x',[metricName,'_Mean'],[metricName,'_STD'],[metricName,'_SEM'],...
+                [metricName,'_N_eggChambers']});
+
         end
 
     end

@@ -1,0 +1,16 @@
+parameterName	parameterValue
+backgroundInt	100
+histBin	150
+itnum	100
+use_weights	1
+histLogBin	0.1
+a1min	0.1
+a1max	0.9
+mu1min	1
+mu1max	7
+sig1min	0.1
+sig1max	1.2
+mu2min	7
+mu2max	12
+sig2min	0.1
+sig2max	1.2
