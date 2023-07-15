@@ -1,30 +1,45 @@
 % enter here the path of the folder where the output of the Fiji scripts is saved
-fijiOutFolder = '/Volumes/lionnt01lab/lionnt01labspace/Feiyue_Tim/DMSOvsTRIser5ph-out';
+fijiOutFolder = '/Users/lionnt01/Dropbox/data/feiyue/20230415_CTDmutants/out';
 
 % entere here the path where to save the data output by Matlab
-matlabOutFolder = '/Users/lionnt01/Dropbox/data/feiyue/Ser5ph_TRI/matlabOut';
+matlabOutFolder = '/Users/lionnt01/Dropbox/data/feiyue/20230415_CTDmutants/MatlabOut';
 
 % if the data has already been uploaded in Matlab and saved in the
 % matlabOutFolder, set this Flag to 1 (faster)
-useMatlabRatherThanFiji = 1;
+useMatlabRatherThanFiji = 0;
 
 % conditions order
     % conditions are listed in ec.conditionNames. this 
     % array sets the order in which they will be plotted 
-conditionsOrder = [1,2]; 
+conditionsOrder = [5,1,2,3,4,6]; 
 
 % set path for subfunctions
 addpath('subfunctions/');
 addpath('cbrewer/');
 
 % channel names for displays
-channelNamesForDisplays = {'DAPI','MPM2','Ser5ph','PolII'};
+channelNamesForDisplays = {'DAPI','VarCTD','CycT','RefCTD'};
 
 % eggChamberStages to Include in plots
-ecStagesToInclude = 0:10;
+ecStagesToInclude = [7,8];
 
 % HLB minimum volume in um^3
 hlbMinVol = 1;
+
+% avoid data points with too low a nucleoplasm intensity, once corrected
+% for nucleoli. set to 1 to keep all data points, 0 to remove those low intensity points
+useMinAbsDenom = 1;
+
+% if useMinAbsDenome = 1, the array below sets the threshold value 
+% for the nucleoli-corrected nucleoplasm intensity under which data points 
+% are excluded for ratio calculations. This thresholding avoids outliers. 
+% (this is an absolute value: strongly positive and strongly negative 
+% values are retained - only values near zero are removed)
+% ith entry is the threshold for channel i. Make sure to visualize the
+% distribution of the nucleoli-corrected nucleoplasm intensity before
+% setting the values of the threshold to ensure only a tiny number of gross
+% outliers are filtered out, otherwise results will be biased.
+minAbsDenom = [100,50,50,300]; 
 
 %% upload the data
 
@@ -59,7 +74,7 @@ else
     % add nuc stats to cluster table
         % takes metrics from nucFullT and copies them as extra variables of the
         % cluster table. 
-    disp('adding Nuclei stats to Cluster table...');  
+    disp('adding Nuclei stats to Cluster table...');    
     ec.clustT = ec.addNucStatsToClustTable();
     
     % background correct clusters intensity
@@ -76,7 +91,12 @@ else
 end
 
 %% save workspace in Matlab Output Folder, prepare subfolders
+
+if ~exist(matlabOutFolder,'dir')
+    mkdir(matlabOutFolder);
+end
 save(fullfile(matlabOutFolder,'globalAnalysis.mat')); 
+
 nucFolder = fullfile(matlabOutFolder,'nucleiMetrics');
 if ~exist(nucFolder,'dir')
     mkdir(nucFolder);
@@ -135,7 +155,7 @@ for i=1:numel(channelNamesForDisplays)
         ['meanNucInt',channelNamesForDisplays{i},'_eggChamberSubtracted']);
 end
 
-%% scatter plot nucleoplasm intensity by egg chamber (nucleoli subtracted): 
+%% Nucleoplasm intensity nucleoli subtracted
 % this is the best metric for nuclear expression levels
 
 % nucleoplasm corrected for background estimated across the nucleolus:
@@ -194,7 +214,7 @@ for i=1:numel(channelNamesForDisplays)
     saveas(fh,fullfile(qcFolder,['clustVolvs',channelNamesForDisplays{i},'_plasmNorm.eps']),'epsc');
 end
 
-%% scatter plot by egg chamber: Number of clusters per nucleus, Cluster volume
+%% Number of clusters per nucleus, Cluster volume
 minVolume = hlbMinVol;
 maxVolume = Inf;
 
@@ -249,12 +269,18 @@ minVolume =hlbMinVol;
 maxVolume = Inf;
 
 for i=1:numel(channelNamesForDisplays)
-    yData = ec.clustT.(['clust_C',num2str(i),'Median_nucleoliSubtracted']) ...
-        ./ec.clustT.(['plasm_C',num2str(i),'Median_nucleoliSubtracted']);
+    numData = ec.clustT.(['clust_C',num2str(i),'Median_nucleoliSubtracted']);
+    denomData = ec.clustT.(['plasm_C',num2str(i),'Median_nucleoliSubtracted']);
+    yData = numData./denomData;
+    if useMinAbsDenom
+        idxData = abs(denomData)>minAbsDenom(i); % regularize points for which the nucleoplasm level is too small.
+    else
+        idxData = true(size(ec.clustT,1),1); % take all data points
+    end
     [clustTable,avgEcClustTable,avgCondClustTable,fh] = ...
         ec.scatterPlotAndSaveClustArbitraryMetricByEggChamber(...
         yData,['clustInt_',channelNamesForDisplays{i},'_nucleoliSubtr_plasmNorm'],...
-        true(size(ec.clustT,1),1),{},conditionsOrder,ecStagesToInclude,...
+        idxData,{},conditionsOrder,ecStagesToInclude,...
         minVolume,maxVolume,1,'useMean',0.2);
 
     saveDataFromPlot(fh,clustTable,avgEcClustTable,avgCondClustTable, clustFolder,...
@@ -267,12 +293,18 @@ minVolume = 0;
 maxVolume = hlbMinVol/5;
 
 for i=1:numel(channelNamesForDisplays)
-    yData = ec.clustT.(['clust_C',num2str(i),'Median_nucleoliSubtracted']) ...
-        ./ec.clustT.(['plasm_C',num2str(i),'Median_nucleoliSubtracted']);
+    numData = ec.clustT.(['clust_C',num2str(i),'Median_nucleoliSubtracted']);
+    denomData = ec.clustT.(['plasm_C',num2str(i),'Median_nucleoliSubtracted']);
+    yData = numData./denomData;
+    if useMinAbsDenom
+        idxData = abs(denomData)>minAbsDenom(i); % regularize points for which the nucleoplasm level is too small.
+    else
+        idxData = true(size(ec.clustT,1),1); % take all data points
+    end
     [clustTable,avgEcClustTable,avgCondClustTable,fh] = ...
         ec.scatterPlotAndSaveClustArbitraryMetricByEggChamber(...
         yData,['smallClustInt_',channelNamesForDisplays{i},'_nucleoliSubtr_plasmNorm'],...
-        true(size(ec.clustT,1),1),{},conditionsOrder,ecStagesToInclude,...
+        idxData,{},conditionsOrder,ecStagesToInclude,...
         minVolume,maxVolume,1,'useMean',0.01);
 
     saveDataFromPlot(fh,clustTable,avgEcClustTable,avgCondClustTable, clustFolder,...
@@ -400,8 +432,8 @@ for i=1:numel(channelNamesForDisplays)
 end
 
 %% Cluster intensity, channel vs channel (nucleoli subtracted)
-chX = 3;  % channel for X axis
-chY = 4;  % channel for Y axis
+chX = 4;  % channel for X axis
+chY = 2;  % channel for Y axis
 minVolume = hlbMinVol;
 maxVolume = Inf;
 
@@ -434,9 +466,9 @@ saveas(fh,fullfile(qcFolder,...
 saveas(fh,fullfile(qcFolder,...
     ['clustInt',channelNamesForDisplays{chX},'_vs_',channelNamesForDisplays{chY},'.eps']),'epsc');
 
-%% Cluster intensity, channel vs channel (relative to nuclei levels)
+%% HLB Cluster intensity, channel vs channel (relative to nuclei levels)
 chX = 4; % channel for X axis
-chY = 3; % channel for Y axis
+chY = 2; % channel for Y axis
 minVolume = hlbMinVol;
 maxVolume = Inf;
 
@@ -445,6 +477,12 @@ idx0 = ismember(ec.clustT.eggChamber_Stage , ecStagesToInclude) ...
     & ec.clustT.eggChamber_Idx > 0 ...
     & ec.clustT.clust_Volume >= minVolume ...
     & ec.clustT.clust_Volume <= maxVolume;
+
+if useMinAbsDenom
+    for i=1:numel(channelNamesForDisplays)
+        idx0 = idx0 & ec.clustT.(['plasm_C',num2str(i),'Median_nucleoliSubtracted'])>minAbsDenom(i);
+    end
+end
 
 idx = cell(numel(ec.condIndices),1);
 for i=1:numel(ec.condIndices)
@@ -473,7 +511,7 @@ saveas(fh,fullfile(qcFolder,...
 
 clear idx idx0
 %% HLB chY/chX ratio, by sample - Normalized to nuclear levels (nucleoli Subtracted, normalized to nucleoplasm levels)
-chY = 3; % numerator channel
+chY = 2; % numerator channel
 chX = 4; % denominator channel
 
 minVolume = hlbMinVol; % minimum cluster Volume
@@ -485,6 +523,12 @@ idx0 = ismember(ec.clustT.eggChamber_Stage , ecStagesToInclude) ...
     & ec.clustT.clust_Volume >= minVolume ...
     & ec.clustT.clust_Volume <= maxVolume;
 
+if useMinAbsDenom
+    for i=1:numel(channelNamesForDisplays)
+        idx0 = idx0 & ec.clustT.(['plasm_C',num2str(i),'Median_nucleoliSubtracted'])>minAbsDenom(i);
+    end
+end
+
 numData = ec.clustT.(['clust_C',num2str(chY),'Median_nucleoliSubtracted'])...
     ./ec.clustT.(['plasm_C',num2str(chY),'Median_nucleoliSubtracted']);
 
@@ -495,26 +539,30 @@ yData = numData./denomData;
 
 [clustTable,avgEcClustTable,avgCondClustTable,fh] = ...
     ec.scatterPlotAndSaveClustArbitraryMetricByEggChamber(...
-    yData,'Ser5ph/Pol2, normalized by nucleoplasm',idx0,...
+    yData,'HLB variantCTD/RefCTD, normalized by nucleoplasm',idx0,...
     {},conditionsOrder,ecStagesToInclude,minVolume,maxVolume,1,'useMedian',0.1);
 
 saveDataFromPlot(fh,clustTable,avgEcClustTable,avgCondClustTable, clustFolder,...
         ['clustInt',channelNamesForDisplays{chX},'-',channelNamesForDisplays{chY},'ratio_plasmNorm']);
 
-
-%% histogram of HLB cluster chY/chX ratio (relative to plasm levels) by condition
-minVolume =hlbMinVol;
-maxVolume = Inf;
-histBinSize = 0.1;
-
-chY = 3; % numerator channel
+%% SMALL cluster chY/chX ratio, by sample - Normalized to nuclear levels (nucleoli Subtracted, normalized to nucleoplasm levels)
+chY = 2; % numerator channel
 chX = 4; % denominator channel
+
+minVolume = 0; % minimum cluster Volume
+maxVolume = hlbMinVol/5; % max cluster Volume
 
 % egg Chambers/clusters to include based on filters
 idx0 = ismember(ec.clustT.eggChamber_Stage , ecStagesToInclude) ...
     & ec.clustT.eggChamber_Idx > 0 ...
     & ec.clustT.clust_Volume >= minVolume ...
     & ec.clustT.clust_Volume <= maxVolume;
+
+if useMinAbsDenom
+    for i=1:numel(channelNamesForDisplays)
+        idx0 = idx0 & ec.clustT.(['plasm_C',num2str(i),'Median_nucleoliSubtracted'])>minAbsDenom(i);
+    end
+end
 
 numData = ec.clustT.(['clust_C',num2str(chY),'Median_nucleoliSubtracted'])...
     ./ec.clustT.(['plasm_C',num2str(chY),'Median_nucleoliSubtracted']);
@@ -524,7 +572,43 @@ denomData = ec.clustT.(['clust_C',num2str(chX),'Median_nucleoliSubtracted'])...
 
 yData = numData./denomData;
 
-fh = figure('Name','Hist HLB Ser5ph/Pol2, normalized by nucleoplasm');
+[clustTable,avgEcClustTable,avgCondClustTable,fh] = ...
+    ec.scatterPlotAndSaveClustArbitraryMetricByEggChamber(...
+    yData,'smallClustVarCTDRefCTDRatioPlasmNorm',idx0,...
+    {},conditionsOrder,ecStagesToInclude,minVolume,maxVolume,1,'useMedian',0.1);
+
+saveDataFromPlot(fh,clustTable,avgEcClustTable,avgCondClustTable, clustFolder,...
+        ['smallClustInt',channelNamesForDisplays{chX},'-',channelNamesForDisplays{chY},'ratio_plasmNorm']);
+
+%% histogram of HLB cluster chY/chX ratio (relative to plasm levels) by condition
+minVolume =hlbMinVol;
+maxVolume = Inf;
+histBinSize = 0.1;
+
+chY = 2; % numerator channel
+chX = 4; % denominator channel
+
+% egg Chambers/clusters to include based on filters
+idx0 = ismember(ec.clustT.eggChamber_Stage , ecStagesToInclude) ...
+    & ec.clustT.eggChamber_Idx > 0 ...
+    & ec.clustT.clust_Volume >= minVolume ...
+    & ec.clustT.clust_Volume <= maxVolume;
+
+if useMinAbsDenom
+    for i=1:numel(channelNamesForDisplays)
+        idx0 = idx0 & ec.clustT.(['plasm_C',num2str(i),'Median_nucleoliSubtracted'])>minAbsDenom(i);
+    end
+end
+
+numData = ec.clustT.(['clust_C',num2str(chY),'Median_nucleoliSubtracted'])...
+    ./ec.clustT.(['plasm_C',num2str(chY),'Median_nucleoliSubtracted']);
+
+denomData = ec.clustT.(['clust_C',num2str(chX),'Median_nucleoliSubtracted'])...
+    ./ec.clustT.(['plasm_C',num2str(chX),'Median_nucleoliSubtracted']); 
+
+yData = numData./denomData;
+
+fh = figure('Name','Hist HLB varCTD/refCTD, normalized by nucleoplasm');
 hold;
 for j=1:numel(ec.condIndices)
         curY = yData( ec.clustT.cond_Idx ==ec.condIndices(j) ...
@@ -543,12 +627,12 @@ ylabel('Count');
 saveas(fh,fullfile(clustFolder,['HistClustInt',channelNamesForDisplays{chX},'-',channelNamesForDisplays{chY},'ratio_plasmNorm.fig']));
 saveas(fh,fullfile(clustFolder,['HistClustInt',channelNamesForDisplays{chX},'-',channelNamesForDisplays{chY},'ratio_plasmNorm.eps']),'epsc');
 
-%% histogram of SMALL cluster chY/chX ratio (relative to plasm levels) by condition
+%% histogram of small cluster chY/chX ratio (relative to plasm levels) by condition
 minVolume = 0 ;
 maxVolume = hlbMinVol/5;
 histBinSize = 0.1;
 
-chY = 3; % numerator channel
+chY = 2; % numerator channel
 chX = 4; % denominator channel
 
 % egg Chambers/clusters to include based on filters
@@ -556,6 +640,12 @@ idx0 = ismember(ec.clustT.eggChamber_Stage , ecStagesToInclude) ...
     & ec.clustT.eggChamber_Idx > 0 ...
     & ec.clustT.clust_Volume >= minVolume ...
     & ec.clustT.clust_Volume <= maxVolume;
+
+if useMinAbsDenom
+    for i=1:numel(channelNamesForDisplays)
+        idx0 = idx0 & ec.clustT.(['plasm_C',num2str(i),'Median_nucleoliSubtracted'])>minAbsDenom(i);
+    end
+end
 
 numData = ec.clustT.(['clust_C',num2str(chY),'Median_nucleoliSubtracted'])...
     ./ec.clustT.(['plasm_C',num2str(chY),'Median_nucleoliSubtracted']);
@@ -565,7 +655,7 @@ denomData = ec.clustT.(['clust_C',num2str(chX),'Median_nucleoliSubtracted'])...
 
 yData = numData./denomData;
 
-fh = figure('Name','small cluster Ser5ph/Pol2, normalized by nucleoplasm');
+fh = figure('Name','Hist small cluster Ser5ph/Pol2, normalized by nucleoplasm');
 hold;
 for j=1:numel(ec.condIndices)
         curY = yData( ec.clustT.cond_Idx ==ec.condIndices(j) ...
@@ -585,101 +675,4 @@ xlim([0 10]);
 saveas(fh,fullfile(clustFolder,['HistSmallClustInt',channelNamesForDisplays{chX},'-',channelNamesForDisplays{chY},'ratio_plasmNorm.fig']));
 saveas(fh,fullfile(clustFolder,['HistSmallClustInt',channelNamesForDisplays{chX},'-',channelNamesForDisplays{chY},'ratio_plasmNorm.eps']),'epsc');
 
-%% pltting MPM2+ and MPM2- HLB metrics side by side
-chRef = 2; % channel used to startify the data in positive vs negative
-yMax1 = 2.5; % max value to be called a negative
-yMin2 = 5; % min value to be called a positive
-
-stratificationName = 'MPM2positive'; %name of stratification variable
-idx1StratificationVal = 0; % negative
-idx2StratificationVal = 1; % positive
-
-minVolume = hlbMinVol; % minimum cluster Volume
-maxVolume = Inf; % max cluster Volume
-
-yRef = ec.clustT.(['clust_C',num2str(chRef),'Median_nucleoliSubtracted']) ...
-    ./ec.clustT.(['plasm_C',num2str(chRef),'Median_nucleoliSubtracted']);
-
-idxData1 = yRef < yMax1;
-idxData2 = yRef > yMin2;
-
-for i=1:numel(channelNamesForDisplays)
-
-    yData = ec.clustT.(['clust_C',num2str(i),'Median_nucleoliSubtracted']) ...
-        ./ec.clustT.(['plasm_C',num2str(i),'Median_nucleoliSubtracted']);
-
-    [clustTable1,avgEcClustTable1,avgCondClustTable1,...
-    clustTable2,avgEcClustTable2,avgCondClustTable2,fh] = ...
-                ec.scatterPlotAndSaveClustDualArbitraryMetricByEggChamber(...
-                yData,['clustInt_',channelNamesForDisplays{i},'_plasmNorm'],idxData1,idxData2,...
-                {},conditionsOrder,ecStagesToInclude,...
-                minVolume,maxVolume,1,'useMean',0.3,[0.7,0.7,0.7;0.7,0.7,0.7]);
-    ylim('auto');
-
-    clustTable1 = addvars(clustTable1,idx1StratificationVal*ones(size(clustTable1,1),1),'newVariableNames',{stratificationName});
-    avgEcClustTable1 = addvars(avgEcClustTable1,idx1StratificationVal*ones(size(avgEcClustTable1,1),1),'newVariableNames',{stratificationName});
-    avgCondClustTable1 = addvars(avgCondClustTable1,idx1StratificationVal*ones(size(avgCondClustTable1,1),1),'newVariableNames',{stratificationName});
-    
-    clustTable2 = addvars(clustTable2,idx2StratificationVal*ones(size(clustTable2,1),1),'newVariableNames',{stratificationName});
-    avgEcClustTable2 = addvars(avgEcClustTable2,idx2StratificationVal*ones(size(avgEcClustTable2,1),1),'newVariableNames',{stratificationName});
-    avgCondClustTable2 = addvars(avgCondClustTable2,idx2StratificationVal*ones(size(avgCondClustTable2,1),1),'newVariableNames',{stratificationName});
-    
-    clustTable = [clustTable1;clustTable2];
-    avgEcClustTable = [avgEcClustTable1;avgEcClustTable2];
-    avgCondClustTable = [avgCondClustTable1;avgCondClustTable2];
-    
-    saveDataFromPlot(fh,clustTable,avgEcClustTable,avgCondClustTable, clustFolder,...
-            ['clustInt_',channelNamesForDisplays{i},'_plasmNorm_MPM2strat']);
-
-end
-
-%% pltting MPM2+ and MPM2- Ser5ph/Pol II side by side
-chRef = 2; % channel used to startify the data in positive vs negative
-yMax1 = 2.5; % max value to be called a negative
-yMin2 = 5; % min value to be called a positive
-stratificationName = 'MPM2positive';
-idx1StratificationVal = 0;
-idx2StratificationVal = 1;
-
-chX = 4;
-chY = 3;
-
-minVolume = hlbMinVol; % minimum cluster Volume
-maxVolume = Inf; % max cluster Volume
-
-yRef = ec.clustT.(['clust_C',num2str(chRef),'Median_nucleoliSubtracted']) ...
-    ./ec.clustT.(['plasm_C',num2str(chRef),'Median_nucleoliSubtracted']);
-
-idxData1 = yRef < yMax1;
-idxData2 = yRef > yMin2;
-
-numData = ec.clustT.(['clust_C',num2str(chY),'Median_nucleoliSubtracted'])...
-    ./ec.clustT.(['plasm_C',num2str(chY),'Median_nucleoliSubtracted']);
-
-denomData = ec.clustT.(['clust_C',num2str(chX),'Median_nucleoliSubtracted'])...
-    ./ec.clustT.(['plasm_C',num2str(chX),'Median_nucleoliSubtracted']); 
-
-yData = numData./denomData;
-
-[clustTable1,avgEcClustTable1,avgCondClustTable1,...
-    clustTable2,avgEcClustTable2,avgCondClustTable2,fh] = ...
-    ec.scatterPlotAndSaveClustDualArbitraryMetricByEggChamber(...
-        yData,'Ser5ph/Pol2',idxData2,idxData1,...
-        {},conditionsOrder,ecStagesToInclude,...
-        minVolume,maxVolume,1,'useMean',0.3,[0.7,0.7,0.7;0.7,0.7,0.7]);
-
-clustTable1 = addvars(clustTable1,idx1StratificationVal*ones(size(clustTable1,1),1),'newVariableNames',{stratificationName});
-avgEcClustTable1 = addvars(avgEcClustTable1,idx1StratificationVal*ones(size(avgEcClustTable1,1),1),'newVariableNames',{stratificationName});
-avgCondClustTable1 = addvars(avgCondClustTable1,idx1StratificationVal*ones(size(avgCondClustTable1,1),1),'newVariableNames',{stratificationName});
-
-clustTable2 = addvars(clustTable2,idx2StratificationVal*ones(size(clustTable2,1),1),'newVariableNames',{stratificationName});
-avgEcClustTable2 = addvars(avgEcClustTable2,idx2StratificationVal*ones(size(avgEcClustTable2,1),1),'newVariableNames',{stratificationName});
-avgCondClustTable2 = addvars(avgCondClustTable2,idx2StratificationVal*ones(size(avgCondClustTable2,1),1),'newVariableNames',{stratificationName});
-
-clustTable = [clustTable1;clustTable2];
-avgEcClustTable = [avgEcClustTable1;avgEcClustTable2];
-avgCondClustTable = [avgCondClustTable1;avgCondClustTable2];
-
-saveDataFromPlot(fh,clustTable,avgEcClustTable,avgCondClustTable, clustFolder,...
-        ['clustInt',channelNamesForDisplays{chX},'-',channelNamesForDisplays{chY},'ratio_plasmNorm_MPM2strat']);
 
