@@ -27,10 +27,10 @@ ecStagesToInclude = [7,8];
 hlbMinVol = 1;
 
 % avoid data points with too low a nucleoplasm intensity, once corrected
-% for nucleoli. set to 1 to keep all data points, 0 to remove those low intensity points
+% for nucleoli. set to 0 to keep all data points, 1 to remove those low intensity points
 useMinAbsDenom = 1;
 
-% if useMinAbsDenome = 1, the array below sets the threshold value 
+% if useMinAbsDenom = 1, the array below sets the threshold value 
 % for the nucleoli-corrected nucleoplasm intensity under which data points 
 % are excluded for ratio calculations. This thresholding avoids outliers. 
 % (this is an absolute value: strongly positive and strongly negative 
@@ -39,6 +39,7 @@ useMinAbsDenom = 1;
 % distribution of the nucleoli-corrected nucleoplasm intensity before
 % setting the values of the threshold to ensure only a tiny number of gross
 % outliers are filtered out, otherwise results will be biased.
+% this will be ignored if useMinAbsDenom is set to 0.
 minAbsDenom = [100,50,50,300]; 
 
 %% upload the data
