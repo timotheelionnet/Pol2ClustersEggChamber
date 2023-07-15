@@ -305,7 +305,7 @@ for i=1:numel(channelNamesForDisplays)
         ec.scatterPlotAndSaveClustArbitraryMetricByEggChamber(...
         yData,['smallClustInt_',channelNamesForDisplays{i},'_nucleoliSubtr_plasmNorm'],...
         idxData,{},conditionsOrder,ecStagesToInclude,...
-        minVolume,maxVolume,1,'useMean',0.01);
+        minVolume,maxVolume,1,'useMean',0.1);
 
     saveDataFromPlot(fh,clustTable,avgEcClustTable,avgCondClustTable, clustFolder,...
         ['smallClustInt_',channelNamesForDisplays{i},'_plasmNorm']);
@@ -583,7 +583,7 @@ saveDataFromPlot(fh,clustTable,avgEcClustTable,avgCondClustTable, clustFolder,..
 %% histogram of HLB cluster chY/chX ratio (relative to plasm levels) by condition
 minVolume =hlbMinVol;
 maxVolume = Inf;
-histBinSize = 0.1;
+histBinSize = 0.2;
 
 chY = 2; % numerator channel
 chX = 4; % denominator channel
