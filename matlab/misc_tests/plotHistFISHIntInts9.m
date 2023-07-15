@@ -5,7 +5,7 @@
 
 %% Set up here the variables, their names for plot labels, their color
 % this line for demo only, comment out if using your own data
-load('histFISHtestDataSet.mat');
+%load('histFISHtestDataSet.mat');
 
 % each entry of this cell array should be a vertical vector corresponding 
 % to one of the conditions of the experiment.

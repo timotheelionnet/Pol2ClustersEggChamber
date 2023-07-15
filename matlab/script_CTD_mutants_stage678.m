@@ -62,61 +62,46 @@ ec.addAverageClusterStatsToNucTable();
 
 %% scatter plot nuclei intensity by egg chamber: 
 % raw:
-% ec.scatterPlotNucleiMetricByEggChamber('nuc',1,'Mean','raw',[7,8]); 
-% ec.scatterPlotNucleiMetricByEggChamber('nuc',2,'Mean','raw',[7,8]); 
-% ec.scatterPlotNucleiMetricByEggChamber('nuc',3,'Mean','raw',[7,8]); 
-% ec.scatterPlotNucleiMetricByEggChamber('nuc',4,'Mean','raw',[7,8]);
 [nucTable,avgNucTable,fh] = ec.scatterPlotAndSaveNucleusMetricByEggChamber( ...
-    'nuc',1,'Mean','raw','meanIntDAPI',{[3,2,3]},[5,1,2,3,4,6],[7,8],0.3);
+    'nuc',1,'Mean','raw','meanNucIntDAPI_raw',{[3,2,3]},[5,1,2,3,4,6],[7,8],0.3);
 [nucTable,avgNucTable,fh] = ec.scatterPlotAndSaveNucleusMetricByEggChamber( ...
-    'nuc',2,'Mean','raw','meanIntFLAG_variantCTD',{[3,2,3]},[5,1,2,3,4,6],[7,8],0.3);
+    'nuc',2,'Mean','raw','meanNucIntFLAG_variantCTD_raw',{[3,2,3]},[5,1,2,3,4,6],[7,8],0.3);
 [nucTable,avgNucTable,fh] = ec.scatterPlotAndSaveNucleusMetricByEggChamber( ...
-    'nuc',3,'Mean','raw','meanIntCycT',{[3,2,3]},[5,1,2,3,4,6],[7,8],0.3);
+    'nuc',3,'Mean','raw','meanNucIntCycT_raw',{[3,2,3]},[5,1,2,3,4,6],[7,8],0.3);
 [nucTable,avgNucTable,fh] = ec.scatterPlotAndSaveNucleusMetricByEggChamber( ...
-    'nuc',4,'Mean','raw','meanIntHA_refCTD',{[3,2,3]},[5,1,2,3,4,6],[7,8],0.3);
+    'nuc',4,'Mean','raw','meanNucIntHA_refCTD_raw',{[3,2,3]},[5,1,2,3,4,6],[7,8],0.3);
 
 % background subtracted (eggchamber):
-% ec.scatterPlotNucleiMetricByEggChamber('nuc',1,'Mean','eggChamberSubtracted',[7,8]); 
-% ec.scatterPlotNucleiMetricByEggChamber('nuc',2,'Mean','eggChamberSubtracted',[7,8]); 
-% ec.scatterPlotNucleiMetricByEggChamber('nuc',3,'Mean','eggChamberSubtracted',[7,8]); 
-% ec.scatterPlotNucleiMetricByEggChamber('nuc',4,'Mean','eggChamberSubtracted',[7,8]);
 [nucTable,avgNucTable,fh] = ec.scatterPlotAndSaveNucleusMetricByEggChamber( ...
-    'nuc',1,'Mean','eggChamberSubtracted','meanIntDAPI',{[3,2,3]},[5,1,2,3,4,6],[7,8],0.3);
+    'nuc',1,'Mean','eggChamberSubtracted','meanNucIntDAPI_ecCorr',{[3,2,3]},[5,1,2,3,4,6],[7,8],0.3);
 [nucTable,avgNucTable,fh] = ec.scatterPlotAndSaveNucleusMetricByEggChamber( ...
-    'nuc',2,'Mean','eggChamberSubtracted','meanIntFLAG_variantCTD',{[3,2,3]},[5,1,2,3,4,6],[7,8],0.3);
+    'nuc',2,'Mean','eggChamberSubtracted','meanNucIntFLAG_variantCTD_ecCorr',{[3,2,3]},[5,1,2,3,4,6],[7,8],0.3);
 [nucTable,avgNucTable,fh] = ec.scatterPlotAndSaveNucleusMetricByEggChamber( ...
-    'nuc',3,'Mean','eggChamberSubtracted','meanIntCycT',{[3,2,3]},[5,1,2,3,4,6],[7,8],0.3);
+    'nuc',3,'Mean','eggChamberSubtracted','meanNucIntCycT_ecCorr',{[3,2,3]},[5,1,2,3,4,6],[7,8],0.3);
 [nucTable,avgNucTable,fh] = ec.scatterPlotAndSaveNucleusMetricByEggChamber( ...
-    'nuc',4,'Mean','eggChamberSubtracted','meanIntHA_refCTD',{[3,2,3]},[5,1,2,3,4,6],[7,8],0.3);
+    'nuc',4,'Mean','eggChamberSubtracted','meanNucIntHA_refCTD_ecCorr',{[3,2,3]},[5,1,2,3,4,6],[7,8],0.3);
 
 %% scatter plot nucleoplasm intensity by egg chamber (raw): 
 
 % nucleoplasm (raw) :
-ec.scatterPlotNucleiMetricByEggChamber('plasm',1,'Mean','raw',[7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('plasm',2,'Mean','raw',[7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('plasm',3,'Mean','raw',[7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('plasm',4,'Mean','raw',[7,8]); 
-
-% nucleoli (raw) :
-ec.scatterPlotNucleiMetricByEggChamber('nucleoli',1,'Mean','raw',[7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('nucleoli',2,'Mean','raw',[7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('nucleoli',3,'Mean','raw',[7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('nucleoli',4,'Mean','raw',[7,8]); 
-
-%% scatter plot nucleoplasm intensity (background corrected)
-
-% nucleoplasm corrected for background estimated across each egg chamber
-% outside of nuclei
-ec.scatterPlotNucleiMetricByEggChamber('plasm',1,'Mean','eggChamberSubtracted',[7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('plasm',2,'Mean','eggChamberSubtracted',[7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('plasm',3,'Mean','eggChamberSubtracted',[7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('plasm',4,'Mean','eggChamberSubtracted',[7,8]); 
+[nucTable,avgNucTable,fh] = ec.scatterPlotAndSaveNucleusMetricByEggChamber( ...
+    'plasm',1,'Mean','raw','meanPlasmIntDAPI_raw',{[3,2,3]},[5,1,2,3,4,6],[7,8],0.3);
+[nucTable,avgNucTable,fh] = ec.scatterPlotAndSaveNucleusMetricByEggChamber( ...
+    'plasm',2,'Mean','raw','meanPlasmIntFLAG_variantCTD_raw',{[3,2,3]},[5,1,2,3,4,6],[7,8],0.3);
+[nucTable,avgNucTable,fh] = ec.scatterPlotAndSaveNucleusMetricByEggChamber( ...
+    'plasm',3,'Mean','raw','meanPlasmIntCycT_raw',{[3,2,3]},[5,1,2,3,4,6],[7,8],0.3);
+[nucTable,avgNucTable,fh] = ec.scatterPlotAndSaveNucleusMetricByEggChamber( ...
+    'plasm',4,'Mean','raw','meanPlasmIntHA_refCTD_raw',{[3,2,3]},[5,1,2,3,4,6],[7,8],0.3);
 
 % nucleoplasm corrected for background estimated across the nucleolus:
-ec.scatterPlotNucleiMetricByEggChamber('plasm',1,'Mean','nucleoliSubtracted',[7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('plasm',2,'Mean','nucleoliSubtracted',[7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('plasm',3,'Mean','nucleoliSubtracted',[7,8]); 
-ec.scatterPlotNucleiMetricByEggChamber('plasm',4,'Mean','nucleoliSubtracted',[7,8]); 
+[nucTable,avgNucTable,fh] = ec.scatterPlotAndSaveNucleusMetricByEggChamber( ...
+    'plasm',1,'Mean','nucleoliSubtracted','meanPlasmIntDAPI_nucleoliSub',{[3,2,3]},[5,1,2,3,4,6],[7,8],0.3);
+[nucTable,avgNucTable,fh] = ec.scatterPlotAndSaveNucleusMetricByEggChamber( ...
+    'plasm',2,'Mean','nucleoliSubtracted','meanPlasmIntFLAG_variantCTD_nucleoliSub',{[3,2,3]},[5,1,2,3,4,6],[7,8],0.3);
+[nucTable,avgNucTable,fh] = ec.scatterPlotAndSaveNucleusMetricByEggChamber( ...
+    'plasm',3,'Mean','nucleoliSubtracted','meanPlasmIntCycT_nucleoliSub',{[3,2,3]},[5,1,2,3,4,6],[7,8],0.3);
+[nucTable,avgNucTable,fh] = ec.scatterPlotAndSaveNucleusMetricByEggChamber( ...
+    'plasm',4,'Mean','nucleoliSubtracted','meanPlasmIntHA_refCTD_nucleoliSub',{[3,2,3]},[5,1,2,3,4,6],[7,8],0.3); 
 
 %% cluster intensity as a function of cluster volume, raw
 figure('Name','Cluster Volume vs DAPI intensity');
@@ -151,32 +136,35 @@ xlabel('Volume');
 ylabel('cluster C4Mean plasmCorr');
 set(gca,'xscale','log');
 
-ec.scatterPlotClusterMetricByEggChamber('clust',2,'Volume','',[7,8],0); 
-
-%% scatter plot by egg chamber: Number of clusters per nucleus
+%% scatter plot by egg chamber: Number of clusters per nucleus, Cluster volume
 minVolume = 1;
 maxVolume = Inf;
-ec.scatterPlotNucleiMetricByEggChamber('nuc',1,'NumClustersMinVol','',[7,8]); 
 
-ec.scatterPlotClusterMetricByEggChamber('clust',1,'Volume','',[7,8],minVolume);
-
-[nucTable,avgNucTable,fh] = ...
-    ec.scatterPlotAndSaveNucleusMetricByEggChamber( ...
+[nucTable,avgNucTable,fh] = ec.scatterPlotAndSaveNucleusMetricByEggChamber( ...
     'nuc',1,'NumClustersMinVol','','nClusters',...
                 {},[5,1,2,3,4,6],[7,8],0.3);
 
-[nucTable,avgNucTable,fh] = ...
-    ec.scatterPlotAndSaveClusterMetricByEggChamber( ...
+[nucTable,avgNucTable,fh] = ec.scatterPlotAndSaveClusterMetricByEggChamber( ...
     'clust',1,'Volume','','clusterVolume',...
                 {},[5,1,2,3,4,6],[7,8],minVolume,maxVolume,0.3);
 %% cluster intensity
 minVolume =1;
-ec.scatterPlotClusterMetricByEggChamber('clust',1,'Median','nucleoliSubtracted',[7,8],minVolume); 
-ec.scatterPlotClusterMetricByEggChamber('clust',2,'Median','nucleoliSubtracted',[7,8],minVolume); 
-ec.scatterPlotClusterMetricByEggChamber('clust',3,'Median','nucleoliSubtracted',[7,8],minVolume); 
-ec.scatterPlotClusterMetricByEggChamber('clust',4,'Median','nucleoliSubtracted',[7,8],minVolume);
+maxVolume = Inf;
+[nucTable,avgNucTable,fh] = ec.scatterPlotAndSaveClusterMetricByEggChamber( ...
+    'clust',1,'Median','nucleoliSubtracted','clustInt_DAPI_nucleoliSubtracted',...
+                {},[5,1,2,3,4,6],[7,8],minVolume,maxVolume,0.3);
+[nucTable,avgNucTable,fh] = ec.scatterPlotAndSaveClusterMetricByEggChamber( ...
+    'clust',2,'Median','nucleoliSubtracted','clustInt_FLAG_variantCTD_nucleoliSubtracted',...
+                {},[5,1,2,3,4,6],[7,8],minVolume,maxVolume,0.3);
+[nucTable,avgNucTable,fh] = ec.scatterPlotAndSaveClusterMetricByEggChamber( ...
+    'clust',3,'Median','nucleoliSubtracted','clustInt_CycT_nucleoliSubtracted',...
+                {},[5,1,2,3,4,6],[7,8],minVolume,maxVolume,0.3);
+[nucTable,avgNucTable,fh] = ec.scatterPlotAndSaveClusterMetricByEggChamber( ...
+    'clust',4,'Median','nucleoliSubtracted','clustInt_HA_refCTD_nucleoliSubtracted',...
+                {},[5,1,2,3,4,6],[7,8],minVolume,maxVolume,0.3);
 
-%%
+
+%% same for SMALL clusters
 minVolume = 0;
 maxVolume = 1;
 [clustTable2,avgClustTable2] = ec.scatterPlotAndSaveClusterMetricByEggChamber(...
@@ -188,6 +176,7 @@ maxVolume = 1;
     'clust',4,'Median','nucleoliSubtracted',...
     'clusterInt_HA_nucleoliSubtracted',...
     {},[5,1,2,3,4,6],[7,8],minVolume,maxVolume,0.1);
+
 %% cluster intensity as a function of cluster volume, normalized by nucleoplasm intensity
 figure('Name','Cluster Volume vs log2 DAPI intensity');
 s = scatter(ec.clustT.clust_Volume,log(ec.clustT.clust_C1Mean_plasmCorr./ec.clustT.plasm_C1Mean_eggChamberSubtracted)/log(2),'o',...
@@ -221,28 +210,7 @@ xlabel('Volume');
 ylabel('log2 (cluster C4Mean plasmCorr / / plasm C4Mean  eggChamberSubtracted)');
 set(gca,'xscale','log');
 
-%% scatter plot clusters Volume
-minVolume = 1;
 
-% all clusters
-ec.scatterPlotClusterMetricByEggChamber('clust',1,'Volume','',[7,8],0);
-
-% only bonafide HLBs (> 1um^3)
-ec.scatterPlotClusterMetricByEggChamber('clust',1,'Volume','',[7,8],minVolume);
-
-% all clusters
-ec.scatterPlotClusterMetricByEggChamber('clust',1,'Mean','plasmCorr',[7,8],0);
-
-% only bonafide HLBs (> 1um^3)
-ec.scatterPlotClusterMetricByEggChamber('clust',1,'Mean','plasmCorr',[7,8],minVolume);
-
-
-%% scatter plot clusters intensity
-
-ec.scatterPlotClusterMetricByEggChamber('clust',1,'Median','nucleoliSubtracted',[7,8],minVolume); 
-ec.scatterPlotClusterMetricByEggChamber('clust',2,'Median','nucleoliSubtracted',[7,8],minVolume); 
-ec.scatterPlotClusterMetricByEggChamber('clust',3,'Median','nucleoliSubtracted',[7,8],minVolume); 
-ec.scatterPlotClusterMetricByEggChamber('clust',4,'Median','nucleoliSubtracted',[7,8],minVolume); 
 
 %% Cluster intensity, mutant vs WT allele
 minVolume = 1;
@@ -302,6 +270,7 @@ c = unique(ec.clustT.cond_Idx);
 curX = 0;
 xtl = {};
 xt = [];
+curCond = 0;
 for i=1:numel(c)
     s = unique(ec.clustT.sample_Idx);
     for j=1:numel(s)
