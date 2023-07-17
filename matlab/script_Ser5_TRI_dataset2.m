@@ -683,3 +683,46 @@ avgCondClustTable = [avgCondClustTable1;avgCondClustTable2];
 saveDataFromPlot(fh,clustTable,avgEcClustTable,avgCondClustTable, clustFolder,...
         ['clustInt',channelNamesForDisplays{chX},'-',channelNamesForDisplays{chY},'ratio_plasmNorm_MPM2strat']);
 
+%% pltting MPM2+ and MPM2- HLB Volume side by side
+chRef = 2; % channel used to startify the data in positive vs negative
+yMax1 = 1; % max value to be called a negative
+yMin2 = 5; % min value to be called a positive
+
+stratificationName = 'MPM2positive'; %name of stratification variable
+idx1StratificationVal = 0; % negative
+idx2StratificationVal = 1; % positive
+
+minVolume = hlbMinVol; % minimum cluster Volume
+maxVolume = Inf; % max cluster Volume
+
+yRef = ec.clustT.(['clust_C',num2str(chRef),'Median_nucleoliSubtracted']) ...
+    ./ec.clustT.(['plasm_C',num2str(chRef),'Median_nucleoliSubtracted']);
+
+idxData1 = yRef < yMax1;
+idxData2 = yRef > yMin2;
+
+yData = ec.clustT.clust_Volume;
+
+[clustTable1,avgEcClustTable1,avgCondClustTable1,...
+clustTable2,avgEcClustTable2,avgCondClustTable2,fh] = ...
+            ec.scatterPlotAndSaveClustDualArbitraryMetricByEggChamber(...
+            yData,'clust_Volume',idxData1,idxData2,...
+            {},conditionsOrder,ecStagesToInclude,...
+            minVolume,maxVolume,1,'useMean',0.3,[0.7,0.7,0.7;0.7,0.7,0.7]);
+ylim('auto');
+
+% clustTable1 = addvars(clustTable1,idx1StratificationVal*ones(size(clustTable1,1),1),'newVariableNames',{stratificationName});
+% avgEcClustTable1 = addvars(avgEcClustTable1,idx1StratificationVal*ones(size(avgEcClustTable1,1),1),'newVariableNames',{stratificationName});
+% avgCondClustTable1 = addvars(avgCondClustTable1,idx1StratificationVal*ones(size(avgCondClustTable1,1),1),'newVariableNames',{stratificationName});
+% 
+% clustTable2 = addvars(clustTable2,idx2StratificationVal*ones(size(clustTable2,1),1),'newVariableNames',{stratificationName});
+% avgEcClustTable2 = addvars(avgEcClustTable2,idx2StratificationVal*ones(size(avgEcClustTable2,1),1),'newVariableNames',{stratificationName});
+% avgCondClustTable2 = addvars(avgCondClustTable2,idx2StratificationVal*ones(size(avgCondClustTable2,1),1),'newVariableNames',{stratificationName});
+% 
+% clustTable = [clustTable1;clustTable2];
+% avgEcClustTable = [avgEcClustTable1;avgEcClustTable2];
+% avgCondClustTable = [avgCondClustTable1;avgCondClustTable2];
+% 
+% saveDataFromPlot(fh,clustTable,avgEcClustTable,avgCondClustTable, clustFolder,...
+%         ['clustInt_',channelNamesForDisplays{i},'_plasmNorm_MPM2strat']);
+
