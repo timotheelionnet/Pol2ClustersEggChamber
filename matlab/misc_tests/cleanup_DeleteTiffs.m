@@ -1,5 +1,6 @@
 %% use at your own risk!!! this script will delete tiff files within a root folder
 rootFolder = '/Users/lionnt01/Dropbox/data/feiyue/20230508_PROTAC';
+% rootFolder = '/Users/lionnt01/Dropbox/data/feiyue/nucSeg20_3img/out_v4';
 
 % this flag when set to 1 will retain the 2D masks outlining the egg
 % chambers. When set to zero, the 2D masks will be erased. 
@@ -67,7 +68,7 @@ end
 
 if ~keepInitEggChamberTif
     idxToDeleteInitEggChamberTif = ~cellfun(@isempty,cellfun( @regexp, {tiffFileList(:).name}, ...
-        repmat({'FinalNucMask[.]tif$'},size({tiffFileList(:).name})),...
+        repmat({'InitNucMask[.]tif$'},size({tiffFileList(:).name})),...
         'UniformOutput',0 ))';  
 else
     idxToDeleteInitEggChamberTif = false(size({tiffFileList(:).name}))';
@@ -109,9 +110,13 @@ if isempty(txt)
     txt = 'N';
 end
 if strcmpi(txt,'Y')
+    disp('Deleting files...');
     for i=1:numel(filesToRemove)
         delete(fullfile(filesToRemove(i).folder,filesToRemove(i).name));
     end
+    disp('Done.');
+else
+    disp('No files deleted.');
 end
 
 
