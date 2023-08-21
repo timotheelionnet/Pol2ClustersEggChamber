@@ -1881,6 +1881,8 @@ classdef eggChamberDataSet < handle
                 % which summary metric you want to use.
             % alphaVal: value of the alpha (transparency) of individual
                 % data points. 0 is fully transparent, 1 is fully solid.
+            % userdefinedColorMap: you can enter a color value - this will supersede the autocolors FOR ALL. 
+                % Enter a 2x1 cell array, where each cell is an [nConditions x 3 matrix].         
 
             obj.setPlottingDistances(2,3,1,1,0.05);
 
@@ -1888,13 +1890,13 @@ classdef eggChamberDataSet < handle
             [clustTable1,avgEcClustTable1,avgCondClustTable1,fh] = ...
                 scatterPlotAndSaveClustArbitraryMetricByEggChamber(obj,yData,metricName,idxData1,...
                 ecToExclude,conditionOrder,eggChamberStagesToInclude,minClustVolume,maxClustVolume,...
-                removeBackgroundEggChambers,whichMetric,alphaVal,[],xOffset1);
+                removeBackgroundEggChambers,whichMetric,alphaVal,[],xOffset1,userDefinedColorMap{1});
             
             xOffset2 = obj.ecSeparator/4;
             [clustTable2,avgEcClustTable2,avgCondClustTable2,fh] = ...
                 scatterPlotAndSaveClustArbitraryMetricByEggChamber(obj,yData,metricName,idxData2,...
                 ecToExclude,conditionOrder,eggChamberStagesToInclude,minClustVolume,maxClustVolume,...
-                removeBackgroundEggChambers,whichMetric,alphaVal,fh,xOffset2,userDefinedColorMap);
+                removeBackgroundEggChambers,whichMetric,alphaVal,fh,xOffset2,userDefinedColorMap{2});
             
             obj.resetPlottingDistances();
         end

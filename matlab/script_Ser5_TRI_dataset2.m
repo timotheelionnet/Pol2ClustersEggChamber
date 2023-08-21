@@ -8,6 +8,12 @@ matlabOutFolder = '/Users/lionnt01/Dropbox/data/feiyue/Ser5ph_TRI/matlabOut';
 % matlabOutFolder, set this Flag to 1 (faster)
 useMatlabRatherThanFiji = 1;
 
+% (Only used if useMatlabRatherThanFiji = 1) 
+% If set to 1, the following variable will override the matlabOutFolder folder/subfolders in the
+% .mat file, and replace them with folder/subfolders based on the
+% matlabOutFolder hardcoded above.
+overrideMatFileOutputPaths = 1;
+
 % conditions order
     % conditions are listed in ec.conditionNames. this 
     % array sets the order in which they will be plotted 
@@ -30,7 +36,13 @@ hlbMinVol = 1;
 
 if useMatlabRatherThanFiji
     disp('loading data from matlab saved workspace...');
+    if overrideMatFileOutputPaths
+        hardCodedMatlabOutFolder = matlabOutFolder;
+    end
     load(fullfile(matlabOutFolder,'globalAnalysis.mat'));
+    if overrideMatFileOutputPaths
+        matlabOutFolder = hardCodedMatlabOutFolder;
+    end
     disp('done.');
 else
 
@@ -495,7 +507,7 @@ yData = numData./denomData;
 
 [clustTable,avgEcClustTable,avgCondClustTable,fh] = ...
     ec.scatterPlotAndSaveClustArbitraryMetricByEggChamber(...
-    yData,'Ser5ph/Pol2, normalized by nucleoplasm',idx0,...
+    yData,[channelNamesForDisplays{chY},'/',channelNamesForDisplays{chX},', normalized by nucleoplasm'],idx0,...
     {},conditionsOrder,ecStagesToInclude,minVolume,maxVolume,1,'useMedian',0.1);
 
 saveDataFromPlot(fh,clustTable,avgEcClustTable,avgCondClustTable, clustFolder,...
@@ -524,7 +536,7 @@ denomData = ec.clustT.(['clust_C',num2str(chX),'Median_nucleoliSubtracted'])...
 
 yData = numData./denomData;
 
-fh = figure('Name','Hist HLB Ser5ph/Pol2, normalized by nucleoplasm');
+fh = figure('Name',['Hist HLB ',channelNamesForDisplays{chY},'/',channelNamesForDisplays{chX},'normalized by nucleoplasm']);
 hold;
 for j=1:numel(ec.condIndices)
         curY = yData( ec.clustT.cond_Idx ==ec.condIndices(j) ...
@@ -565,7 +577,7 @@ denomData = ec.clustT.(['clust_C',num2str(chX),'Median_nucleoliSubtracted'])...
 
 yData = numData./denomData;
 
-fh = figure('Name','small cluster Ser5ph/Pol2, normalized by nucleoplasm');
+fh = figure('Name',['small cluster ',channelNamesForDisplays{chY},'/',channelNamesForDisplays{chX},' normalized by nucleoplasm']);
 hold;
 for j=1:numel(ec.condIndices)
         curY = yData( ec.clustT.cond_Idx ==ec.condIndices(j) ...
@@ -585,7 +597,7 @@ xlim([0 10]);
 saveas(fh,fullfile(clustFolder,['HistSmallClustInt',channelNamesForDisplays{chX},'-',channelNamesForDisplays{chY},'ratio_plasmNorm.fig']));
 saveas(fh,fullfile(clustFolder,['HistSmallClustInt',channelNamesForDisplays{chX},'-',channelNamesForDisplays{chY},'ratio_plasmNorm.eps']),'epsc');
 
-%% pltting MPM2+ and MPM2- HLB metrics side by side
+%% pl0tting MPM2+ and MPM2- HLB metrics side by side
 chRef = 2; % channel used to startify the data in positive vs negative
 yMax1 = 2.5; % max value to be called a negative
 yMin2 = 5; % min value to be called a positive
@@ -603,6 +615,9 @@ yRef = ec.clustT.(['clust_C',num2str(chRef),'Median_nucleoliSubtracted']) ...
 idxData1 = yRef < yMax1;
 idxData2 = yRef > yMin2;
 
+% first category (idxData1) is gray, second (idxData2) is in the default colors
+dualColorMap = {0.7*ones(size(condColors));condColors};
+
 for i=1:numel(channelNamesForDisplays)
 
     yData = ec.clustT.(['clust_C',num2str(i),'Median_nucleoliSubtracted']) ...
@@ -613,7 +628,7 @@ for i=1:numel(channelNamesForDisplays)
                 ec.scatterPlotAndSaveClustDualArbitraryMetricByEggChamber(...
                 yData,['clustInt_',channelNamesForDisplays{i},'_plasmNorm'],idxData1,idxData2,...
                 {},conditionsOrder,ecStagesToInclude,...
-                minVolume,maxVolume,1,'useMean',0.3,[0.7,0.7,0.7;0.7,0.7,0.7]);
+                minVolume,maxVolume,1,'useMean',0.3,dualColorMap);
     ylim('auto');
 
     clustTable1 = addvars(clustTable1,idx1StratificationVal*ones(size(clustTable1,1),1),'newVariableNames',{stratificationName});
@@ -641,8 +656,8 @@ stratificationName = 'MPM2positive';
 idx1StratificationVal = 0;
 idx2StratificationVal = 1;
 
-chX = 4;
 chY = 3;
+chX = 4;
 
 minVolume = hlbMinVol; % minimum cluster Volume
 maxVolume = Inf; % max cluster Volume
@@ -652,6 +667,9 @@ yRef = ec.clustT.(['clust_C',num2str(chRef),'Median_nucleoliSubtracted']) ...
 
 idxData1 = yRef < yMax1;
 idxData2 = yRef > yMin2;
+
+% first category (idxData1) is gray, second (idxData2) is in the default colors
+dualColorMap = {0.7*ones(size(condColors));condColors};
 
 numData = ec.clustT.(['clust_C',num2str(chY),'Median_nucleoliSubtracted'])...
     ./ec.clustT.(['plasm_C',num2str(chY),'Median_nucleoliSubtracted']);
@@ -664,9 +682,9 @@ yData = numData./denomData;
 [clustTable1,avgEcClustTable1,avgCondClustTable1,...
     clustTable2,avgEcClustTable2,avgCondClustTable2,fh] = ...
     ec.scatterPlotAndSaveClustDualArbitraryMetricByEggChamber(...
-        yData,'Ser5ph/Pol2',idxData2,idxData1,...
+        yData,[channelNamesForDisplays{chY},'/',channelNamesForDisplays{chX}],idxData2,idxData1,...
         {},conditionsOrder,ecStagesToInclude,...
-        minVolume,maxVolume,1,'useMean',0.3,[0.7,0.7,0.7;0.7,0.7,0.7]);
+        minVolume,maxVolume,1,'useMean',0.3,dualColorMap);
 
 clustTable1 = addvars(clustTable1,idx1StratificationVal*ones(size(clustTable1,1),1),'newVariableNames',{stratificationName});
 avgEcClustTable1 = addvars(avgEcClustTable1,idx1StratificationVal*ones(size(avgEcClustTable1,1),1),'newVariableNames',{stratificationName});
@@ -701,6 +719,9 @@ yRef = ec.clustT.(['clust_C',num2str(chRef),'Median_nucleoliSubtracted']) ...
 idxData1 = yRef < yMax1;
 idxData2 = yRef > yMin2;
 
+% first category (idxData1) is gray, second (idxData2) is in the default colors
+dualColorMap = {0.7*ones(size(condColors));condColors};
+
 yData = ec.clustT.clust_Volume;
 
 [clustTable1,avgEcClustTable1,avgCondClustTable1,...
@@ -708,7 +729,7 @@ clustTable2,avgEcClustTable2,avgCondClustTable2,fh] = ...
             ec.scatterPlotAndSaveClustDualArbitraryMetricByEggChamber(...
             yData,'clust_Volume',idxData1,idxData2,...
             {},conditionsOrder,ecStagesToInclude,...
-            minVolume,maxVolume,1,'useMean',0.3,[0.7,0.7,0.7;0.7,0.7,0.7]);
+            minVolume,maxVolume,1,'useMean',0.3,dualColorMap);
 ylim('auto');
 
 % clustTable1 = addvars(clustTable1,idx1StratificationVal*ones(size(clustTable1,1),1),'newVariableNames',{stratificationName});
