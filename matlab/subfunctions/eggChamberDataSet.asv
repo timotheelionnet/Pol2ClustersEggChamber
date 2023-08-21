@@ -275,19 +275,19 @@ classdef eggChamberDataSet < handle
         % ************************** plotting settings    
 
         % used to set the spacing between cloud of points belonging to different nuclei    
-        spacingUnit = 1;
+        spacingUnit;
 
         % how much separation there is between conditions in units of spacingUnit
-        condSeparator = 2; 
+        condSeparator; 
 
         % how much separation there is between samples in units of spacingUnit
-        sampleSeparator = 2;
+        sampleSeparator;
 
         % how much separation there is between egg chambers in units of spacingUnit
-        ecSeparator = 1;
+        ecSeparator;
 
         % width of the cloud of points for each egg chamber
-        cloudWidth = 0.1;
+        cloudWidth;
         
     end
 
@@ -326,7 +326,7 @@ classdef eggChamberDataSet < handle
             obj.ecSeparator = 1;
     
             % width of the cloud of points for each egg chamber
-            obj.cloudWidth = 0.1;
+            obj.cloudWidth = 0.3;
         end
 
         %%
@@ -1219,7 +1219,7 @@ classdef eggChamberDataSet < handle
         %% scatter plot a metric by egg chamber (old)
         % older version, use scatterPlotAndSaveClusterMetricByEggChamber
         % instead
-        function scatterPlotClustTabelMetricByEggChamber(obj,prefix,channel,baseName,suffix,eggChamberStagesToInclude,minClustVolume)
+        function scatterPlotClustTableMetricByEggChamber(obj,prefix,channel,baseName,suffix,eggChamberStagesToInclude,minClustVolume)
             % prefix: any allowable prefix which marks the compartment the metric is calculated on e.g. 'nuc', or 'clust'
             % channel: intensity channel , e.g. 1. 
                 % (Value is ignored if the metric is a geometry feature 
@@ -1827,7 +1827,8 @@ classdef eggChamberDataSet < handle
         end
 
         %% scatter plot a metric from the cluster table by egg chamber, stratified by index
-        function [clustTable,avgEcClustTable,avgCondClustTable,fh] = ...
+        function [clustTable1,avgEcClustTable1,avgCondClustTable1,...
+                clustTable2,avgEcClustTable2,avgCondClustTable2,fh] = ...
                 scatterPlotAndSaveClustDualArbitraryMetricByEggChamber(...
                 obj,yData,metricName,idxData1,idxData2,...
                 ecToExclude,conditionOrder,eggChamberStagesToInclude,...
@@ -1861,20 +1862,21 @@ classdef eggChamberDataSet < handle
             % alphaVal: value of the alpha (transparency) of individual
                 % data points. 0 is fully transparent, 1 is fully solid.
 
-            obj.ecSeparator = 1;  
-            xOffset1 = -obj.ecSeparator/3;   
-            [clustTable,avgEcClustTable,avgCondClustTable,fh] = ...
+            obj.setPlottingDistances(2,3,1,1,0.05);
+
+            xOffset1 = -obj.ecSeparator/4;   
+            [clustTable1,avgEcClustTable1,avgCondClustTable1,fh] = ...
                 scatterPlotAndSaveClustArbitraryMetricByEggChamber(obj,yData,metricName,idxData1,...
                 ecToExclude,conditionOrder,eggChamberStagesToInclude,minClustVolume,maxClustVolume,...
                 removeBackgroundEggChambers,whichMetric,alphaVal,[],xOffset1);
             
-            xOffset2 = obj.ecSeparator/3;
-            [clustTable,avgEcClustTable,avgCondClustTable,fh] = ...
+            xOffset2 = obj.ecSeparator/4;
+            [clustTable2,avgEcClustTable2,avgCondClustTable2,fh] = ...
                 scatterPlotAndSaveClustArbitraryMetricByEggChamber(obj,yData,metricName,idxData2,...
                 ecToExclude,conditionOrder,eggChamberStagesToInclude,minClustVolume,maxClustVolume,...
                 removeBackgroundEggChambers,whichMetric,alphaVal,fh,xOffset2,userDefinedColorMap);
             
-            obj.ecSeparator = 0.1;
+            obj.resetPlottingDistances();
         end
         
         %% scatter plot any cluster metric by egg chamber
@@ -2124,7 +2126,6 @@ classdef eggChamberDataSet < handle
                                     end
 
                                     curCond = obj.condIndices(i);
-                                    obj.condSeparator
                                     xCtr = xCtr+obj.condSeparator*obj.spacingUnit;
                                     xCondAvg = xCtr;
                                     yCondAvg = [];
@@ -2322,7 +2323,21 @@ classdef eggChamberDataSet < handle
             xticks(xSampleValsVec);
             xticklabels(xSampleIDsVec);
             xtickangle(45);
-            ylim([min([0,1.2*yMin]),1.2*yMax]);
+            if isInf(yMin) && yMin >= 0
+                if isinf(yMax) && yMax <= 0
+                    yMin = 0;
+                    yMax = 1;
+                end
+            else
+                yMin = min([0,1.2*yMin]);
+                yMax = 1.2*yMax;
+                if yMin == yMax
+                    yMin
+                end
+            end
+             
+            
+            ylim([,]);
             ylabel(metricName);
             grid on
 

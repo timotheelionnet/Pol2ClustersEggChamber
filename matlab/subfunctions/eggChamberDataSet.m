@@ -2323,7 +2323,27 @@ classdef eggChamberDataSet < handle
             xticks(xSampleValsVec);
             xticklabels(xSampleIDsVec);
             xtickangle(45);
-            ylim([min([0,1.2*yMin]),1.2*yMax]);
+            if isinf(yMin) && yMin >= 0
+                if isinf(yMax) && yMax <= 0
+                    yMin = 0;
+                    yMax = 1;
+                end
+            else
+                yMin = min([0,1.2*yMin]);
+                yMax = 1.2*yMax;
+                if yMin == yMax
+                    if yMin == 0
+                        yMin = yMin - 1;
+                        yMax = yMax + 1;
+                    else
+                        yMin = yMin - 0.1*yMin;
+                        yMax = yMax + 0.1*yMin;
+                    end
+                end
+            end
+             
+            
+            ylim([yMin,yMax]);
             ylabel(metricName);
             grid on
 

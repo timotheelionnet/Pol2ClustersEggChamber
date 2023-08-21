@@ -6,7 +6,7 @@ matlabOutFolder = '/Users/lionnt01/Dropbox/data/feiyue/20230415_CTDmutants/Matla
 
 % if the data has already been uploaded in Matlab and saved in the
 % matlabOutFolder, set this Flag to 1 (faster)
-useMatlabRatherThanFiji = 0;
+useMatlabRatherThanFiji = 1;
 
 % conditions order
     % conditions are listed in ec.conditionNames. this 
