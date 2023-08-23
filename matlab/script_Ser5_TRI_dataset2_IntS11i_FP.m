@@ -1,12 +1,8 @@
 % enter here the path of the folder where the output of the Fiji scripts is saved
-fijiOutFolder = '/Volumes/lionnt01lab/lionnt01labspace/Feiyue_Tim/DMSOvsTRIser5ph-out';
+fijiOutFolder = '/Volumes/Lionnet1/20230812-matlab/20230812-IntS11ivsCtrl_Ser5ph-out';
 
-% entere here the path where to re-load the data from a previous Matlab run
-% (only used if useMatlabRatherThanFiji = 1;)
-matlabInFolder = '/Users/lionnt01/Dropbox/data/feiyue/Ser5ph_TRI/matlabOut';
-
-% entere here the path where to save the data 
-matlabOutFolder = '/Users/lionnt01/Dropbox/data/feiyue/Ser5ph_TRI/matlabOut';
+% entere here the path where to save the data output by Matlab
+matlabOutFolder = '/Volumes/Lionnet1/20230812-matlab/20230812-IntS11ivsCtrl_Ser5ph-matlabout';
 
 % if the data has already been uploaded in Matlab and saved in the
 % matlabOutFolder, set this Flag to 1 (faster)
@@ -17,18 +13,19 @@ useMatlabRatherThanFiji = 1;
 % .mat file, and replace them with folder/subfolders based on the
 % matlabOutFolder hardcoded above.
 overrideMatFileOutputPaths = 1;
+hardCodedMatlabOutFolder = '/Users/lionnt01/Dropbox/data/feiyue/Ser5ph_TRI/matlabOut';
 
 % conditions order
     % conditions are listed in ec.conditionNames. this 
     % array sets the order in which they will be plotted 
-conditionsOrder = [1,2]; 
+conditionsOrder = [1,2,3,4]; 
 
 % set path for subfunctions
 addpath('subfunctions/');
 addpath('cbrewer/');
 
 % channel names for displays
-channelNamesForDisplays = {'DAPI','MPM2','Ser5ph','PolII'};
+channelNamesForDisplays = {'DAPI','Pol2','Ser5ph','P-TEFb'};
 
 % eggChamberStages to Include in plots
 ecStagesToInclude = 0:10;
@@ -40,7 +37,13 @@ hlbMinVol = 1;
 
 if useMatlabRatherThanFiji
     disp('loading data from matlab saved workspace...');
-    load(fullfile(matlabInFolder,'globalAnalysis.mat'));
+    if overrideMatFileOutputPaths
+        hardCodedMatlabOutFolder = matlabOutFolder;
+    end
+    load(fullfile(matlabOutFolder,'globalAnalysis.mat'));
+    if overrideMatFileOutputPaths
+        matlabOutFolder = hardCodedMatlabOutFolder;
+    end
     disp('done.');
 else
 
@@ -350,7 +353,7 @@ for i=1:numel(channelNamesForDisplays)
     
 end
 
-%% histogram of HLB cluster intensities (raw) by condition
+%% histogram of HLB cluster intensities (relative to plasm levels) by condition
 minVolume =hlbMinVol;
 maxVolume = Inf;
 histBinSize = 100;
@@ -359,7 +362,7 @@ for i=1:numel(channelNamesForDisplays)
     % collect all intensities of the current channel
     yData = ec.clustT.(['clust_C',num2str(i),'Median_nucleoliSubtracted']);
 
-    fh = figure('Name',['histogram of raw HLB ',channelNamesForDisplays{i},' Int by condition (bg-corr).']);
+    fh = figure('Name',['histogram of HLB ',channelNamesForDisplays{i},' Int by condition (bg-corr).']);
     hold;
     for j=1:numel(ec.condIndices)
         curY = yData( ec.clustT.cond_Idx ==ec.condIndices(j) ...
@@ -373,7 +376,7 @@ for i=1:numel(channelNamesForDisplays)
         
     end
     legend show
-    xlabel(['Cluster ',channelNamesForDisplays{i},' intensity, nucleoli-subtracted']);
+    xlabel(['Cluster ',channelNamesForDisplays{i},' intensity, plasm-norm']);
     ylabel('Count');
     saveas(fh,fullfile(clustFolder,['HistClust',channelNamesForDisplays{i},'_',ec.conditionNames{j},'IntBgCorr.fig']));
     saveas(fh,fullfile(clustFolder,['HistClust',channelNamesForDisplays{i},'_',ec.conditionNames{j},'IntBgCorr.eps']),'epsc');
@@ -402,7 +405,7 @@ for i=1:numel(channelNamesForDisplays)
         writetable(t,fullfile(clustFolder,['HistSmallClust',channelNamesForDisplays{i},'_',ec.conditionNames{j},'IntBgCorr.txt']),'Delimiter','\t');
     end
     legend show
-    xlabel(['Small Cluster ',channelNamesForDisplays{i},' intensity, nucleoli-subtracted']);
+    xlabel(['Small Cluster ',channelNamesForDisplays{i},' intensity, bg-corr']);
     ylabel('Count');
     saveas(fh,fullfile(clustFolder,['HistSmallClust',channelNamesForDisplays{i},'_',ec.conditionNames{j},'IntBgCorr.fig']));
     saveas(fh,fullfile(clustFolder,['HistSmallClust',channelNamesForDisplays{i},'_',ec.conditionNames{j},'IntBgCorr.eps']),'epsc');
@@ -411,7 +414,7 @@ end
 
 %% Cluster intensity, channel vs channel (nucleoli subtracted)
 chX = 3;  % channel for X axis
-chY = 4;  % channel for Y axis
+chY = 2;  % channel for Y axis
 minVolume = hlbMinVol;
 maxVolume = Inf;
 
@@ -445,7 +448,7 @@ saveas(fh,fullfile(qcFolder,...
     ['clustInt',channelNamesForDisplays{chX},'_vs_',channelNamesForDisplays{chY},'.eps']),'epsc');
 
 %% Cluster intensity, channel vs channel (relative to nuclei levels)
-chX = 4; % channel for X axis
+chX = 2; % channel for X axis
 chY = 3; % channel for Y axis
 minVolume = hlbMinVol;
 maxVolume = Inf;
@@ -484,7 +487,7 @@ saveas(fh,fullfile(qcFolder,...
 clear idx idx0
 %% HLB chY/chX ratio, by sample - Normalized to nuclear levels (nucleoli Subtracted, normalized to nucleoplasm levels)
 chY = 3; % numerator channel
-chX = 4; % denominator channel
+chX = 2; % denominator channel
 
 minVolume = hlbMinVol; % minimum cluster Volume
 maxVolume = Inf; % max cluster Volume
@@ -518,7 +521,7 @@ maxVolume = Inf;
 histBinSize = 0.1;
 
 chY = 3; % numerator channel
-chX = 4; % denominator channel
+chX = 2; % denominator channel
 
 % egg Chambers/clusters to include based on filters
 idx0 = ismember(ec.clustT.eggChamber_Stage , ecStagesToInclude) ...
@@ -559,7 +562,7 @@ maxVolume = hlbMinVol/5;
 histBinSize = 0.1;
 
 chY = 3; % numerator channel
-chX = 4; % denominator channel
+chX = 2; % denominator channel
 
 % egg Chambers/clusters to include based on filters
 idx0 = ismember(ec.clustT.eggChamber_Stage , ecStagesToInclude) ...
@@ -596,7 +599,7 @@ saveas(fh,fullfile(clustFolder,['HistSmallClustInt',channelNamesForDisplays{chX}
 saveas(fh,fullfile(clustFolder,['HistSmallClustInt',channelNamesForDisplays{chX},'-',channelNamesForDisplays{chY},'ratio_plasmNorm.eps']),'epsc');
 
 %% pl0tting MPM2+ and MPM2- HLB metrics side by side
-chRef = 2; % channel used to startify the data in positive vs negative
+chRef = 4; % channel used to startify the data in positive vs negative
 yMax1 = 2.5; % max value to be called a negative
 yMin2 = 5; % min value to be called a positive
 
@@ -647,7 +650,7 @@ for i=1:numel(channelNamesForDisplays)
 end
 
 %% pltting MPM2+ and MPM2- Ser5ph/Pol II side by side
-chRef = 2; % channel used to startify the data in positive vs negative
+chRef = 4; % channel used to startify the data in positive vs negative
 yMax1 = 2.5; % max value to be called a negative
 yMin2 = 5; % min value to be called a positive
 stratificationName = 'MPM2positive';
@@ -655,7 +658,7 @@ idx1StratificationVal = 0;
 idx2StratificationVal = 1;
 
 chY = 3;
-chX = 4;
+chX = 2;
 
 minVolume = hlbMinVol; % minimum cluster Volume
 maxVolume = Inf; % max cluster Volume
@@ -680,7 +683,7 @@ yData = numData./denomData;
 [clustTable1,avgEcClustTable1,avgCondClustTable1,...
     clustTable2,avgEcClustTable2,avgCondClustTable2,fh] = ...
     ec.scatterPlotAndSaveClustDualArbitraryMetricByEggChamber(...
-        yData,[channelNamesForDisplays{chY},'/',channelNamesForDisplays{chX}],idxData1,idxData2,...
+        yData,[channelNamesForDisplays{chY},'/',channelNamesForDisplays{chX}],idxData2,idxData1,...
         {},conditionsOrder,ecStagesToInclude,...
         minVolume,maxVolume,1,'useMean',0.3,dualColorMap);
 
@@ -700,7 +703,7 @@ saveDataFromPlot(fh,clustTable,avgEcClustTable,avgCondClustTable, clustFolder,..
         ['clustInt',channelNamesForDisplays{chX},'-',channelNamesForDisplays{chY},'ratio_plasmNorm_MPM2strat']);
 
 %% pltting MPM2+ and MPM2- HLB Volume side by side
-chRef = 2; % channel used to startify the data in positive vs negative
+chRef = 4; % channel used to startify the data in positive vs negative
 yMax1 = 1; % max value to be called a negative
 yMin2 = 5; % min value to be called a positive
 
