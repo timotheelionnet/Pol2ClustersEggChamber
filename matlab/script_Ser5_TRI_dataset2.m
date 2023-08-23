@@ -352,7 +352,7 @@ for i=1:numel(channelNamesForDisplays)
     
 end
 
-%% histogram of HLB cluster intensities (relative to plasm levels) by condition
+%% histogram of HLB cluster intensities (raw) by condition
 minVolume =hlbMinVol;
 maxVolume = Inf;
 histBinSize = 100;
@@ -361,7 +361,7 @@ for i=1:numel(channelNamesForDisplays)
     % collect all intensities of the current channel
     yData = ec.clustT.(['clust_C',num2str(i),'Median_nucleoliSubtracted']);
 
-    fh = figure('Name',['histogram of HLB ',channelNamesForDisplays{i},' Int by condition (bg-corr).']);
+    fh = figure('Name',['histogram of raw HLB ',channelNamesForDisplays{i},' Int by condition (bg-corr).']);
     hold;
     for j=1:numel(ec.condIndices)
         curY = yData( ec.clustT.cond_Idx ==ec.condIndices(j) ...
@@ -375,7 +375,7 @@ for i=1:numel(channelNamesForDisplays)
         
     end
     legend show
-    xlabel(['Cluster ',channelNamesForDisplays{i},' intensity, plasm-norm']);
+    xlabel(['Cluster ',channelNamesForDisplays{i},' intensity, nucleoli-subtracted']);
     ylabel('Count');
     saveas(fh,fullfile(clustFolder,['HistClust',channelNamesForDisplays{i},'_',ec.conditionNames{j},'IntBgCorr.fig']));
     saveas(fh,fullfile(clustFolder,['HistClust',channelNamesForDisplays{i},'_',ec.conditionNames{j},'IntBgCorr.eps']),'epsc');
@@ -404,7 +404,7 @@ for i=1:numel(channelNamesForDisplays)
         writetable(t,fullfile(clustFolder,['HistSmallClust',channelNamesForDisplays{i},'_',ec.conditionNames{j},'IntBgCorr.txt']),'Delimiter','\t');
     end
     legend show
-    xlabel(['Small Cluster ',channelNamesForDisplays{i},' intensity, bg-corr']);
+    xlabel(['Small Cluster ',channelNamesForDisplays{i},' intensity, nucleoli-subtracted']);
     ylabel('Count');
     saveas(fh,fullfile(clustFolder,['HistSmallClust',channelNamesForDisplays{i},'_',ec.conditionNames{j},'IntBgCorr.fig']));
     saveas(fh,fullfile(clustFolder,['HistSmallClust',channelNamesForDisplays{i},'_',ec.conditionNames{j},'IntBgCorr.eps']),'epsc');
@@ -682,7 +682,7 @@ yData = numData./denomData;
 [clustTable1,avgEcClustTable1,avgCondClustTable1,...
     clustTable2,avgEcClustTable2,avgCondClustTable2,fh] = ...
     ec.scatterPlotAndSaveClustDualArbitraryMetricByEggChamber(...
-        yData,[channelNamesForDisplays{chY},'/',channelNamesForDisplays{chX}],idxData2,idxData1,...
+        yData,[channelNamesForDisplays{chY},'/',channelNamesForDisplays{chX}],idxData1,idxData2,...
         {},conditionsOrder,ecStagesToInclude,...
         minVolume,maxVolume,1,'useMean',0.3,dualColorMap);
 
