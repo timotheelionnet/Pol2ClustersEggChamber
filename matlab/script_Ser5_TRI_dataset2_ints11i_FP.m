@@ -1,12 +1,12 @@
 % enter here the path of the folder where the output of the Fiji scripts is saved
-fijiOutFolder = '/Volumes/lionnt01lab/lionnt01labspace/Feiyue_Tim/DMSOvsTRIser5ph-out';
+fijiOutFolder = '/Volumes/Lionnet1/20230812-matlab/20230812-IntS11ivsCtrl_Ser5ph-out';
 
 % entere here the path where to re-load the data from a previous Matlab run
 % (only used if useMatlabRatherThanFiji = 1;)
-matlabInFolder = '/Users/lionnt01/Dropbox/data/feiyue/Ser5ph_TRI/matlabOut';
+matlabInFolder = '/Volumes/lionnt01lab/lionnt01labspace/Feiyue_Tim/20230812-Ser5ph dataset with IntS11i vs control, FP vs control/20230812-IntS11ivsCtrl_Ser5ph-matlabout';
 
 % entere here the path where to save the data 
-matlabOutFolder = '/Users/lionnt01/Dropbox/data/feiyue/Ser5ph_TRI/matlabOut';
+matlabOutFolder = '/Users/lionnt01/Dropbox/data/feiyue/Ints11i_Ser5ph_TRI/matlabOut';
 
 % if the data has already been uploaded in Matlab and saved in the
 % matlabOutFolder, set this Flag to 1 (faster)
@@ -28,7 +28,7 @@ addpath('subfunctions/');
 addpath('cbrewer/');
 
 % channel names for displays
-channelNamesForDisplays = {'DAPI','MPM2','Ser5ph','PolII'};
+channelNamesForDisplays = {'DAPI','Pol2','Ser5ph','P-TEFb'};
 
 % eggChamberStages to Include in plots
 ecStagesToInclude = 0:10;
@@ -95,8 +95,8 @@ end
 if ~exist(matlabOutFolder,'dir')
     mkdir(matlabOutFolder);
 end
-save(fullfile(matlabOutFolder,'globalAnalysis.mat')); 
 
+save(fullfile(matlabOutFolder,'globalAnalysis.mat')); 
 nucFolder = fullfile(matlabOutFolder,'nucleiMetrics');
 if ~exist(nucFolder,'dir')
     mkdir(nucFolder);
@@ -128,7 +128,7 @@ end
     'nuc',1,'Volume','','nucVolume',true(size(ec.nucFullT,1),1),{},...
     conditionsOrder,ecStagesToInclude,1,'useMean',0.1);
 
-saveNucDataFromPlot(fh,fullTable,avgEcTable,avgCondTable, qcFolder,'nucVolume');
+saveDataFromPlot(fh,fullTable,avgEcTable,avgCondTable, qcFolder,'nucVolume');
 
 %% scatter plot nuclei intensity by egg chamber (qc): 
 
@@ -139,7 +139,7 @@ for i=1:numel(channelNamesForDisplays)
         ['meanNucInt',channelNamesForDisplays{i},'_raw'],true(size(ec.nucFullT,1),1),...
         {},conditionsOrder,ecStagesToInclude,1,'useMean',0.3);
 
-    saveNucDataFromPlot(fh,nucTable,avgEcTable,avgCondTable, qcFolder,...
+    saveDataFromPlot(fh,nucTable,avgEcTable,avgCondTable, qcFolder,...
         ['meanNucInt',channelNamesForDisplays{i},'_raw']);
 end
 
@@ -151,7 +151,7 @@ for i=1:numel(channelNamesForDisplays)
         ['meanNucInt',channelNamesForDisplays{i},'_eggChamberSubtracted'],true(size(ec.nucFullT,1),1),...
         {},conditionsOrder,ecStagesToInclude,1,'useMean',0.3);
 
-    saveNucDataFromPlot(fh,nucTable,avgEcTable,avgCondTable, qcFolder,...
+    saveDataFromPlot(fh,nucTable,avgEcTable,avgCondTable, qcFolder,...
         ['meanNucInt',channelNamesForDisplays{i},'_eggChamberSubtracted']);
 end
 
@@ -166,7 +166,7 @@ for i=1:numel(channelNamesForDisplays)
         ['meanPlasmInt',channelNamesForDisplays{i},'_nucleoliSub'],true(size(ec.nucFullT,1),1),...
         {},conditionsOrder,ecStagesToInclude,1,'useMean',0.3);
 
-    saveNucDataFromPlot(fh,nucTable,avgEcTable,avgCondTable, nucFolder,...
+    saveDataFromPlot(fh,nucTable,avgEcTable,avgCondTable, nucFolder,...
         ['meanPlasmInt',channelNamesForDisplays{i},'_nucleoliSub']);
 end
 
@@ -222,35 +222,28 @@ maxVolume = Inf;
     'nuc',1,'NumClustersMinVol','','nClusters',true(size(ec.nucT,1),1),...
     {},conditionsOrder,ecStagesToInclude,1,'useMean',0.2);
 
-saveNucDataFromPlot(fh,nucTable,avgEcTable,avgCondTable, nucFolder,'nClusters');
+saveDataFromPlot(fh,nucTable,avgEcTable,avgCondTable, nucFolder,'nClusters');
 
-[clustTable,avgNucClustTable,avgEcTable,avgCondTable,fhFull] = ec.scatterPlotAndSaveClustTableMetricByEggChamber( ...
+[nucTable,avgEcTable,avgCondTable,fh] = ec.scatterPlotAndSaveClustTableMetricByEggChamber( ...
     'clust',1,'Volume','','clusterVolume',true(size(ec.clustT,1),1),...
     {},conditionsOrder,ecStagesToInclude,minVolume,maxVolume,1,'useMean',0.1);
 
-fhNuc = ec.plotClusterMetricByNucleus(avgNucClustTable,'mean_clusterVolume',...
-    true(size(avgNucClustTable,1),1),...
-    conditionsOrder,ecStagesToInclude,'mean clusterVolume by Nuclei',0.2);
-
-saveClustDataFromPlot(fhFull,fhNuc,clustTable,avgNucClustTable,avgEcTable,avgCondTable, clustFolder,'clustVolume');
+saveDataFromPlot(fh,nucTable,avgEcTable,avgCondTable, nucFolder,'clustVolume');
 
 %% cluster intensity, HLBs
 minVolume =hlbMinVol;
 maxVolume = Inf;
 
 for i=1:numel(channelNamesForDisplays)
-    curVarName = ['clustInt_',channelNamesForDisplays{i},'_nucleoliSubtracted'];
-    [clustTable,avgNucClustTable,avgEcClustTable,avgCondClustTable,fhFull] = ...
+   
+    [clustTable,avgEcClustTable,avgCondClustTable,fh] = ...
         ec.scatterPlotAndSaveClustTableMetricByEggChamber(...
-        'clust',i,'Median','nucleoliSubtracted',curVarName,...
+        'clust',i,'Median','nucleoliSubtracted',...
+        ['clustInt_',channelNamesForDisplays{i},'_nucleoliSubtracted'],...
         true(size(ec.clustT,1),1),{},conditionsOrder,ecStagesToInclude,...
         minVolume,maxVolume,1,'useMean',0.05);
 
-    fhNuc = ec.plotClusterMetricByNucleus(avgNucClustTable,...
-        ['mean_',curVarName],true(size(avgNucClustTable,1),1),...
-        conditionsOrder,ecStagesToInclude,['mean ',curVarName,' by Nuclei'],0.2);
-
-    saveClustDataFromPlot(fhFull,fhNuc,clustTable,avgNucClustTable,avgEcClustTable,avgCondClustTable, clustFolder,...
+    saveDataFromPlot(fh,clustTable,avgEcClustTable,avgCondClustTable, clustFolder,...
         ['clustInt',channelNamesForDisplays{i},'_nucleoliSub']);
 end
 
@@ -259,18 +252,15 @@ minVolume =0;
 maxVolume = hlbMinVol/5;
 
 for i=1:numel(channelNamesForDisplays)
-   curVarName = ['SmallClustInt_',channelNamesForDisplays{i},'_nucleoliSubtracted'];
-    [clustTable,avgNucClustTable,avgEcClustTable,avgCondClustTable,fhFull] = ...
+   
+    [clustTable,avgEcClustTable,avgCondClustTable,fh] = ...
         ec.scatterPlotAndSaveClustTableMetricByEggChamber(...
-        'clust',i,'Median','nucleoliSubtracted',curVarName,...
+        'clust',i,'Median','nucleoliSubtracted',...
+        ['SmallClustInt_',channelNamesForDisplays{i},'_nucleoliSubtracted'],...
         true(size(ec.clustT,1),1),{},conditionsOrder,ecStagesToInclude,...
         minVolume,maxVolume,1,'useMean',0.01);
 
-    fhNuc = ec.plotClusterMetricByNucleus(avgNucClustTable,...
-        ['mean_',curVarName],true(size(avgNucClustTable,1),1),...
-        conditionsOrder,ecStagesToInclude,['mean ',curVarName,' by Nuclei'],0.2);
-
-    saveClustDataFromPlot(fhFull,fhNuc,clustTable,avgNucClustTable,avgEcClustTable,avgCondClustTable, clustFolder,...
+    saveDataFromPlot(fh,clustTable,avgEcClustTable,avgCondClustTable, clustFolder,...
         ['smallClustInt',channelNamesForDisplays{i},'_nucleoliSub']);
 end
 
@@ -281,21 +271,16 @@ maxVolume = Inf;
 for i=1:numel(channelNamesForDisplays)
     yData = ec.clustT.(['clust_C',num2str(i),'Median_nucleoliSubtracted']) ...
         ./ec.clustT.(['plasm_C',num2str(i),'Median_nucleoliSubtracted']);
-    
-    curVarName = ['clustInt_',channelNamesForDisplays{i},'_nucleoliSubtr_plasmNorm'];
-
-    [clustTable,avgNucClustTable,avgEcClustTable,avgCondClustTable,fhFull] = ...
-        ec.scatterPlotAndSaveClustArbitraryMetricByEggChamber(yData,curVarName,...
+    [clustTable,avgEcClustTable,avgCondClustTable,fh] = ...
+        ec.scatterPlotAndSaveClustArbitraryMetricByEggChamber(...
+        yData,['clustInt_',channelNamesForDisplays{i},'_nucleoliSubtr_plasmNorm'],...
         true(size(ec.clustT,1),1),{},conditionsOrder,ecStagesToInclude,...
         minVolume,maxVolume,1,'useMean',0.2);
 
-    fhNuc = ec.plotClusterMetricByNucleus(avgNucClustTable,...
-        ['mean_',curVarName],true(size(avgNucClustTable,1),1),...
-        conditionsOrder,ecStagesToInclude,['mean ',curVarName,' by Nuclei'],0.2);
-
-    saveClustDataFromPlot(fhFull,fhNuc,clustTable,avgNucClustTable,avgEcClustTable,avgCondClustTable, clustFolder,...
+    saveDataFromPlot(fh,clustTable,avgEcClustTable,avgCondClustTable, clustFolder,...
         ['clustInt_',channelNamesForDisplays{i},'_plasmNorm']);
 end
+
 
 %% cluster intensity for SMALL clusters (nucleoli subtracted, relative to plasm levels)
 minVolume = 0;
@@ -304,20 +289,13 @@ maxVolume = hlbMinVol/5;
 for i=1:numel(channelNamesForDisplays)
     yData = ec.clustT.(['clust_C',num2str(i),'Median_nucleoliSubtracted']) ...
         ./ec.clustT.(['plasm_C',num2str(i),'Median_nucleoliSubtracted']);
-
-    curVarName = ['smallClustInt_',channelNamesForDisplays{i},'_nucleoliSubtr_plasmNorm'];
-
-    [clustTable,avgNucClustTable,avgEcClustTable,avgCondClustTable,fhFull] = ...
+    [clustTable,avgEcClustTable,avgCondClustTable,fh] = ...
         ec.scatterPlotAndSaveClustArbitraryMetricByEggChamber(...
-        yData,curVarName,...
+        yData,['smallClustInt_',channelNamesForDisplays{i},'_nucleoliSubtr_plasmNorm'],...
         true(size(ec.clustT,1),1),{},conditionsOrder,ecStagesToInclude,...
         minVolume,maxVolume,1,'useMean',0.01);
 
-    fhNuc = ec.plotClusterMetricByNucleus(avgNucClustTable,...
-        ['mean_',curVarName],true(size(avgNucClustTable,1),1),...
-        conditionsOrder,ecStagesToInclude,['mean ',curVarName,' by Nuclei'],0.2);
-
-    saveClustDataFromPlot(fhFull,fhNuc,clustTable,avgNucClustTable,avgEcClustTable,avgCondClustTable, clustFolder,...
+    saveDataFromPlot(fh,clustTable,avgEcClustTable,avgCondClustTable, clustFolder,...
         ['smallClustInt_',channelNamesForDisplays{i},'_plasmNorm']);
 end
 
@@ -345,7 +323,6 @@ for i=1:numel(channelNamesForDisplays)
         
     end
     legend show
-    grid on
     xlabel(['Cluster ',channelNamesForDisplays{i},' intensity, plasm-norm']);
     ylabel('Count');
     saveas(fh,fullfile(clustFolder,['HistClust',channelNamesForDisplays{i},'_',ec.conditionNames{j},'IntPlasmNorm.fig']));
@@ -376,7 +353,6 @@ for i=1:numel(channelNamesForDisplays)
         writetable(t,fullfile(clustFolder,['HistSmallClust',channelNamesForDisplays{i},'_',ec.conditionNames{j},'IntPlasmNorm.txt']),'Delimiter','\t');
     end
     legend show
-    grid on
     xlabel(['Small Cluster ',channelNamesForDisplays{i},' intensity, plasm-norm']);
     ylabel('Count');
     saveas(fh,fullfile(clustFolder,['HistSmallClust',channelNamesForDisplays{i},'_',ec.conditionNames{j},'IntPlasmNorm.fig']));
@@ -444,8 +420,8 @@ for i=1:numel(channelNamesForDisplays)
 end
 
 %% Cluster intensity, channel vs channel (nucleoli subtracted)
-chX = 3;  % channel for X axis
-chY = 4;  % channel for Y axis
+chX = 2;  % channel for X axis
+chY = 3;  % channel for Y axis
 minVolume = hlbMinVol;
 maxVolume = Inf;
 
@@ -480,87 +456,9 @@ saveas(fh,fullfile(qcFolder,...
 
 %% Cluster intensity, channel vs channel (relative to nuclei levels)
 chX = 4; % channel for X axis
-chY = 3; % channel for Y axis
+chY = 2; % channel for Y axis
 minVolume = hlbMinVol;
 maxVolume = Inf;
-
-% indices of points to plot
-idx0 = ismember(ec.clustT.eggChamber_Stage , ecStagesToInclude) ...
-    & ec.clustT.eggChamber_Idx > 0 ...
-    & ec.clustT.clust_Volume >= minVolume ...
-    & ec.clustT.clust_Volume <= maxVolume;
-
-idx = cell(numel(ec.condIndices),1);
-for i=1:numel(ec.condIndices)
-    idx{i} = idx0 & ec.clustT.cond_Idx == ec.condIndices(i);
-end
-
-fh = figure('Name',['cluster Intensity, ',channelNamesForDisplays{chX},' (x) vs ',channelNamesForDisplays{chY},' (y), nucleoplasm-normalized']); hold;
-for i=1:numel(ec.condIndices)
-    scatter(ec.clustT.(['clust_C',num2str(chX),'Median_nucleoliSubtracted'])(idx{i})...
-        ./ec.clustT.(['plasm_C',num2str(chX),'Median_nucleoliSubtracted'])(idx{i}),...
-        ec.clustT.(['clust_C',num2str(chY),'Median_nucleoliSubtracted'])(idx{i})...
-        ./ec.clustT.(['plasm_C',num2str(chY),'Median_nucleoliSubtracted'])(idx{i}),...
-        'o','MarkerFaceColor',condColors(i,:),'MarkerEdgeColor',condColors(i,:),'DisplayName',ec.conditionNames{i});
-end 
-
-alpha(0.3);
-xlabel(['C',num2str(chX),'Median nucleoliSubtracted, plasmNorm']);
-ylabel(['C',num2str(chY),'Median nucleoliSubtracted, plasmNorm']);
-grid on;
-legend show;
-
-saveas(fh,fullfile(qcFolder,...
-    ['clustInt',channelNamesForDisplays{chX},'_vs_',channelNamesForDisplays{chY},'_plasmNormalize.fig']));
-saveas(fh,fullfile(qcFolder,...
-    ['clustInt',channelNamesForDisplays{chX},'_vs_',channelNamesForDisplays{chY},'_plasmNormalized.eps']),'epsc');
-
-clear idx idx0
-
-%% Cluster intensity, channel vs channel (relative to nuclei levels)
-chX = 2; % channel for X axis
-chY = 3; % channel for Y axis
-minVolume = hlbMinVol;
-maxVolume = Inf;
-
-% indices of points to plot
-idx0 = ismember(ec.clustT.eggChamber_Stage , ecStagesToInclude) ...
-    & ec.clustT.eggChamber_Idx > 0 ...
-    & ec.clustT.clust_Volume >= minVolume ...
-    & ec.clustT.clust_Volume <= maxVolume;
-
-idx = cell(numel(ec.condIndices),1);
-for i=1:numel(ec.condIndices)
-    idx{i} = idx0 & ec.clustT.cond_Idx == ec.condIndices(i);
-end
-
-fh = figure('Name',['cluster Intensity, ',channelNamesForDisplays{chX},' (x) vs ',channelNamesForDisplays{chY},' (y), nucleoplasm-normalized']); hold;
-for i=1:numel(ec.condIndices)
-    scatter(ec.clustT.(['clust_C',num2str(chX),'Median_nucleoliSubtracted'])(idx{i})...
-        ./ec.clustT.(['plasm_C',num2str(chX),'Median_nucleoliSubtracted'])(idx{i}),...
-        ec.clustT.(['clust_C',num2str(chY),'Median_nucleoliSubtracted'])(idx{i})...
-        ./ec.clustT.(['plasm_C',num2str(chY),'Median_nucleoliSubtracted'])(idx{i}),...
-        'o','MarkerFaceColor',condColors(i,:),'MarkerEdgeColor',condColors(i,:),'DisplayName',ec.conditionNames{i});
-end 
-
-alpha(0.3);
-xlabel(['C',num2str(chX),'Median nucleoliSubtracted, plasmNorm']);
-ylabel(['C',num2str(chY),'Median nucleoliSubtracted, plasmNorm']);
-grid on;
-legend show;
-
-saveas(fh,fullfile(qcFolder,...
-    ['clustInt',channelNamesForDisplays{chX},'_vs_',channelNamesForDisplays{chY},'_plasmNormalize.fig']));
-saveas(fh,fullfile(qcFolder,...
-    ['clustInt',channelNamesForDisplays{chX},'_vs_',channelNamesForDisplays{chY},'_plasmNormalized.eps']),'epsc');
-
-clear idx idx0
-
-%% Small Cluster intensity, channel vs channel (relative to nuclei levels)
-chX = 2; % channel for X axis
-chY = 3; % channel for Y axis
-minVolume = 0;
-maxVolume = hlbMinVol/5;
 
 % indices of points to plot
 idx0 = ismember(ec.clustT.eggChamber_Stage , ecStagesToInclude) ...
@@ -596,7 +494,7 @@ saveas(fh,fullfile(qcFolder,...
 clear idx idx0
 %% HLB chY/chX ratio, by sample - Normalized to nuclear levels (nucleoli Subtracted, normalized to nucleoplasm levels)
 chY = 3; % numerator channel
-chX = 4; % denominator channel
+chX = 2; % denominator channel
 
 minVolume = hlbMinVol; % minimum cluster Volume
 maxVolume = Inf; % max cluster Volume
@@ -615,22 +513,22 @@ denomData = ec.clustT.(['clust_C',num2str(chX),'Median_nucleoliSubtracted'])...
 
 yData = numData./denomData;
 
-[clustTable,avgNucClustTable,avgEcClustTable,avgCondClustTable,fh] = ...
+[clustTable,avgEcClustTable,avgCondClustTable,fh] = ...
     ec.scatterPlotAndSaveClustArbitraryMetricByEggChamber(...
     yData,[channelNamesForDisplays{chY},'/',channelNamesForDisplays{chX},', normalized by nucleoplasm'],idx0,...
     {},conditionsOrder,ecStagesToInclude,minVolume,maxVolume,1,'useMedian',0.1);
 
-saveNucDataFromPlot(fh,clustTable,avgEcClustTable,avgCondClustTable, clustFolder,...
+saveDataFromPlot(fh,clustTable,avgEcClustTable,avgCondClustTable, clustFolder,...
         ['clustInt',channelNamesForDisplays{chX},'-',channelNamesForDisplays{chY},'ratio_plasmNorm']);
 
 
 %% histogram of HLB cluster chY/chX ratio (relative to plasm levels) by condition
 minVolume =hlbMinVol;
 maxVolume = Inf;
-histBinSize = 0.1;
+histBinSize = 0.3;
 
 chY = 3; % numerator channel
-chX = 4; % denominator channel
+chX = 2; % denominator channel
 
 % egg Chambers/clusters to include based on filters
 idx0 = ismember(ec.clustT.eggChamber_Stage , ecStagesToInclude) ...
@@ -708,11 +606,11 @@ saveas(fh,fullfile(clustFolder,['HistSmallClustInt',channelNamesForDisplays{chX}
 saveas(fh,fullfile(clustFolder,['HistSmallClustInt',channelNamesForDisplays{chX},'-',channelNamesForDisplays{chY},'ratio_plasmNorm.eps']),'epsc');
 
 %% pl0tting MPM2+ and MPM2- HLB metrics side by side
-chRef = 2; % channel used to startify the data in positive vs negative
+chRef = 4; % channel used to startify the data in positive vs negative
 yMax1 = 2.5; % max value to be called a negative
 yMin2 = 5; % min value to be called a positive
 
-stratificationName = 'MPM2positive'; %name of stratification variable
+stratificationName = 'PTEFBpositive'; %name of stratification variable
 idx1StratificationVal = 0; % negative
 idx2StratificationVal = 1; % positive
 
@@ -753,7 +651,7 @@ for i=1:numel(channelNamesForDisplays)
     avgEcClustTable = [avgEcClustTable1;avgEcClustTable2];
     avgCondClustTable = [avgCondClustTable1;avgCondClustTable2];
     
-    saveNucDataFromPlot(fh,clustTable,avgEcClustTable,avgCondClustTable, clustFolder,...
+    saveDataFromPlot(fh,clustTable,avgEcClustTable,avgCondClustTable, clustFolder,...
             ['clustInt_',channelNamesForDisplays{i},'_plasmNorm_MPM2strat']);
 
 end
@@ -808,7 +706,7 @@ clustTable = [clustTable1;clustTable2];
 avgEcClustTable = [avgEcClustTable1;avgEcClustTable2];
 avgCondClustTable = [avgCondClustTable1;avgCondClustTable2];
 
-saveNucDataFromPlot(fh,clustTable,avgEcClustTable,avgCondClustTable, clustFolder,...
+saveDataFromPlot(fh,clustTable,avgEcClustTable,avgCondClustTable, clustFolder,...
         ['clustInt',channelNamesForDisplays{chX},'-',channelNamesForDisplays{chY},'ratio_plasmNorm_MPM2strat']);
 
 %% pltting MPM2+ and MPM2- HLB Volume side by side
@@ -854,6 +752,6 @@ ylim('auto');
 % avgEcClustTable = [avgEcClustTable1;avgEcClustTable2];
 % avgCondClustTable = [avgCondClustTable1;avgCondClustTable2];
 % 
-% saveNucDataFromPlot(fh,clustTable,avgEcClustTable,avgCondClustTable, clustFolder,...
+% saveDataFromPlot(fh,clustTable,avgEcClustTable,avgCondClustTable, clustFolder,...
 %         ['clustInt_',channelNamesForDisplays{i},'_plasmNorm_MPM2strat']);
 

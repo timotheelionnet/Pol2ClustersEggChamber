@@ -1,12 +1,12 @@
 % enter here the path of the folder where the output of the Fiji scripts is saved
-fijiOutFolder = '/Volumes/lionnt01lab/lionnt01labspace/Feiyue_Tim/DMSOvsTRIser5ph-out';
+fijiOutFolder = '/Volumes/Lionnet1/20230812-matlab/20230812-IntS11ivsCtrl_Ser5ph-out';
 
 % entere here the path where to re-load the data from a previous Matlab run
 % (only used if useMatlabRatherThanFiji = 1;)
-matlabInFolder = '/Users/lionnt01/Dropbox/data/feiyue/Ser5ph_TRI/matlabOut';
+matlabInFolder = '/Volumes/lionnt01lab/lionnt01labspace/Feiyue_Tim/20230812-Ser5ph dataset with IntS11i vs control, FP vs control/20230812-IntS11ivsCtrl_Ser5ph-matlabout';
 
 % entere here the path where to save the data 
-matlabOutFolder = '/Users/lionnt01/Dropbox/data/feiyue/Ser5ph_TRI/matlabOut';
+matlabOutFolder = '/Users/lionnt01/Dropbox/data/feiyue/Ints11i_Ser5ph_TRI/matlabOut';
 
 % if the data has already been uploaded in Matlab and saved in the
 % matlabOutFolder, set this Flag to 1 (faster)
@@ -28,7 +28,7 @@ addpath('subfunctions/');
 addpath('cbrewer/');
 
 % channel names for displays
-channelNamesForDisplays = {'DAPI','MPM2','Ser5ph','PolII'};
+channelNamesForDisplays = {'DAPI','Pol2','Ser5ph','P-TEFb'};
 
 % eggChamberStages to Include in plots
 ecStagesToInclude = 0:10;
@@ -557,7 +557,7 @@ saveas(fh,fullfile(qcFolder,...
 clear idx idx0
 
 %% Small Cluster intensity, channel vs channel (relative to nuclei levels)
-chX = 2; % channel for X axis
+chX = 4; % channel for X axis
 chY = 3; % channel for Y axis
 minVolume = 0;
 maxVolume = hlbMinVol/5;
@@ -573,7 +573,7 @@ for i=1:numel(ec.condIndices)
     idx{i} = idx0 & ec.clustT.cond_Idx == ec.condIndices(i);
 end
 
-fh = figure('Name',['cluster Intensity, ',channelNamesForDisplays{chX},' (x) vs ',channelNamesForDisplays{chY},' (y), nucleoplasm-normalized']); hold;
+fh = figure('Name',['Small cluster Intensity, ',channelNamesForDisplays{chX},' (x) vs ',channelNamesForDisplays{chY},' (y), nucleoplasm-normalized']); hold;
 for i=1:numel(ec.condIndices)
     scatter(ec.clustT.(['clust_C',num2str(chX),'Median_nucleoliSubtracted'])(idx{i})...
         ./ec.clustT.(['plasm_C',num2str(chX),'Median_nucleoliSubtracted'])(idx{i}),...
@@ -582,7 +582,7 @@ for i=1:numel(ec.condIndices)
         'o','MarkerFaceColor',condColors(i,:),'MarkerEdgeColor',condColors(i,:),'DisplayName',ec.conditionNames{i});
 end 
 
-alpha(0.3);
+alpha(0.01);
 xlabel(['C',num2str(chX),'Median nucleoliSubtracted, plasmNorm']);
 ylabel(['C',num2str(chY),'Median nucleoliSubtracted, plasmNorm']);
 grid on;

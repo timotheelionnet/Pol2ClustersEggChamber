@@ -954,7 +954,7 @@ classdef eggChamberDataSet < handle
             xticks(xSampleValsVec);
             xticklabels(xSampleIDsVec);
             xtickangle(45);
-            ylabel(baseName);
+            ylabel(strrep(baseName,'_','\_'));
 
         end
 
@@ -1091,7 +1091,7 @@ classdef eggChamberDataSet < handle
             xticklabels(xSampleIDsVec);
             xtickangle(45);
             ylim([min([0,1.2*yMin]),1.2*yMax]);
-            ylabel(baseName);
+            ylabel(strrep(baseName,'_','\_'));
             grid on
         end    
 
@@ -1212,7 +1212,7 @@ classdef eggChamberDataSet < handle
             xticklabels(xSampleIDsVec);
             xtickangle(45);
             ylim([min([0,1.2*yMin]),1.2*yMax]);
-            ylabel(baseName);
+            ylabel(strrep(baseName,'_','\_'));
             grid on
         end
 
@@ -1336,7 +1336,7 @@ classdef eggChamberDataSet < handle
             xticklabels(xSampleIDsVec);
             xtickangle(45);
             ylim([min([0,1.2*yMin]),1.2*yMax]);
-            ylabel(baseName);
+            ylabel(strrep(baseName,'_','\_'));
             grid on
         end
         
@@ -1772,7 +1772,7 @@ classdef eggChamberDataSet < handle
             end  
             ylim([yMin,yMax]);
             
-            ylabel(metricName);
+            ylabel(strrep(metricName,'_','\_'));
             grid on
 
             % build full table
@@ -1799,7 +1799,7 @@ classdef eggChamberDataSet < handle
 
     
         %% scatter plot a metric from the cluster table by egg chamber
-        function [clustTable,avgEcClustTable,avgCondClustTable,fh] = ...
+        function [clustTable,avgNucClustTable,avgEcClustTable,avgCondClustTable,fh] = ...
                 scatterPlotAndSaveClustTableMetricByEggChamber(...
                 obj,prefix,channel,baseName,suffix,metricName,...
                 idxData,ecToExclude,conditionOrder,eggChamberStagesToInclude,...
@@ -1840,15 +1840,15 @@ classdef eggChamberDataSet < handle
                 return
             end
 
-            [clustTable,avgEcClustTable,avgCondClustTable,fh] = ...
+            [clustTable,avgNucClustTable,avgEcClustTable,avgCondClustTable,fh] = ...
                 obj.scatterPlotAndSaveClustArbitraryMetricByEggChamber(obj.clustT.(varName),metricName,idxData,...
                 ecToExclude,conditionOrder,eggChamberStagesToInclude,...
                 minClustVolume,maxClustVolume,removeBackgroundEggChambers,whichMetric,alphaVal);
         end
 
         %% scatter plot a metric from the cluster table by egg chamber, stratified by index
-        function [clustTable1,avgEcClustTable1,avgCondClustTable1,...
-                clustTable2,avgEcClustTable2,avgCondClustTable2,fh] = ...
+        function [clustTable1,avgNucClustTable1,avgEcClustTable1,avgCondClustTable1,...
+                clustTable2,avgNucClustTable2,avgEcClustTable2,avgCondClustTable2,fh] = ...
                 scatterPlotAndSaveClustDualArbitraryMetricByEggChamber(...
                 obj,yData,metricName,idxData1,idxData2,...
                 ecToExclude,conditionOrder,eggChamberStagesToInclude,...
@@ -1887,13 +1887,13 @@ classdef eggChamberDataSet < handle
             obj.setPlottingDistances(2,3,1,1,0.05);
 
             xOffset1 = -obj.ecSeparator/4;   
-            [clustTable1,avgEcClustTable1,avgCondClustTable1,fh] = ...
+            [clustTable1,avgNucClustTable1,avgEcClustTable1,avgCondClustTable1,fh] = ...
                 scatterPlotAndSaveClustArbitraryMetricByEggChamber(obj,yData,metricName,idxData1,...
                 ecToExclude,conditionOrder,eggChamberStagesToInclude,minClustVolume,maxClustVolume,...
                 removeBackgroundEggChambers,whichMetric,alphaVal,[],xOffset1,userDefinedColorMap{1});
             
             xOffset2 = obj.ecSeparator/4;
-            [clustTable2,avgEcClustTable2,avgCondClustTable2,fh] = ...
+            [clustTable2,avgNucClustTable2,avgEcClustTable2,avgCondClustTable2,fh] = ...
                 scatterPlotAndSaveClustArbitraryMetricByEggChamber(obj,yData,metricName,idxData2,...
                 ecToExclude,conditionOrder,eggChamberStagesToInclude,minClustVolume,maxClustVolume,...
                 removeBackgroundEggChambers,whichMetric,alphaVal,fh,xOffset2,userDefinedColorMap{2});
@@ -1902,7 +1902,7 @@ classdef eggChamberDataSet < handle
         end
         
         %% scatter plot any cluster metric by egg chamber
-        function [clustTable,avgEcClustTable,avgCondClustTable,fh] = ...
+        function [clustTable,avgNucClustTable,avgEcClustTable,avgCondClustTable,fh] = ...
                 scatterPlotAndSaveClustArbitraryMetricByEggChamber(obj,yData,metricName,idxData,...
                 ecToExclude,conditionOrder,eggChamberStagesToInclude,minClustVolume,maxClustVolume,...
                 removeBackgroundEggChambers,whichMetric,alphaVal,varargin)
@@ -2000,9 +2000,9 @@ classdef eggChamberDataSet < handle
 
             % build figure
             if ~isempty(metricName)
-                figName = metricName;
+                figName = [metricName,' by Clusters'];
             else
-                figName = strrep(varName,'_',' ');
+                figName = [strrep(varName,'_',' '),' by Clusters'];
             end
 
             if isempty(fh)
@@ -2031,7 +2031,6 @@ classdef eggChamberDataSet < handle
                 end
                 
             end
-
            
             % collect the values of the metric for each condition/sample
             xSampleValsVec = [];
@@ -2300,6 +2299,7 @@ classdef eggChamberDataSet < handle
                     end
                 end
             end
+
             % plot average of last condition
             if sum(~isnan(yCondAvg) & ~isinf(yCondAvg)) > 0
                 if sum(~isnan(yCondAvg) & ~isinf(yCondAvg)) > 1
@@ -2365,7 +2365,7 @@ classdef eggChamberDataSet < handle
             end
              
             ylim([yMin,yMax]);
-            ylabel(metricName);
+            ylabel(strrep(metricName,'_','\_'));
             grid on
 
             % build full table
@@ -2374,6 +2374,14 @@ classdef eggChamberDataSet < handle
                 cTableXData,cTableYData,'VariableNames',{...
                 'Condition','sample','sample_InputFileName','eggChamber','eggChamber_Stage',...
                 'nuc_Label','clust_Label','x',metricName}); 
+
+            % build table of nuclei averages
+            avgNucClustTable = grpstats(clustTable,...
+                ["Condition","sample","sample_InputFileName","eggChamber","eggChamber_Stage","nuc_Label"],...
+                ["mean","std"],...
+                "DataVars",metricName);
+            avgNucClustTable = renamevars(avgNucClustTable,{'GroupCount'},{'nClusters'});
+            avgNucClustTable.Properties.RowNames = {}; % remove the new row names created by the grpstats function
 
             % build table of averages by eggChamber
             avgEcClustTable = table(avgEcTableCondition_Name, avgEcTableSample, avgEcTableFileName,...
@@ -2390,8 +2398,122 @@ classdef eggChamberDataSet < handle
                 'N_eggChambers'});
 
         end
+        
+        %% scatter plot any cluster metric by nucleus
+        function fh = plotClusterMetricByNucleus(obj,avgNucClustTable,metricName,idxData,conditionOrder,eggChamberStagesToInclude,figName,alphaVal,varargin)
+            % avgNucClustTable is generated by the other scatter plot
+            % functions
+            
+            %collect figure handle if present   
+            userDefinedColorMap = [];
+            if ~isempty(varargin)
+                fh =varargin{1};
+                if numel(varargin)>1
+                    xOffset = varargin{2};
+                    if numel(varargin)>2
+                        userDefinedColorMap = varargin{3};
+                    end
+                end
+            else
+                fh = [];
+                xOffset = 0;
+            end
 
-    end
+            if isempty(fh)
+                fh = figure('Name',figName);
+                hold;
+                 % generate color maps
+                nc = numel(obj.condIndices);
+                if isempty(userDefinedColorMap)
+                    cmData =cbrewer('qual', 'Dark2', max(nc,3));
+                    if nc ==2
+                        cmData = cmData([1,3],:);
+                    end
+                else
+                    cmData = userDefinedColorMap;
+                end 
+            else
+                % generate color maps
+                nc = numel(obj.condIndices);
+                if isempty(userDefinedColorMap)
+                    cmData =cbrewer('qual', 'Dark2', max(nc,3));
+                    if nc ==2
+                        cmData = cmData([1,3],:);
+                    end
+                else
+                    cmData = userDefinedColorMap;
+                end    
+            end
+
+            % filter out undesired egg chamber stages
+            idxStage = ismember(avgNucClustTable.eggChamber_Stage,eggChamberStagesToInclude);
+            
+            xCtr = xOffset;
+            xSampleValsVec = [];
+            xSampleIDsVec = {};
+            yMin = Inf;
+            yMax = -Inf;
+            for idxCondOrder=1:numel(conditionOrder)
+                i = find(ismember(obj.condIndices,conditionOrder(idxCondOrder)));
+                if ~isempty(i)
+                    
+                    yPlot = avgNucClustTable.(metricName)(idxData ...
+                        & ismember(avgNucClustTable.Condition,obj.conditionNames(obj.condIndices(i))) ...
+                        & idxStage);
+                    if ~isempty(yPlot)
+                        nNuclei = numel(yPlot);
+                        nucSpacing = obj.cloudWidth*obj.spacingUnit / (nNuclei-1);
+                        xCtr = xCtr+obj.condSeparator*obj.spacingUnit;
+                        xPlot = xCtr - floor(nNuclei/2)*nucSpacing ...
+                                        + (0:(nNuclei-1))*nucSpacing;
+                        xMeanCond = mean(xPlot);
+                        yMeanCond = mean(yPlot);
+                        p = scatter(xPlot,yPlot,'o','MarkerEdgeColor',cmData(i,:),'MarkerFaceColor',cmData(i,:));
+                        alpha(p,alphaVal);
+                        p2 = scatter(xMeanCond,yMeanCond,'d','MarkerEdgeColor',cmData(i,:),'MarkerFaceColor',cmData(i,:));
+                        alpha(p2,0.9);
+
+                        curID = obj.conditionNames{i};
+                        curID = strrep(curID,'_','\_');
+                        xSampleValsVec = [xSampleValsVec,xCtr];
+                        xSampleIDsVec = [xSampleIDsVec,curID];
+
+                        yMax = max(yMax,max(yPlot(:)));
+                        yMin = min(yMin,min(yPlot(:)));
+                    end
+                end
+            end
+
+            xticks(xSampleValsVec);
+            xticklabels(xSampleIDsVec);
+            xtickangle(45);
+            if isinf(yMin) && yMin >= 0
+                if isinf(yMax) && yMax <= 0
+                    yMin = 0;
+                    yMax = 1;
+                end
+            else
+                yMin = min([0,1.2*yMin]);
+                yMax = 1.2*yMax;
+                if yMin == yMax
+                    if yMin == 0
+                        yMin = yMin - 1;
+                        yMax = yMax + 1;
+                    else
+                        yMin = yMin - 0.1*yMin;
+                        yMax = yMax + 0.1*yMin;
+                    end
+                end
+            end
+             
+            ylim([yMin,yMax]);
+            ylabel(strrep(metricName,'_','\_'));
+            grid on
+        end
+
+
+end
+
 
     methods(Access = 'private')
 
