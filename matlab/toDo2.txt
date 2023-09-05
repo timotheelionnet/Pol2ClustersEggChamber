@@ -1,0 +1,8 @@
+Number of large clusters per nucleus as a function of average signal in the cluster.
+Number of small clusters per nucleus - as a function of average signal in the cluster.
+
+Plot cluster size vs cluster levels independently by condition
+
+Nuclei averages for everything, including more complex plots.
+More examples of ser5ph+ clusters in G phase nuclei in ctrl and in Ints11i.
+
