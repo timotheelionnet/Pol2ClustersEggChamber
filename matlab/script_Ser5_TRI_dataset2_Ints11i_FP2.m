@@ -1,16 +1,17 @@
 % enter here the path of the folder where the output of the Fiji scripts is saved
 fijiOutFolder = '/Volumes/Lionnet1/20230812-matlab/20230812-IntS11ivsCtrl_Ser5ph-out';
+fijiOutFolder = '/Volumes/lionnt01lab/lionnt01labspace/Feiyue_Tim/20230812-Ser5ph dataset with IntS11i vs control, FP vs control/20230812-IntS11ivsCtrl_Ser5ph-out';
 
 % entere here the path where to re-load the data from a previous Matlab run
 % (only used if useMatlabRatherThanFiji = 1;)
 matlabInFolder = '/Volumes/lionnt01lab/lionnt01labspace/Feiyue_Tim/20230812-Ser5ph dataset with IntS11i vs control, FP vs control/20230812-IntS11ivsCtrl_Ser5ph-matlabout';
 
 % entere here the path where to save the data 
-matlabOutFolder = '/Users/lionnt01/Dropbox/data/feiyue/Ints11i_Ser5ph_TRI/matlabOut';
+matlabOutFolder = '/Users/lionnt01/Dropbox/data/feiyue/Ints11i_Ser5ph_TRI/matlabOut2';
 
 % if the data has already been uploaded in Matlab and saved in the
 % matlabOutFolder, set this Flag to 1 (faster)
-useMatlabRatherThanFiji = 1;
+useMatlabRatherThanFiji = 0;
 
 % (Only used if useMatlabRatherThanFiji = 1) 
 % If set to 1, the following variable will override the matlabOutFolder folder/subfolders in the
@@ -21,7 +22,7 @@ overrideMatFileOutputPaths = 1;
 % conditions order
     % conditions are listed in ec.conditionNames. this 
     % array sets the order in which they will be plotted 
-conditionsOrder = [1,2]; 
+conditionsOrder = [1,2,3,4]; 
 
 % set path for subfunctions
 addpath('subfunctions/');
@@ -33,8 +34,13 @@ channelNamesForDisplays = {'DAPI','Pol2','Ser5ph','P-TEFb'};
 % eggChamberStages to Include in plots
 ecStagesToInclude = 0:10;
 
-% HLB minimum volume in um^3
+% HLB min/max volume in um^3
 hlbMinVol = 1;
+hlbMaxVol = Inf;
+
+% small cluster min/max volume
+smallClusterMinVol = hlbMinVol/50;
+smallClusterMaxVol = hlbMinVol/5;
 
 %% upload the data
 
@@ -75,6 +81,7 @@ else
     % add nuc stats to cluster table
         % takes metrics from nucFullT and copies them as extra variables of the
         % cluster table. 
+        
     disp('adding Nuclei stats to Cluster table...');  
     ec.clustT = ec.addNucStatsToClustTable();
     
@@ -82,12 +89,16 @@ else
         % subtracts nucleoplasm intensity (plasmSubtracted) and nucleoli intensity
         % (nucleoliSubtracted)
     ec.backgroundCorrectClustIntensity();
-    
+
     % add cluster data to nuc table
         % takes metrics from clustT, averages them over each nucleus
         % and copies them as extra variables of the nuc table.
     disp('adding cluster stats to nuclei table...');    
-    ec.addAverageClusterStatsToNucTable();
+    % small clusters
+    ec.addAverageClusterStatsToNucTable(smallClusterMinVol,smallClusterMaxVol);
+
+    % large clusters
+    ec.addAverageClusterStatsToNucTable(hlbMinVol,Inf);  
     disp('done');
 end
 
@@ -120,12 +131,16 @@ if numel(ec.condIndices) == 2
     condColors = condColors([1,3],:);
 end
 
+% exclude nuclei and clusters outside of the eggChamber of interest
+nucleiInGoodEggChambers = ec.nucFullT.eggChamber_Label ~=0 ;
+clustersInGoodEggChambers = ec.clustT.eggChamber_Label ~=0 ;
+
 %% scatter plot by egg chamber: Nucleus Volume (qc)
 % plot where all nuclei from an egg chamber are grouped separately.
 
 % all stages
 [fullTable,avgEcTable,avgCondTable,fh] = ec.scatterPlotNucTableMetricByEggChamber( ...
-    'nuc',1,'Volume','','nucVolume',true(size(ec.nucFullT,1),1),{},...
+    'nuc',1,'Volume','','nucVolume',nucleiInGoodEggChambers,{},...
     conditionsOrder,ecStagesToInclude,1,'useMean',0.1);
 
 saveNucDataFromPlot(fh,fullTable,avgEcTable,avgCondTable, qcFolder,'nucVolume');

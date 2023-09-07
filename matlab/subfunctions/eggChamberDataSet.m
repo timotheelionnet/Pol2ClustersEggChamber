@@ -460,25 +460,174 @@ classdef eggChamberDataSet < handle
             nucStatsVars = [nucStatsVars,'nuc_Label'];
             idx = find(ismember(obj.nucFullT.Properties.VariableNames,nucStatsVars));
             
-            tJoin = table();
-            for ctr=1:size(obj.clustT,1)
-                i = obj.clustT.cond_Idx(ctr);
-                j = obj.clustT.sample_Idx(ctr);
-                k = obj.clustT.nuc_Label(ctr);
+            n = obj.nucFullT(:,idx);
 
+            % list of nuclei indices
+            nucIdxRows = [obj.nucFullT.cond_Idx(:),obj.nucFullT.sample_Idx(:),obj.nucFullT.nuc_Label(:)];
+            nucIdx = unique(nucIdxRows,'rows');
+
+            % list of indices in the cluster table
+            clustIdxRows = [obj.clustT.cond_Idx(:),obj.clustT.sample_Idx(:),obj.clustT.nuc_Label(:)];
+            
+            % add columns in clustT table for nuc variables
+            varsToAdd = setdiff(n.Properties.VariableNames,obj.clustT.Properties.VariableNames);
+            idxVarsToAdd = ismember(n.Properties.VariableNames,varsToAdd);
+            n2 = n(:,idxVarsToAdd);
+            numericVars = varfun(@isnumeric,n2,'output','uniform');
+            tJoin = obj.clustT;
+            for i=1:size(n2,2)
+                if numericVars(i)
+                    tJoin = addvars(tJoin,NaN(size(tJoin,1),1),'NewVariableNames',n2.Properties.VariableNames(i));
+                else
+                    tJoin = addvars(tJoin,repmat({''},size(tJoin,1),1),'NewVariableNames',n2.Properties.VariableNames(i));
+                end 
+            end
+
+            for ctr=1:size(nucIdx,1)
                 % extract nuc stats for current nucleus
-                nT = obj.nucFullT(...
-                   obj.nucFullT.cond_Idx == i...
-                   & obj.nucFullT.sample_Idx == j ...
-                   & obj.nucFullT.nuc_Label == k,idx);
+                nIdx = ismember(nucIdxRows,nucIdx(ctr,:),'rows');
+                nT = n2(nIdx,:);
+                nT = n2(1,:);
+ 
+                % find rows matching the current nucleus in the cluster table
+                cIdx = ismember(clustIdxRows,nucIdx(ctr,:),'rows');
 
-                nT2 = join(obj.clustT(ctr,:),nT,'Keys','nuc_Label');
-                tJoin = obj.combineEcTables(tJoin,nT2);  
+                % add nuclei values to current rows
+                tJoin(cIdx,end-size(n2,2)+1:end) = repmat(nT,sum(cIdx),1);
+            end
+
+            % make sure the variables are ordered
+            cVarList = {'sample_InputFileName','cond_Idx','sample_Idx',...
+                'eggChamber_Idx','eggChamber_Stage','nuc_Label','clust_Label'};
+            varOrder = 1:numel(cVarList);
+            for i=1:numel(cVarList)
+                if ismember(cVarList{i},tJoin.Properties.VariableNames)
+                    tJoin = movevars(tJoin,cVarList{i},'Before',varOrder(i));
+                end
             end
         end
 
+        %%
+        function addAverageClusterStatsToNucTable(obj,minClustVolume,maxClustVolume)
+            
+            % variable name for the number of clusters
+            numClustersVarName = ['nClusters',num2str(minClustVolume),'_',num2str(maxClustVolume)];
+            numClustersVarName = strrep(numClustersVarName,'.','pt');
+            
+            c = obj.clustT;
+            n = obj.nucFullT; 
+            
+            % remove all the cluster values outside of the volume range
+            idxClusters = c.clust_Volume >= minClustVolume...
+                          & c.clust_Volume <= maxClustVolume;
+            
+            c = c(idxClusters,:);
+            
+            %% collect all the variables from the cluster table except those that were
+            % lifted from the nucleus table, using prefixes as filters for varibale
+            % names
+            varsToExclude = ismember(c.Properties.VariableNames,{'clust_Label'});
+            pList = {'nuc_','sampleROI_','wholeImg_','eggChamber_','eggChamber_','plasm_','nucleoli_'};
+            for i=1:numel(pList)
+                varsToExclude = varsToExclude  | ...
+                    cellfun(@startsWith,...
+                    c.Properties.VariableNames,repmat(pList(i),...
+                    size(c.Properties.VariableNames)));
+            end
+            
+            % retain the few variables that are important but have forbiden prefixes
+            varsToExclude(ismember(c.Properties.VariableNames,{'nuc_Label'})) = 0;
+            varsToExclude(ismember(c.Properties.VariableNames,{'eggChamber_Idx'})) = 0;
+            varsToExclude(ismember(c.Properties.VariableNames,{'eggChamber_Stage'})) = 0;
+            
+            % filter out excluded variables from cluster table
+            c = c(:,~varsToExclude);
+            
+            %% average each cluster metric across each nucleus
+            c = grpstats(c,...
+                            ["cond_Idx","sample_Idx","sample_InputFileName",...
+                            "eggChamber_Idx","eggChamber_Stage","nuc_Label"],...
+                            ["mean","std"]);
+            
+            % rename the variable holding the number of clusters in each nucleus "nClusters"
+            c = renamevars(c,{'GroupCount'},numClustersVarName);
+            
+            % remove from the averaged table the new row names created by the grpstats function
+            c.Properties.RowNames = {}; 
+            
+            %% replace prefixes mean_ and std_ by nucAvgClust<MinVol>_<MaxVol>_ and nucStdClust<MinVol>_<maxVol>_
+            prefixList1 ={'mean_','std_'}; % prefix to replace in t (generated by grpstats)
+            prefixList2 ={'Avg','Std'}; % corresponding name of the metric in new variable
+            for i=1:numel(prefixList1)
+                vIn = c.Properties.VariableNames(cellfun(@startsWith,c.Properties.VariableNames,repmat(prefixList1(i),...
+                        size(c.Properties.VariableNames))));
+                vOut = cellfun(@strrep,vIn,repmat(prefixList1(i),size(vIn)),...
+                    repmat({[['nuc',prefixList2{i},'Clust'],num2str(minClustVolume),'_',num2str(maxClustVolume),'_']},size(vIn)),...
+                    'UniformOutput',0);
+                c = renamevars(c, vIn,vOut);
+            end
+            
+            %% add rows for nuclei which do not contain clusters
+             
+            % find unique combos of nuclei IDs present in nucleus table but absent in
+            % cluster table
+            % "cond_Idx","sample_Idx","sample_InputFileName","eggChamber_Idx","eggChamber_Stage","nuc_Label"
+            idCols = ["cond_Idx","sample_Idx","sample_InputFileName","eggChamber_Idx","eggChamber_Stage","nuc_Label"];
+            idxNucCols = ismember(n.Properties.VariableNames,idCols);
+            idxClustCols = ismember(c.Properties.VariableNames,idCols);
+            missingNucs = setdiff( unique( n(:,idxNucCols) ,'rows'),...
+                unique( c(:,idxClustCols) ,'rows'));
+            
+            % generate a new table with the same column as the cluster table
+            if isempty(c)
+                newNucs = array2table(zeros(size(missingNucs,1),size(c,2)), 'VariableNames',c.Properties.VariableNames);
+            else
+                newNucs = repmat(c(1,:),size(missingNucs,1),1);
+            end
+            
+            % initialize all values to NaN or '', except number of clusters set to 0
+            numericVars = varfun(@isnumeric,newNucs,'output','uniform');
+            newNucs{:,numericVars} = NaN;
+            newNucs(:,~numericVars) = {''};
+            newNucs.(numClustersVarName)(:) = 0;
+            
+            % enter the labels corresponding to the nuclei without clusters
+            for i=1:numel(idCols)
+                newNucs.(idCols{i}) = missingNucs.(idCols{i});
+            end
+            
+            % combine the missing nuclei with t
+            t2 = [c;newNucs];
+            
+            %% join the averaged cluster metrics with the nucleus metrics table
+            % join the averaged metrics with the nucleus table
+            newNucTable = join(n,t2,"Keys",...
+                ["cond_Idx","sample_Idx","sample_InputFileName",...
+                "eggChamber_Idx","eggChamber_Stage","nuc_Label"]);
+            
+            %% re-order key variables to the left for easier browsing of the table
+            
+            
+            % make sure the variables are ordered
+            cVarList = {'sample_InputFileName','cond_Idx','sample_Idx',...
+                'eggChamber_Idx','eggChamber_Stage','nuc_Label','nuc_Volume'};
+            varOrder = 1:numel(cVarList);
+            for i=1:numel(cVarList)
+                if ismember(cVarList{i},tJoin.Properties.VariableNames)
+                    tJoin = movevars(tJoin,cVarList{i},'Before',varOrder(i));
+                end
+            end
+
+            % place the number of clusters in the nucleus right after the nuc_Volume:
+            if ismember(numClustersVarName,newNucTable.Properties.VariableNames) ...
+                    && ismember('nuc_Volume',newNucTable.Properties.VariableNames)
+                newNucTable = movevars(newNucTable, {numClustersVarName},'After','nuc_Volume');
+            end
+            
+            obj.nucFullT = newNucTable;
+        end
         %% add average cluster stats to nuc tables
-        function addAverageClusterStatsToNucTable(obj)
+        function addAverageClusterStatsToNucTableOld(obj)
             % generate list of cluster variables to average out
             cv = obj.clustT.Properties.VariableNames;
             idx = find(cell2mat( cellfun( @contains, cv,...
@@ -958,9 +1107,9 @@ classdef eggChamberDataSet < handle
         end
 
         %% scatter plot arbitrary metric by egg chamber
-        % older version, use scatterPlotAndSaveNucleusArbitraryMetricByEggChamber
+        % older version, use scatterPlotNucArbitraryMetricByEggChamber
         % instead
-        function fh = scatterPlotArbitraryMetricByEggChamber(obj,figHandle,NucOrClustTable,yMetric,idx,eggChamberStagesToInclude)
+        function fh = scatterPlotArbitraryMetricByEggChamberOld(obj,figHandle,NucOrClustTable,yMetric,idx,eggChamberStagesToInclude)
             
             % if shorthand 'all' was used for cell stages to include, replace it by
             % list of stage numbers.
@@ -1095,9 +1244,9 @@ classdef eggChamberDataSet < handle
         end    
 
         %% scatter plot a nucleus metric by egg chamber (old)
-        % older version, use scatterPlotAndSaveNucleusMetricByEggChamber
+        % older version, use scatterPlotNucTableMetricByEggChamber
         % instead
-        function scatterPlotNucleiMetricByEggChamber(obj,prefix,channel,baseName,suffix,eggChamberStagesToInclude)
+        function scatterPlotNucleiMetricByEggChamberOld(obj,prefix,channel,baseName,suffix,eggChamberStagesToInclude)
             % prefix: any allowable prefix which marks the compartment the metric is calculated on e.g. 'nuc', or 'clust'
             % channel: intensity channel , e.g. 1. 
                 % (Value is ignored if the metric is a geometry feature 
@@ -1218,7 +1367,8 @@ classdef eggChamberDataSet < handle
         %% scatter plot a metric by egg chamber (old)
         % older version, use scatterPlotAndSaveClusterMetricByEggChamber
         % instead
-        function scatterPlotClustTableMetricByEggChamberOld(obj,prefix,channel,baseName,suffix,eggChamberStagesToInclude,minClustVolume)
+        function scatterPlotClustTableMetricByEggChamberOld(...
+                obj,prefix,channel,baseName,suffix,eggChamberStagesToInclude,minClustVolume)
             % prefix: any allowable prefix which marks the compartment the metric is calculated on e.g. 'nuc', or 'clust'
             % channel: intensity channel , e.g. 1. 
                 % (Value is ignored if the metric is a geometry feature 
@@ -1339,9 +1489,9 @@ classdef eggChamberDataSet < handle
             grid on
         end
         
-
         %% scatter plot a nucleus metric by egg chamber
-        function [nucTable,avgEcNucTable,avgCondNucTable,fh] = scatterPlotNucTableMetricByEggChamber(obj,prefix,channel,baseName,suffix,metricName,...
+        function [nucTable,avgEcNucTable,avgCondNucTable,fh] = scatterPlotNucTableMetricByEggChamber(...
+                obj,prefix,channel,baseName,suffix,metricName,...
                 idxData,ecToExclude,conditionOrder,eggChamberStagesToInclude,removeBackgroundEggChambers,whichMetric,alphaVal)
             % prefix: any allowable prefix which marks the compartment the metric is calculated on e.g. 'nuc', or 'clust'
             % channel: intensity channel , e.g. 1. 
@@ -1382,14 +1532,14 @@ classdef eggChamberDataSet < handle
             end
 
             [nucTable,avgEcNucTable,avgCondNucTable,fh] = ...
-                obj.scatterPlotAndSaveNucArbitraryMetricByEggChamber(...
+                obj.scatterPlotNucArbitraryMetricByEggChamber(...
                 obj.nucFullT.(varName),metricName,idxData,...
                 ecToExclude,conditionOrder,eggChamberStagesToInclude,...
                 removeBackgroundEggChambers,whichMetric,alphaVal);
         end
 
         %% scatter plot any nucleus metric by egg chamber
-        function [nucTable,avgEcNucTable,avgCondNucTable,fh] = scatterPlotAndSaveNucArbitraryMetricByEggChamber(...
+        function [nucTable,avgEcNucTable,avgCondNucTable,fh] = scatterPlotNucArbitraryMetricByEggChamber(...
                 obj,yData,metricName,idxData,...
                 ecToExclude,conditionOrder,eggChamberStagesToInclude,removeBackgroundEggChambers,whichMetric,alphaVal)
             
@@ -1796,10 +1946,8 @@ classdef eggChamberDataSet < handle
                 'N_eggChambers'});
         end
 
-    
         %% scatter plot a metric from the cluster table by egg chamber
-        function [clustTable,avgNucClustTable,avgEcClustTable,avgCondClustTable,fh] = ...
-                scatterPlotClustTableMetricByEggChamber(...
+        function [clustTable,avgNucClustTable,avgEcClustTable,avgCondClustTable,fh] = scatterPlotClustTableMetricByEggChamber(...
                 obj,prefix,channel,baseName,suffix,metricName,...
                 idxData,ecToExclude,conditionOrder,eggChamberStagesToInclude,...
                 minClustVolume,maxClustVolume,removeBackgroundEggChambers,whichMetric,alphaVal)
@@ -1901,8 +2049,8 @@ classdef eggChamberDataSet < handle
         end
         
         %% scatter plot any cluster metric by egg chamber
-        function [clustTable,avgNucClustTable,avgEcClustTable,avgCondClustTable,fh] = ...
-                scatterPlotClustArbitraryMetricByEggChamber(obj,yData,metricName,idxData,...
+        function [clustTable,avgNucClustTable,avgEcClustTable,avgCondClustTable,fh] = scatterPlotClustArbitraryMetricByEggChamber(...
+                obj,yData,metricName,idxData,...
                 ecToExclude,conditionOrder,eggChamberStagesToInclude,minClustVolume,maxClustVolume,...
                 removeBackgroundEggChambers,whichMetric,alphaVal,varargin)
             % yData: the data to plot. Vector of values which size needs to match the number of rows of
@@ -2370,7 +2518,8 @@ classdef eggChamberDataSet < handle
         end
         
         %% scatter plot any cluster metric by nucleus
-        function fh = plotClusterMetricByNucleus(obj,avgNucClustTable,metricName,idxData,conditionOrder,eggChamberStagesToInclude,figName,alphaVal,varargin)
+        function fh = plotClusterMetricByNucleus(obj,...
+                avgNucClustTable,metricName,idxData,conditionOrder,eggChamberStagesToInclude,figName,alphaVal,varargin)
             % avgNucClustTable is generated by the other scatter plot
             % functions
             
@@ -2480,7 +2629,6 @@ classdef eggChamberDataSet < handle
             ylabel(strrep(metricName,'_','\_'));
             grid on
         end
-
 
 end
 
@@ -3573,7 +3721,6 @@ end
                 if ~obj.clusterWiseChannelDependent(i)
                     curFileName = fullfile(clustDir,...
                         ['nuc',num2str(nuc_Label),obj.clusterWiseFileNames{i}]);
-                    
                     % load table
                     if exist(curFileName,"file")
                         curT = readtable(curFileName);
@@ -3587,7 +3734,7 @@ end
                     if removeNeighbors
                         curT = obj.removeNeighborVarsFromTable(curT);
                     end
-                    
+
                     % add prefix and suffix to variable name, remove
                     % underscores in the metric name
                     for k=1:numel(curT.Properties.VariableNames)
@@ -3599,12 +3746,13 @@ end
                         end
                     end
 
+                    tic;
                     % make sure the label of the nucleus table is the
                     % nucleus ID (it can be 255 in some cases)
                     if obj.clusterWiseSingleRow(i)
                         curT.Label = nuc_Label;
                     end
-                    
+
                     % join loaded table to sample-wise table
                     if ~isempty(curT)
                         if obj.clusterWiseSingleRow(i)
@@ -3623,12 +3771,12 @@ end
                     end
 
                 else
+                    
                     for j=1:numel(obj.channelList)
                         curFileName = fullfile(clustDir,...
                             ['C',num2str(obj.channelList(j)),'_nuc',num2str(nuc_Label),...
                             obj.clusterWiseFileNames{i}]);
                         %disp(curFileName);
-
                         % load table
                         if exist(curFileName,"file")
                             curT = readtable(curFileName);
@@ -3680,7 +3828,7 @@ end
                     end
                 end    
             end 
-            
+
             % rename Label variable to nuc_Label/clust_Label
             if ~isempty(curNucT)
                 curNucT =renamevars(curNucT,{'Label'},{'nuc_Label'});
