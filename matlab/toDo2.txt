@@ -6,3 +6,4 @@ Plot cluster size vs cluster levels independently by condition
 Nuclei averages for everything, including more complex plots.
 More examples of ser5ph+ clusters in G phase nuclei in ctrl and in Ints11i.
 
+['nucAvgClust',largeClusterMetricName,'clust_Volume']

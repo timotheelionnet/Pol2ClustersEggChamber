@@ -184,10 +184,14 @@ classdef eggChamberDataSet < handle
         plasmPrefix = 'plasm';
         clusterPrefix = 'clust';
         eggChamberPrefix = 'eggChamber';
-        nucAvgClustPrefix = 'nucAvgClust';
-        nucStdClustPrefix = 'nucStdClust';
-        nucAvgClustMinVolPrefix = 'nucAvgClustMinVol';
-        nucStdClustMinVolPrefix = 'nucStdClustMinVol';
+        % the following 4 are obsolete as cluster summary metrics now
+        % include the min vol and max vol values in their names
+        % corresponding prefixes are added dynamically when the summary
+        % metrics are calculated in addAverageClusterStatsToNucTable
+        nucAvgClustPrefix = 'nucAvgClust'; % 
+        nucStdClustPrefix = 'nucStdClust'; % 
+        nucAvgClustMinVolPrefix = 'nucAvgClustMinVol'; 
+        nucStdClustMinVolPrefix = 'nucStdClustMinVol'; 
         prefixList;
     
         % list of the variable basenames that pertain to each nucleus and its geometry - note
@@ -202,6 +206,10 @@ classdef eggChamberDataSet < handle
         'ElliR1','ElliR2','ElliR3','ElliR1R2','ElliR2R3','ElliR1R3',...
         'ElliAzim','ElliElev','ElliRoll','VoxelCount',...
         'NumClusters','NumClustersMinVol'}; 
+        % note 'NumClusters','NumClustersMinVol' are obsolete as cluster summary metrics now
+        % include the min vol and max vol values in their names
+        % corresponding baseNames are added dynamically when the summary
+        % metrics are calculated in addAverageClusterStatsToNucTable
         % make sure that no entry in geomVarsBaseNameList is also part of the name of one of the entries in channelVarsBaseNameList
     
         % list of the variable basenames that pertain to an intensity metric
@@ -362,6 +370,10 @@ classdef eggChamberDataSet < handle
                     obj.nucT = obj.combineEcTables(obj.nucT, loadEggChamberData(obj,i,j,removeNeighbors));
                 end
             end
+            if obj.nConditions == 0 || sum(obj.nSamples) == 0
+                disp('Dataset is empty, cannot load data. Verify paths and initialize eggChamber object again.');
+                return
+            end
             obj.nucFullT = obj.nucT; % nucFullT backup copy of the exhaustive imported data table
             obj.getChannelList;
             obj.getEggChamberIDs;
@@ -464,12 +476,13 @@ classdef eggChamberDataSet < handle
 
             % list of nuclei indices
             nucIdxRows = [obj.nucFullT.cond_Idx(:),obj.nucFullT.sample_Idx(:),obj.nucFullT.nuc_Label(:)];
-            nucIdx = unique(nucIdxRows,'rows');
+            nucIdx = unique(nucIdxRows,'rows'); % nuclei shouldnt be repeated but whatever
 
             % list of indices in the cluster table
             clustIdxRows = [obj.clustT.cond_Idx(:),obj.clustT.sample_Idx(:),obj.clustT.nuc_Label(:)];
             
-            % add columns in clustT table for nuc variables
+            % add columns in clustT table for nuc variables, all
+            % initialized to either NaN or ''
             varsToAdd = setdiff(n.Properties.VariableNames,obj.clustT.Properties.VariableNames);
             idxVarsToAdd = ismember(n.Properties.VariableNames,varsToAdd);
             n2 = n(:,idxVarsToAdd);
@@ -482,12 +495,13 @@ classdef eggChamberDataSet < handle
                     tJoin = addvars(tJoin,repmat({''},size(tJoin,1),1),'NewVariableNames',n2.Properties.VariableNames(i));
                 end 
             end
-
+            
+            % loop through nuclei
             for ctr=1:size(nucIdx,1)
                 % extract nuc stats for current nucleus
                 nIdx = ismember(nucIdxRows,nucIdx(ctr,:),'rows');
                 nT = n2(nIdx,:);
-                nT = n2(1,:);
+                nT = nT(1,:); % nuclei shouldnt be repeated but whatever
  
                 % find rows matching the current nucleus in the cluster table
                 cIdx = ismember(clustIdxRows,nucIdx(ctr,:),'rows');
@@ -498,7 +512,7 @@ classdef eggChamberDataSet < handle
 
             % make sure the variables are ordered
             cVarList = {'sample_InputFileName','cond_Idx','sample_Idx',...
-                'eggChamber_Idx','eggChamber_Stage','nuc_Label','clust_Label'};
+                'eggChamber_Idx','eggChamber_Stage','nuc_Label','clust_Label','clust_Volume'};
             varOrder = 1:numel(cVarList);
             for i=1:numel(cVarList)
                 if ismember(cVarList{i},tJoin.Properties.VariableNames)
@@ -506,12 +520,20 @@ classdef eggChamberDataSet < handle
                 end
             end
         end
+        
+        % remove nuc stats from cluster table
+        function removeNucStatsToClustTable(obj)
+            varsToKeep = setdiff(obj.clustT.Properties.VariableNames,obj.nucFullT.Properties.VariableNames);
+            varsToKeep = [varsToKeep,'sample_InputFileName','cond_Idx','sample_Idx','eggChamber_Idx','eggChamber_Stage','nuc_Label'];      
 
+            obj.clustT = obj.clustT(:,ismember(obj.clustT.Properties.VariableNames,varsToKeep));
+
+        end
         %%
         function addAverageClusterStatsToNucTable(obj,minClustVolume,maxClustVolume)
             
             % variable name for the number of clusters
-            numClustersVarName = ['nClusters',num2str(minClustVolume),'_',num2str(maxClustVolume)];
+            numClustersVarName = ['nuc_NumClusters',num2str(minClustVolume),'_',num2str(maxClustVolume)];
             numClustersVarName = strrep(numClustersVarName,'.','pt');
             
             c = obj.clustT;
@@ -558,11 +580,13 @@ classdef eggChamberDataSet < handle
             %% replace prefixes mean_ and std_ by nucAvgClust<MinVol>_<MaxVol>_ and nucStdClust<MinVol>_<maxVol>_
             prefixList1 ={'mean_','std_'}; % prefix to replace in t (generated by grpstats)
             prefixList2 ={'Avg','Std'}; % corresponding name of the metric in new variable
+            newPrefix = {};
             for i=1:numel(prefixList1)
                 vIn = c.Properties.VariableNames(cellfun(@startsWith,c.Properties.VariableNames,repmat(prefixList1(i),...
                         size(c.Properties.VariableNames))));
+                newPrefix{i} = strrep(['nuc',prefixList2{i},'Clust',num2str(minClustVolume),'_',num2str(maxClustVolume),'_'],'.','pt');
                 vOut = cellfun(@strrep,vIn,repmat(prefixList1(i),size(vIn)),...
-                    repmat({[['nuc',prefixList2{i},'Clust'],num2str(minClustVolume),'_',num2str(maxClustVolume),'_']},size(vIn)),...
+                    repmat(newPrefix(i),size(vIn)),...
                     'UniformOutput',0);
                 c = renamevars(c, vIn,vOut);
             end
@@ -613,8 +637,8 @@ classdef eggChamberDataSet < handle
                 'eggChamber_Idx','eggChamber_Stage','nuc_Label','nuc_Volume'};
             varOrder = 1:numel(cVarList);
             for i=1:numel(cVarList)
-                if ismember(cVarList{i},tJoin.Properties.VariableNames)
-                    tJoin = movevars(tJoin,cVarList{i},'Before',varOrder(i));
+                if ismember(cVarList{i},newNucTable.Properties.VariableNames)
+                    newNucTable = movevars(newNucTable,cVarList{i},'Before',varOrder(i));
                 end
             end
 
@@ -625,7 +649,54 @@ classdef eggChamberDataSet < handle
             end
             
             obj.nucFullT = newNucTable;
+
+            % add new variable names to the list of acceptable basenames and prefixes
+            obj.addClusterVariableNames(numClustersVarName,newPrefix)
+
         end
+
+        % remove summary metrics of cluster stats from nuc table if needed
+        function deleteAverageClusterStatsFromNucTable(obj,minClustVolume,maxClustVolume)
+            % variable name for the number of clusters
+            numClustersVarName = ['nuc_NumClusters',num2str(minClustVolume),'_',num2str(maxClustVolume)];
+            numClustersVarName = strrep(numClustersVarName,'.','pt');
+            
+            if ismember(numClustersVarName,obj.nucFullT.Properties.VariableNames)
+                newNuc = removevars(obj.nucFullT,numClustersVarName);
+            else
+                newNuc = obj.nucFullT;
+                disp(['Variable ',numClustersVarName,' is absent already.']);
+            end
+            
+            % finding other metrics
+            cPrefixList ={'Avg','Std'}; % corresponding name of the metric in new variable
+            newPrefix = {};
+            idxToRemove = false(size(newNuc.Properties.VariableNames));
+            for i=1:numel(cPrefixList)
+                newPrefix{i} = strrep(['nuc',cPrefixList{i},'Clust',num2str(minClustVolume),'_',num2str(maxClustVolume),'_'],'.','pt'); 
+                idxToRemove = idxToRemove | cellfun(@startsWith,newNuc.Properties.VariableNames,repmat(newPrefix(i),...
+                        size(newNuc.Properties.VariableNames)));
+            end
+            newNuc = newNuc(:,~idxToRemove);
+            obj.nucFullT = newNuc;
+        end
+
+        % add variable names (generated when computing cluster summary metrics by nucleus) 
+        % to the list of acceptable basenames and prefixes
+        function addClusterVariableNames(obj,numClustersVarName,newPrefix)
+
+            % number of clusters as a geometric variable
+            if startsWith(numClustersVarName,[obj.nucPrefix,'_'])
+                numClustersVarName = numClustersVarName((strlength(obj.nucPrefix)+2):end);
+            end
+            obj.geomVarsBaseNameList = [obj.geomVarsBaseNameList,numClustersVarName];
+
+            % cluster mean and Std as new prefixes
+            for i=1:numel(newPrefix)
+                obj.prefixList = [obj.prefixList,newPrefix{i}];
+            end
+        end
+
         %% add average cluster stats to nuc tables
         function addAverageClusterStatsToNucTableOld(obj)
             % generate list of cluster variables to average out
@@ -2840,7 +2911,7 @@ end
             if ~isempty(varargin)
                 obj.inFolder = varargin{1};
             end
-    
+            disp('Finding out how many conditions and samples there are in the dataset...');
             % collect conditions, i.e. list of subfolders from input folder
             d = dir(obj.inFolder);
             dFolders = d([d(:).isdir]);
@@ -2850,18 +2921,23 @@ end
                 numel(obj.conditionNames),1);
             obj.nConditions = numel(dFolders);
             obj.condIndices = 1:obj.nConditions;
-
-            % for each condition, collect samples, i.e. list of subfolders
-            % within each condition folder:
-            for i=1:obj.nConditions
-                d = dir(fullfile(obj.inFolder, obj.conditionNames{i}));
-                dFolders = d([d(:).isdir]);
-                dFolders = dFolders(~ismember({dFolders(:).name},{'.','..'}));
-                obj.sampleNames{i,1} = {dFolders(:).name};
-                obj.sampleNames{i,1} = reshape(obj.sampleNames{i},...
-                    numel(obj.sampleNames{i}),1);
-                obj.nSamples(i,1) = numel(dFolders);
-                obj.sampleIndices{i,1} = 1:obj.nSamples(i,1);
+            if obj.nConditions > 0
+                disp(['found ',num2str(obj.nConditions),' conditions in input folder ',obj.inFolder,'; looking for samples...']);
+                % for each condition, collect samples, i.e. list of subfolders
+                % within each condition folder:
+                for i=1:obj.nConditions
+                    d = dir(fullfile(obj.inFolder, obj.conditionNames{i}));
+                    dFolders = d([d(:).isdir]);
+                    dFolders = dFolders(~ismember({dFolders(:).name},{'.','..'}));
+                    obj.sampleNames{i,1} = {dFolders(:).name};
+                    obj.sampleNames{i,1} = reshape(obj.sampleNames{i},...
+                        numel(obj.sampleNames{i}),1);
+                    obj.nSamples(i,1) = numel(dFolders);
+                    obj.sampleIndices{i,1} = 1:obj.nSamples(i,1);
+                    disp(['    Condition ',num2str(i),'; found ',num2str(obj.nSamples(i,1)),' samples in subfolder ',obj.conditionNames{i},'...']);
+                end
+            else
+                disp(['Did not find any conditions in input folder ',obj.inFolder,'; check that there is data in the input folder.']);
             end
         end
     
