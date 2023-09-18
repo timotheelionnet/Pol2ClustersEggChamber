@@ -2701,6 +2701,123 @@ classdef eggChamberDataSet < handle
             grid on
         end
 
+        %% split a variable name into its constituents
+        function [prefix,channel,baseName,suffix] = splitVarName(obj,varName)
+
+            prefix = [];
+            channel = [];
+            baseName = [];
+            suffix = [];
+
+            [varType,baseNameRecognized] = getVarType(obj,varName);
+            if isempty(varType)
+                return
+            end
+            
+            baseName = baseNameRecognized;
+            switch varType
+                case 'sample'
+                   % do nothing since all values initialized to []
+                case 'geometry'
+                    k = strfind(varName,baseNameRecognized);
+                    p = varName(1:k-1);
+                    for i=1:numel(obj.prefixList)
+                        if contains(p,obj.prefixList{i})
+                            prefix = obj.prefixList{i};
+                        end
+                    end
+                case 'channel'
+                    k = strfind(varName,baseNameRecognized);
+                    p = varName(1:k-1); % p should be something like nuc_C1
+                    for i=1:numel(obj.prefixList)
+                        if contains(p,obj.prefixList{i})
+                            prefix = obj.prefixList{i};
+                            % now that we found the prefix in our string (say 'nuc' in 'nucC1_'), we
+                            % collect the channel ID by removing both the
+                            % prefix and any '_' and 'C'
+                            p = strrep(p,prefix,'');
+                            p = strrep(p,'_','');
+                            p = strrep(p,'C','');
+                            channel = str2double(p);
+                        end
+                    end
+
+                    q = varName(k+length(baseNameRecognized):end);
+                    for i=1:numel(obj.suffixList)
+                        if contains(q,obj.suffixList{i})
+                            suffix = obj.suffixList{i};
+                        end
+                    end 
+            end
+        end
+
+        %% build a variable name based on its constituents
+        function varName = buildVarName(obj,prefix,channel,baseName,suffix,chosenVarType)
+        % chosenVarType can be either 'channel' or 'geom'
+
+            varName = [];
+            varType = [];
+            if ismember(baseName,obj.sampleVarList) 
+                varType = 'sample';
+            end
+
+            % check whether the variable name is ambiguous
+            if ismember(baseName,obj.geomVarsBaseNameList) && ismember(baseName,obj.channelVarsBaseNameList)
+                if ismember(chosenVarType,{'channel','geom'})
+                    varType = chosenVarType;
+                else
+                    disp(['Cannot build variable names because ambiguous base name ',...
+                       chosenVarType,' cannot be resolved into either geometry or channel variable.']);
+                    return
+                end
+            else
+                if ismember(baseName,obj.geomVarsBaseNameList)
+                    varType = 'geom';
+                end
+
+                if ismember(baseName,obj.channelVarsBaseNameList)
+                    varType = 'channel';
+                end
+            end
+
+            if isempty(varType)
+                disp(['Cannot build variable, basename ',baseName,' not recognized.']);
+                return
+            end
+
+            switch varType
+                case 'sample'
+                    varName = baseName;
+                case 'geom'
+                    if ~ismember(prefix,obj.prefixList)
+                        disp(['could not build variable name, prefix ',prefix,' not recognized']);
+                        return
+                    else
+                        varName = [prefix,'_',baseName];
+                    end
+                case 'channel'
+                    if ~ismember(prefix,obj.prefixList)
+                        disp(['could not build variable name, prefix ',prefix,' not recognized']);
+                        return
+                    else
+                        % commented this part out so we can build variable
+                        % names before the channels are loaded.
+                        %obj.channelList = obj.getChannelList;
+                        %if ~ismember(channel,obj.channelList)
+                        %    disp(['could not build variable name, channel ',num2str(channel),' not recognized']);
+                        %    return
+                        %end
+    
+                        if ~ismember(suffix,obj.suffixList)
+                            disp(['could not build variable name, suffix ',suffix,' not recognized']);
+                            return
+                        end
+    
+                        varName = [prefix,'_C',num2str(channel),baseName,'_',suffix];
+                    end
+            end        
+        end
+
 end
 
 
@@ -3538,121 +3655,9 @@ end
             obj.channelList = channelIndices;
         end
 
-         %% split a variable name into its constituents
-        function [prefix,channel,baseName,suffix] = splitVarName(obj,varName)
+        
 
-            prefix = [];
-            channel = [];
-            baseName = [];
-            suffix = [];
-
-            [varType,baseNameRecognized] = getVarType(obj,varName);
-            if isempty(varType)
-                return
-            end
-            
-            baseName = baseNameRecognized;
-            switch varType
-                case 'sample'
-                   % do nothing since all values initialized to []
-                case 'geometry'
-                    k = strfind(varName,baseNameRecognized);
-                    p = varName(1:k-1);
-                    for i=1:numel(obj.prefixList)
-                        if contains(p,obj.prefixList{i})
-                            prefix = obj.prefixList{i};
-                        end
-                    end
-                case 'channel'
-                    k = strfind(varName,baseNameRecognized);
-                    p = varName(1:k-1); % p should be something like nuc_C1
-                    for i=1:numel(obj.prefixList)
-                        if contains(p,obj.prefixList{i})
-                            prefix = obj.prefixList{i};
-                            % now that we found the prefix in our string (say 'nuc' in 'nucC1_'), we
-                            % collect the channel ID by removing both the
-                            % prefix and any '_' and 'C'
-                            p = strrep(p,prefix,'');
-                            p = strrep(p,'_','');
-                            p = strrep(p,'C','');
-                            channel = str2double(p);
-                        end
-                    end
-
-                    q = varName(k+length(baseNameRecognized):end);
-                    for i=1:numel(obj.suffixList)
-                        if contains(q,obj.suffixList{i})
-                            suffix = obj.suffixList{i};
-                        end
-                    end 
-            end
-        end
-
-        %% build a variable name based on its constituents
-        function varName = buildVarName(obj,prefix,channel,baseName,suffix,chosenVarType)
-
-            varName = [];
-            varType = [];
-            if ismember(baseName,obj.sampleVarList) 
-                varType = 'sample';
-            end
-
-            % check whether the variable name is ambiguous
-            if ismember(baseName,obj.geomVarsBaseNameList) && ismember(baseName,obj.channelVarsBaseNameList)
-                if ismember(chosenVarType,{'channel','geom'})
-                    varType = chosenVarType;
-                else
-                    disp(['Cannot build variable names because ambiguous base name ',...
-                       chosenVarType,' cannot be resolved into either geometry or channel variable.']);
-                    return
-                end
-            else
-                if ismember(baseName,obj.geomVarsBaseNameList)
-                    varType = 'geom';
-                end
-
-                if ismember(baseName,obj.channelVarsBaseNameList)
-                    varType = 'channel';
-                end
-            end
-
-            if isempty(varType)
-                disp(['Cannot build variable, basename ',baseName,' not recognized.']);
-                return
-            end
-
-            switch varType
-                case 'sample'
-                    varName = baseName;
-                case 'geom'
-                    if ~ismember(prefix,obj.prefixList)
-                        disp(['could not build variable name, prefix ',prefix,' not recognized']);
-                        return
-                    else
-                        varName = [prefix,'_',baseName];
-                    end
-                case 'channel'
-                    if ~ismember(prefix,obj.prefixList)
-                        disp(['could not build variable name, prefix ',prefix,' not recognized']);
-                        return
-                    else
-                        % commented this part out so we can build variable
-                        % names before the channels are loaded.
-                        %obj.channelList = obj.getChannelList;
-                        %if ~ismember(channel,obj.channelList)
-                        %    disp(['could not build variable name, channel ',num2str(channel),' not recognized']);
-                        %    return
-                        %end
-    
-                        if ~ismember(suffix,obj.suffixList)
-                            disp(['could not build variable name, suffix ',suffix,' not recognized']);
-                            return
-                        end
-    
-                        varName = [prefix,'_C',num2str(channel),baseName,'_',suffix];
-                    end
-            end        
-        end
+        
         
         %% find whether a given variable (varName) is a sample variable, a
         % geometry variable or a channel variable. Also outputs the
