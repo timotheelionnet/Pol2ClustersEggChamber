@@ -29,6 +29,10 @@ conditionsOrder = [1,2,3,4];
 addpath('subfunctions/');
 addpath('cbrewer/');
 
+% add path to MIJ jars for image J visualizations (cheeck your own path)
+javaaddpath '/Applications/MATLAB_R2022a.app/java/jar/mij.jar'
+javaaddpath '/Applications/MATLAB_R2022a.app/java/jar/ij.jar'
+
 % channel names for displays
 channelNamesForDisplays = {'DAPI','Pol2','Ser5ph','P-TEFb'};
 
@@ -478,12 +482,12 @@ plotNucVarHistogramGvsS(ec,varName,ecStagesToInclude,...
     logTransform,histXLabel,filePrefix,GvsSChannel,GvsSThresh,largeClusterMetricName);
 
 %% plot histograms of the HLB intensity in G vs S
-
 GvsSChannel = 4;
 GvsSThresh = [0.45, 0.45, 0.66, 0.66]; % per condition, threshold based on the previous section curves (log10 values)
 histBinSize = 0.1;
 rawOrPlasmNorm = 'plasmNorm';
 logTransform = 1;
+
 if logTransform
     logLabel = ' log10';
 else
@@ -501,69 +505,42 @@ for chIdx=1:numel(channelNamesForDisplays)
         logTransform,histXLabel,filePrefix,GvsSChannel,GvsSThresh,largeClusterMetricName);
 end
 
-%% load images of nuclei
-imageJViz = 1;
+%% Load images of representative nuclei in ImageJ
+
+imageJViz = 1; % set to zero to skip ImageJ
 
 metricChIdx = 4;
-metricRange = 10.^[0.2,0.3];
+metricRange = 10.^[0.2,0.3]; % G phase range
 metricRawOrPlasmNorm = 'plasmNorm';
 removeBackgroundEggChambers = 1;
+idxData0 = ec.nucFullT.eggChamber_Idx ~=0;
+nNucleiToLoad = 5;
 
-% list nuclei rows that fit in a range of a nucleus metric
-%idxData = listNucleiWithinRange(metricChIdx,metricRange,metricRawOrPlasmNorm);
-switch metricRawOrPlasmNorm
-    case 'raw'
-        metricVarName = ['nucAvgClust',strrep(largeClusterMetricName,'.','pt'),'_clust_C',num2str(metricChIdx),'Median_nucleoliSubtracted'];
-        yData = ec.nucFullT.(metricVarName);
-    case 'plasmNorm'
-        metricVarName = ['nucAvgClust',strrep(largeClusterMetricName,'.','pt'),'_clust_C',num2str(metricChIdx),'Median_nucleoliSubtracted'];
-        denomVarName = ['plasm_C',num2str(metricChIdx),'Median_nucleoliSubtracted'];
-        yData = ec.nucFullT.(metricVarName)./ec.nucFullT.(denomVarName);
-end
-idxData = yData >= metricRange(1) & yData <= metricRange(2);
-if removeBackgroundEggChambers
-    idxData = idxData & ec.nucFullT.eggChamber_Idx ~=0;
-end
+metricVarName = ['nucAvgClust',strrep(largeClusterMetricName,'.','pt'),...
+    '_clust_C',num2str(metricChIdx),'Median_nucleoliSubtracted'];
 
-% generate basic variables
-varList = {'sample_InputFileName','cond_Idx','sample_Idx','eggChamber_Idx',...
-    'eggChamber_Stage','nuc_Label','nuc_Volume',...
-    ['nuc_NumClusters',strrep(largeClusterMetricName,'.','pt')],...
-    ['nuc_NumClusters',strrep(smallClusterMetricName,'.','pt')]};
+if imageJViz
+    addpath ''
+    MIJ.start;
 
-varIdx = ismember(ec.nucFullT.Properties.VariableNames,varList);
-
-nucIdxList = ec.nucFullT(idxData,varIdx);
-
-for i=1:numel(channelNamesForDisplays)
-    curVarName = ['nucAvgClust',strrep(largeClusterMetricName,'.','pt'),'_clust_C',num2str(i),'Median_nucleoliSubtracted'];
-    nucIdxList = addvars(nucIdxList,ec.nucFullT.(curVarName)(idxData),'NewVariableNames',{curVarName});
+    % load images from condition 1
+    condIDs = 1;
+    loadNucleiImagesWithinMetricRange(ec,fijiOutFolder,idxData0,condIDs,metricVarName,...
+        metricChIdx,metricRange,metricRawOrPlasmNorm,nNucleiToLoad,...
+        largeClusterMetricName,smallClusterMetricName,channelNamesForDisplays);
     
-    curVarName = ['plasm_C',num2str(i),'Median_nucleoliSubtracted'];
-    nucIdxList = addvars(nucIdxList,ec.nucFullT.(curVarName)(idxData),'NewVariableNames',{curVarName});
-    
-    curVarName = ['nucleoli_C',num2str(i),'Median_nucleoliSubtracted'];
-    nucIdxList = addvars(nucIdxList,ec.nucFullT.(curVarName)(idxData),'NewVariableNames',{curVarName});
-
-    metricVarName = ['nucAvgClust',strrep(largeClusterMetricName,'.','pt'),'_clust_C',num2str(i),'Median_nucleoliSubtracted'];
-    denomVarName = ['plasm_C',num2str(i),'Median_nucleoliSubtracted'];
-    yData = ec.nucFullT.(metricVarName)./ec.nucFullT.(denomVarName);
-
+    % load images from condition 3
+    condIDs = 3;
+    loadNucleiImagesWithinMetricRange(ec,fijiOutFolder,idxData0,condIDs,metricVarName,...
+        metricChIdx,metricRange,metricRawOrPlasmNorm,nNucleiToLoad,...
+        largeClusterMetricName,smallClusterMetricName,channelNamesForDisplays);
 end
 
-% list nuclei avg metrics by row: 
-% nClusters, nSmallClusters, avgClustVolume, 
-% clustIntensity plasmNorm x channels
-% (clustIntensityRaw, plasmIntensityRaw, nucleoliIntensityRaw ) x channels
-
-% load nucleus by row
-
-%%
-% listNucleiWithinRange(ec,nucVarName,nucVarRange)
-if ismember(nucVarName)
-
+%% clean up ImageJ viz
+if imageJViz
+    MIJ.closeAllWindows;
+    MIJ.exit;
 end
-
 %%%%%%%%%%%%%%%%%%%%%
 %% plot histograms of small clusters intensity in G vs S
 
@@ -1163,7 +1140,6 @@ function plotNucVarHistogramGvsS(ec,varName,ecStagesToInclude,...
     switch rawOrPlasmNorm
         case 'raw'
             yData = ec.nucFullT.(varName); 
-            yData(1:10)
         case 'plasmNorm'
             [~,~,baseName,suffix] = ec.splitVarName(varName);
             if contains(varName,['C',num2str(channelIdx)])
@@ -1173,7 +1149,6 @@ function plotNucVarHistogramGvsS(ec,varName,ecStagesToInclude,...
             end
             plasmVarName = ec.buildVarName('plasm',channelIdx,baseName,suffix,varType);
             yData = ec.nucFullT.(varName)./ec.nucFullT.(plasmVarName);
-            yData(1:10)
     end
     
     % setup labels
@@ -1391,3 +1366,101 @@ function scatterClusterVarChannelVsChannel(ec,varPrefix,varBaseName,varSuffix,..
     end
 end
 
+
+function loadNucleiImagesWithinMetricRange(ec,fijiOutFolder,idxData0,condIDs,metricVarName,...
+    channelIdx,metricRange,metricRawOrPlasmNorm,nNucleiToLoad,...
+    largeClusterMetricName,smallClusterMetricName,channelNamesForDisplays)
+
+    % list nuclei rows that fit in a range of a nucleus metric
+    switch metricRawOrPlasmNorm
+        case 'raw'
+            yData = ec.nucFullT.(metricVarName);
+        case 'plasmNorm'
+            [~,~,baseName,suffix] = ec.splitVarName(metricVarName);
+            if contains(metricVarName,['C',num2str(channelIdx)])
+                varType = 'channel';
+            else
+                varType = 'geom';
+            end
+            plasmVarName = ec.buildVarName('plasm',channelIdx,baseName,suffix,varType);
+            yData = ec.nucFullT.(metricVarName)./ec.nucFullT.(plasmVarName);
+    end
+    
+    loadNucleiImagesWithinArbitraryMetricRange(ec,fijiOutFolder,idxData0,condIDs,yData,metricRange,...
+        nNucleiToLoad,largeClusterMetricName,smallClusterMetricName,channelNamesForDisplays);
+end
+
+%% 
+function loadNucleiImagesWithinArbitraryMetricRange(ec,fijiOutFolder,idxData0,condIDs,yData,metricRange,...
+    nNucleiToLoad,largeClusterMetricName,smallClusterMetricName,channelNamesForDisplays)
+
+    % select nuclei from desired condition
+    idxCond = ismember(ec.nucFullT.cond_Idx,condIDs);
+    
+    % list nuclei rows that fit in a range of a nucleus metric
+    idxData = idxData0 & idxCond ...
+        & yData >= metricRange(1) & yData <= metricRange(2);
+    
+    % generate basic variables for each loaded nuclei for rapid diagnosis
+    varList = {'sample_InputFileName','cond_Idx','sample_Idx','eggChamber_Idx',...
+        'eggChamber_Stage','nuc_Label','nuc_Volume',...
+        ['nuc_NumClusters',strrep(largeClusterMetricName,'.','pt')],...
+        ['nuc_NumClusters',strrep(smallClusterMetricName,'.','pt')]};
+    
+    varIdx = ismember(ec.nucFullT.Properties.VariableNames,varList);
+    
+    nucIdxList = ec.nucFullT(idxData,varIdx);
+    
+    % add channel main metrics
+    for i=1:numel(channelNamesForDisplays)
+        curVarName = ['nucAvgClust',strrep(largeClusterMetricName,'.','pt'),'_clust_C',num2str(i),'Median_raw'];
+        nucIdxList = addvars(nucIdxList,ec.nucFullT.(curVarName)(idxData),'NewVariableNames',{curVarName});
+        
+        curVarName = ['plasm_C',num2str(i),'Median_raw'];
+        nucIdxList = addvars(nucIdxList,ec.nucFullT.(curVarName)(idxData),'NewVariableNames',{curVarName});
+        
+        curVarName = ['nucleoli_C',num2str(i),'Median_raw'];
+        nucIdxList = addvars(nucIdxList,ec.nucFullT.(curVarName)(idxData),'NewVariableNames',{curVarName});
+
+        metricVarName = ['nucAvgClust',strrep(largeClusterMetricName,'.','pt'),'_clust_C',num2str(i),'Median_nucleoliSubtracted'];
+        denomVarName = ['plasm_C',num2str(i),'Median_nucleoliSubtracted'];
+        yData = ec.nucFullT.(metricVarName)./ec.nucFullT.(denomVarName);
+        nucIdxList = addvars(nucIdxList,yData(idxData),'NewVariableNames',{[metricVarName,'_plasmCorr']});
+    
+    end
+    
+    % load n example nuclei 
+    if nNucleiToLoad <= numel(nucIdxList)
+        disp(['Loading ',num2str(nNucleiToLoad),' randomly picked from the ',...
+            num2str(numel(nucIdxList)),' nuclei in the condition']);
+        idxToLoad = nucIdxList(nchoosek(1:numel(nucIdxList),nNucleiToLoad));
+    else
+        disp(['Cannot load ',num2str(nNucleiToLoad),' nuclei because there are only ',...
+            num2str(numel(nucIdxList)),' nculei in this condition.']);
+        idxToLoad = nucIdxList;
+    end
+    
+    % load IJ interfacte
+    %MIJ.start;
+    
+    for i=1:numel(idxToLoad)
+        
+        % reconstruct file name
+        [~,f,~] = fileparts(nucIdxList.sample_InputFileName(idxToLoad(i)));
+        nucFileName = fullfile(fijiOutFolder,...
+            ec.conditionNames{nucIdxList.cond_Idx(idxToLoad(i))},...
+            f,'nucTIF',['nuc',num2str(nucIdxList.nuc_Label(idxToLoad(i))),'_masks.tif']);
+        disp(['img',num2str(i),': condition ',num2str(nucIdxList.cond_Idx(idxToLoad(i))),...
+            '; sample ',num2str(nucIdxList.sample_Idx(idxToLoad(i))),...
+            '; nuc',num2str(nucIdxList.nuc_Label(idxToLoad(i)))]);
+        disp(['    loading ',nucFileName,'...']);
+        disp(['    row: ',num2str(idxToLoad(i)),'; nClusters: ',num2str(nucIdxList.(['nuc_NumClusters',strrep(largeClusterMetricName,'.','pt')])(idxToLoad(i)))]);
+        for j=1:numel(channelNamesForDisplays)
+            metricVarName = ['nucAvgClust',strrep(largeClusterMetricName,'.','pt'),'_clust_C',num2str(j),'Median_nucleoliSubtracted_plasmCorr'];
+            disp(['    Channel ',num2str(j),'; cluster int plasmNorm: ',num2str(nucIdxList.(metricVarName)(idxToLoad(i)))]);
+        end
+        % loadImage
+        image = mijread(nucFileName);
+    end  
+
+end
